@@ -36,8 +36,8 @@ parse: ## Phase 1: Parse raw data into staging Parquet files
 resolve: ## Phase 2: Entity resolution (NER + disambiguation + dedup)
 	uv run isnad resolve
 
-load: ## Phase 3: Load graph database
-	@echo "Phase 3 not yet implemented"
+load: ## Phase 3: Load graph into Neo4j
+	uv run isnad load
 
 enrich: ## Phase 4: Compute metrics
 	@echo "Phase 4 not yet implemented"
