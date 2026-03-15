@@ -15,6 +15,11 @@ dependencies = [
     "pyyaml>=6.0",
     "structlog>=24.1",
     "python-dotenv>=1.0",
+    "kaggle>=1.6",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.1",
+    "tqdm>=4.66",
+    "tenacity>=8.2",
 ]
 
 [project.scripts]
@@ -27,6 +32,7 @@ dev = [
     "pytest-cov>=4.1",
     "ruff>=0.3",
     "mypy>=1.8",
+    "types-tqdm>=4.66",
 ]
 ml = [
     "sentence-transformers>=2.5",
