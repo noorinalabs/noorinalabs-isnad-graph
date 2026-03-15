@@ -97,7 +97,7 @@ def _cmd_resolve() -> None:
         Path(settings.data_curated_dir),
     )
     total = sum(len(v) for v in results.values())
-    print(f"Resolution complete. {total} output files.")
+    print(f"\nResolution complete. {total} output files.")
 
 
 def _cmd_stub(name: str) -> None:
