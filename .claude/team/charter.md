@@ -73,17 +73,45 @@ All issue comments MUST follow this format:
 ```
 Requestor: Firstname.Lastname
 Requestee: Firstname.Lastname
+RequestOrReplied: Request
 
 <actual comment body>
 ```
 
 - **Requestor** = the person writing the comment.
 - **Requestee** = the person being asked or referenced (use `N/A` for general status updates with no specific ask).
+- **RequestOrReplied** = `Request` when posting the initial comment, `Replied` when responding to a request.
+
+#### Reply Protocol
+
+When a team member is tagged as **Requestee** on a comment with `RequestOrReplied: Request`, they **must** respond with a new comment on the same issue using this format:
+
+```
+Requestor: Firstname.Lastname   ← (was the original Requestee)
+Requestee: Firstname.Lastname   ← (was the original Requestor)
+RequestOrReplied: Replied
+
+<reply body>
+```
+
+The names are **swapped** — the person replying becomes the Requestor, and the original Requestor becomes the Requestee.
+
+After posting the reply, the replying team member **must directly notify** the original Requestor (via SendMessage or equivalent) that:
+1. A reply has been posted on the issue.
+2. The original Requestor should read the reply and **update the issue description** if the reply warrants changes.
+
+#### Ticket Update Rules Based on Ownership
+
+The **ticket owner** is the team member whose `FIRSTNAME_LASTNAME` label is on the issue.
+
+- **Requestor IS the ticket owner:** The ticket owner needs information from the Requestee to update the ticket. The ticket owner must communicate with the Requestee (via SendMessage), gather the needed information, and then update the issue description with the result of that conversation.
+
+- **Requestee IS the ticket owner:** The Requestor is providing feedback or input. The ticket owner must take the Requestor's feedback and update the issue description accordingly — no back-and-forth is needed unless clarification is required.
 
 #### Escalation & Cross-Team Clarification
 
 When a ticket needs clarification or feedback from another team member:
-1. Post a comment on the issue using the format above.
+1. Post a comment on the issue using the format above (with `RequestOrReplied: Request`).
 2. Notify your relevant superior (lead → Manager if needed).
 3. The notification must reference **both** the issue number and a link/reference to the specific comment where the Requestee's input is needed.
 
@@ -304,12 +332,31 @@ The team should evolve through feedback cycles toward a steady state of little t
 
 ## Branching Rules
 
-- **All feature branches MUST be created from `main`.** No branching off other feature branches.
-- Before creating a branch, always pull the latest `main`:
+### Deployments Branches
+
+Each phase is organized into **waves** of parallel work. Before starting a wave, create a deployments branch:
+
+```
+deployments/phase{N}/wave-{M}
+```
+
+- Branched from `main` (pull latest first).
+- **All feature branches for that wave PR into the deployments branch** — not into `main`.
+- At the end of a phase, PR the deployments branch into `main`. **Wait for the user to merge** before starting the next phase.
+
+### Feature Branches
+
+- All feature branches are created from the **current deployments branch** for their wave.
+- Before creating a branch, always pull the latest base:
   ```bash
-  git checkout main && git pull && git checkout -b {FirstInitial}.{LastName}/{IIII}-{issue-name}
+  git checkout deployments/phase{N}/wave-{M} && git pull && git checkout -b {FirstInitial}.{LastName}/{IIII}-{issue-name}
   ```
-- Worktree agents should similarly base their worktree on `main`.
+- Worktree agents should similarly base their worktree on the deployments branch for their wave.
+- **Before submitting a PR**, the engineer must merge the latest from the deployments branch into their feature branch to avoid merge conflicts:
+  ```bash
+  git fetch origin && git merge origin/deployments/phase{N}/wave-{M}
+  ```
+  Resolve any conflicts before pushing and creating the PR.
 
 ## Code Review & Tech Debt
 
@@ -325,20 +372,38 @@ Every software engineering branch must be reviewed by **one other software engin
 After receiving the review, the submitter evaluates each tech debt item:
 
 1. **Quick fix, minimal impact?** — Fix it immediately in the same branch.
-2. **Not quick or higher risk?** — Leave it; it becomes a tech debt GitHub Issue.
+2. **Not quick or higher risk?** — Create a GitHub Issue assigned to themselves, labeled `tech-debt` and their `FIRSTNAME_LASTNAME` label, with a clear description of the debt and why it was deferred.
 
 ### Tech Debt Management (Tech Lead)
 
-- The Tech Lead tracks all tech debt in GitHub Issues (labeled appropriately).
-- The Tech Lead assigns tech debt work to engineers such that **tech debt never exceeds 20% of any single engineer's work for the day**. The remaining 80%+ is feature/bug work from the roadmap.
+- The Tech Lead tracks all tech debt in GitHub Issues (labeled `tech-debt`).
+- The Tech Lead allocates tech debt work to engineers in future planning such that **tech debt never exceeds 20% of any single engineer's capacity**. The remaining 80%+ is feature/bug work from the roadmap.
+- Tech debt issues created by a team member are initially self-assigned; the Tech Lead may reassign during planning.
 
 ## Pull Requests
 
-When all work on a feature branch is complete (code committed, peer review done, must-fixes resolved), the submitting engineer **automatically creates a PR to `main`** using the `gh` CLI. Do not wait for manual instruction.
+When all work on a feature branch is complete (code committed, peer review done, must-fixes resolved), the submitting engineer **automatically creates a PR to the deployments branch** for their wave using the `gh` CLI. Do not wait for manual instruction.
+
+### PR Review Workflow for Deployments Branch PRs
+
+1. **Create the PR** targeting `deployments/phase{N}/wave-{M}`.
+2. **Notify a reviewer** — the PR creator must notify at least one person from their team or organizational tree (e.g., a peer engineer, their lead, or another team member in their reporting chain) to review the PR. Use SendMessage or a GitHub comment to notify.
+3. **Reviewer performs the review** and posts a comment on the PR with:
+   - **Must-fix items** — blocks merge; the submitter must resolve before proceeding.
+   - **Tech debt items** — does not block merge; tracked as GitHub Issues.
+   - The reviewer then **notifies the PR creator** (via SendMessage or mention) that the review is complete and what action is needed.
+4. **PR creator acts on review**:
+   - **Must-fix items**: Fix immediately and push to the branch.
+   - **Quick-fix tech debt**: Fix immediately if minimal impact.
+   - **Non-trivial tech debt**: Create a GitHub Issue assigned to themselves (labeled `tech-debt` + their `FIRSTNAME_LASTNAME` label) for the Tech Lead to allocate in future planning (max 20% of any team member's capacity).
+5. **Push final changes** from the review fixes.
+6. **The team merges** the PR into the deployments branch themselves — no user approval needed for PRs into deployments branches.
+
+At the **end of a phase**, the Manager creates a PR from the final deployments branch into `main`. The **user reviews and merges** this PR. Do not proceed to the next phase until the user has merged.
 
 ```bash
 git push -u origin <branch-name>
-gh pr create --base main --title "<short title>" --body "$(cat <<'EOF'
+gh pr create --base deployments/phase{N}/wave-{M} --title "<short title>" --body "$(cat <<'EOF'
 ## Summary
 <1-3 bullet points describing the change>
 
