@@ -1,0 +1,132 @@
+events:
+  - id: "evt:rashidun-caliphate"
+    name_en: "Rashidun Caliphate"
+    year_start_ah: 11
+    year_end_ah: 40
+    year_start_ce: 632
+    year_end_ce: 661
+    type: "caliphate"
+    caliphate: "Rashidun"
+    region: "Arabia, Levant, Persia, Egypt"
+    description: "Rule of the four 'rightly-guided' caliphs: Abu Bakr, Umar, Uthman, Ali."
+
+  - id: "evt:first-fitna"
+    name_en: "First Fitna"
+    year_start_ah: 35
+    year_end_ah: 40
+    year_start_ce: 656
+    year_end_ce: 661
+    type: "fitna"
+    caliphate: "Rashidun"
+    region: "Iraq, Levant, Arabia"
+    description: "Civil war following assassination of Uthman. Battle of the Camel, Siffin, rise of Muawiya."
+
+  - id: "evt:umayyad-caliphate"
+    name_en: "Umayyad Caliphate"
+    year_start_ah: 41
+    year_end_ah: 132
+    year_start_ce: 661
+    year_end_ce: 750
+    type: "caliphate"
+    caliphate: "Umayyad"
+    region: "Damascus-centered, Iberia to Central Asia"
+    description: "Muawiya I through Marwan II. Expansion, Arabization, qadariyya debates."
+
+  - id: "evt:second-fitna"
+    name_en: "Second Fitna"
+    year_start_ah: 60
+    year_end_ah: 73
+    year_start_ce: 680
+    year_end_ce: 692
+    type: "fitna"
+    caliphate: "Umayyad"
+    region: "Iraq, Hijaz, Levant"
+    description: "Husayn's martyrdom at Karbala, Ibn al-Zubayr's counter-caliphate, Mukhtar's revolt."
+
+  - id: "evt:karbala"
+    name_en: "Battle of Karbala"
+    year_start_ah: 61
+    year_end_ah: 61
+    year_start_ce: 680
+    year_end_ce: 680
+    type: "fitna"
+    caliphate: "Umayyad"
+    region: "Karbala, Iraq"
+    description: "Martyrdom of Husayn ibn Ali. Foundational event for Shia identity and hadith transmission."
+
+  - id: "evt:abbasid-revolution"
+    name_en: "Abbasid Revolution"
+    year_start_ah: 129
+    year_end_ah: 132
+    year_start_ce: 747
+    year_end_ce: 750
+    type: "dynasty_transition"
+    caliphate: "Umayyad → Abbasid"
+    region: "Khurasan, Iraq"
+    description: "Overthrow of Umayyads. Abu Muslim's revolt. Shift of power to Baghdad."
+
+  - id: "evt:abbasid-caliphate"
+    name_en: "Abbasid Caliphate (Early Period)"
+    year_start_ah: 132
+    year_end_ah: 334
+    year_start_ce: 750
+    year_end_ce: 945
+    type: "caliphate"
+    caliphate: "Abbasid"
+    region: "Baghdad-centered"
+    description: "Golden age of hadith compilation. Bukhari, Muslim, Abu Dawud, Tirmidhi, Nasa'i, Ibn Majah all compile during this period."
+
+  - id: "evt:mihna"
+    name_en: "Mihna (Inquisition)"
+    year_start_ah: 218
+    year_end_ah: 234
+    year_start_ce: 833
+    year_end_ce: 848
+    type: "theological_controversy"
+    caliphate: "Abbasid"
+    region: "Baghdad, Iraq"
+    description: "Caliph al-Ma'mun enforces Mu'tazili doctrine of created Quran. Ahmad ibn Hanbal's resistance. Major impact on hadith transmission politics."
+
+  - id: "evt:bukhari-compilation"
+    name_en: "Compilation of Sahih al-Bukhari"
+    year_start_ah: 217
+    year_end_ah: 232
+    year_start_ce: 832
+    year_end_ce: 846
+    type: "compilation_effort"
+    caliphate: "Abbasid"
+    region: "Bukhara, Khurasan"
+    description: "Al-Bukhari compiles his Sahih over ~16 years, selecting ~7,563 from ~600,000 candidate hadiths."
+
+  - id: "evt:muslim-compilation"
+    name_en: "Compilation of Sahih Muslim"
+    year_start_ah: 235
+    year_end_ah: 261
+    year_start_ce: 850
+    year_end_ce: 875
+    type: "compilation_effort"
+    caliphate: "Abbasid"
+    region: "Nishapur, Khurasan"
+    description: "Muslim ibn al-Hajjaj compiles his Sahih, selecting ~4,000 from ~300,000 candidates."
+
+  - id: "evt:kulayni-compilation"
+    name_en: "Compilation of al-Kafi"
+    year_start_ah: 300
+    year_end_ah: 329
+    year_start_ce: 913
+    year_end_ce: 941
+    type: "compilation_effort"
+    caliphate: "Abbasid (Buyid influence)"
+    region: "Baghdad, Iran"
+    description: "Al-Kulayni compiles al-Kafi during the Minor Occultation period. ~16,199 narrations. Primary Shia collection."
+
+  - id: "evt:minor-occultation"
+    name_en: "Minor Occultation (al-Ghayba al-Sughra)"
+    year_start_ah: 260
+    year_end_ah: 329
+    year_start_ce: 874
+    year_end_ce: 941
+    type: "theological_controversy"
+    caliphate: "Abbasid"
+    region: "Iraq, Iran"
+    description: "Period of four deputies communicating with the Hidden Imam. Critical context for Shia hadith authentication."
