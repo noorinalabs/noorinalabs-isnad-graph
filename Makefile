@@ -1,4 +1,4 @@
-.PHONY: help setup infra infra-down infra-reset acquire parse resolve load enrich test lint typecheck format clean pipeline
+.PHONY: help setup infra infra-down infra-reset acquire parse resolve load enrich test lint typecheck format clean pipeline validate-staging
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ clean: ## Remove staging data and caches
 	find . -type d -name .pytest_cache -exec rm -rf {} +
 	find . -type d -name .mypy_cache -exec rm -rf {} +
 	find . -type d -name .ruff_cache -exec rm -rf {} +
+
+validate-staging: ## Validate staging Parquet files
+	uv run isnad validate-staging
 
 pipeline: ## Run full pipeline
 	$(MAKE) acquire

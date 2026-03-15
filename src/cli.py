@@ -74,6 +74,7 @@ def main() -> None:
     subparsers.add_parser("load", help="Load graph database")
     subparsers.add_parser("enrich", help="Compute metrics and enrichment")
     subparsers.add_parser("validate", help="Run graph validation queries")
+    subparsers.add_parser("validate-staging", help="Validate staging Parquet files")
 
     args = parser.parse_args()
 
@@ -83,6 +84,14 @@ def main() -> None:
 
     if args.command == "info":
         _cmd_info()
+    elif args.command == "validate-staging":
+        from pathlib import Path
+
+        from src.config import get_settings
+        from src.parse.validate import validate_staging
+
+        settings = get_settings()
+        validate_staging(Path(settings.data_staging_dir))
     else:
         _cmd_stub(args.command)
 

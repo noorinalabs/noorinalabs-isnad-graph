@@ -34,7 +34,7 @@ Copy `.env.example` to `.env` and configure database credentials and API keys be
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 0 | Scaffold & Tooling | :white_check_mark: |
-| 1 | Data Acquisition & Parsing | :white_large_square: |
+| 1 | Data Acquisition & Parsing | :white_check_mark: |
 | 2 | Entity Resolution | :white_large_square: |
 | 3 | Graph Loading | :white_large_square: |
 | 4 | Enrichment & Metrics | :white_large_square: |
