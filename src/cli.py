@@ -100,6 +100,122 @@ def _cmd_resolve() -> None:
     print(f"\nResolution complete. {total} output files.")
 
 
+def _cmd_load(*, skip_validation: bool = False, nodes_only: bool = False) -> None:
+    """Run the Phase 3 graph loading pipeline."""
+    from pathlib import Path
+
+    from neo4j import GraphDatabase
+
+    from src.config import get_settings
+
+    settings = get_settings()
+
+    # Pre-flight Neo4j connectivity check
+    print("Checking Neo4j connectivity...")
+    try:
+        driver = GraphDatabase.driver(
+            settings.neo4j.uri,
+            auth=(settings.neo4j.user, settings.neo4j.password),
+        )
+        driver.verify_connectivity()
+        driver.close()
+    except Exception as exc:
+        print(f"ERROR: Cannot connect to Neo4j at {settings.neo4j.uri}: {exc}")
+        sys.exit(1)
+    print("  Neo4j is reachable.")
+
+    from src.graph import load_all
+    from src.utils.neo4j_client import Neo4jClient
+
+    staging_dir = Path(settings.data_staging_dir)
+    curated_dir = Path(settings.data_curated_dir)
+    queries_dir = Path("queries")
+
+    with Neo4jClient() as client:
+        summary = load_all(
+            client,
+            staging_dir,
+            curated_dir,
+            queries_dir,
+            strict=False,
+            skip_validation=skip_validation,
+            nodes_only=nodes_only,
+        )
+
+    print("\n=== Load Summary ===")
+    print(f"  Nodes loaded : {summary.total_nodes}")
+    print(f"  Edges loaded : {summary.total_edges}")
+
+    for nr in summary.node_results:
+        print(f"    {nr.node_type}: created={nr.created} merged={nr.merged} skipped={nr.skipped}")
+    for er in summary.edge_results:
+        print(
+            f"    {er.edge_type}: created={er.created} skipped={er.skipped}"
+            f" missing_endpoints={er.missing_endpoints}"
+        )
+
+    if summary.validation_results:
+        print("\n=== Validation ===")
+        for vr in summary.validation_results:
+            status = "PASS" if vr.passed else "FAIL"
+            print(f"  [{status}] {vr.query_name}: {vr.details}")
+        if not summary.validation_passed:
+            print("\nWARNING: Some validation checks failed.")
+            sys.exit(1)
+        else:
+            print("\nAll validation checks passed.")
+
+
+def _cmd_validate() -> None:
+    """Run graph validation queries against an existing Neo4j database."""
+    from pathlib import Path
+
+    from neo4j import GraphDatabase
+
+    from src.config import get_settings
+
+    settings = get_settings()
+
+    # Pre-flight connectivity check
+    print("Checking Neo4j connectivity...")
+    try:
+        driver = GraphDatabase.driver(
+            settings.neo4j.uri,
+            auth=(settings.neo4j.user, settings.neo4j.password),
+        )
+        driver.verify_connectivity()
+        driver.close()
+    except Exception as exc:
+        print(f"ERROR: Cannot connect to Neo4j at {settings.neo4j.uri}: {exc}")
+        sys.exit(1)
+
+    from src.graph.validate import run_validation
+    from src.utils.neo4j_client import Neo4jClient
+
+    queries_dir = Path("queries")
+
+    with Neo4jClient() as client:
+        results = run_validation(client, queries_dir)
+
+    if not results:
+        print("No validation queries found.")
+        sys.exit(0)
+
+    print("=== Validation Results ===")
+    all_passed = True
+    for vr in results:
+        status = "PASS" if vr.passed else "FAIL"
+        print(f"  [{status}] {vr.query_name}: {vr.details}")
+        if not vr.passed:
+            all_passed = False
+
+    if not all_passed:
+        print("\nWARNING: Some validation checks failed.")
+        sys.exit(1)
+    else:
+        print("\nAll validation checks passed.")
+
+
 def _cmd_stub(name: str) -> None:
     """Print a not-yet-implemented message for a pipeline stage."""
     print(f"Command '{name}' not yet implemented. See Makefile targets.")
@@ -114,7 +230,13 @@ def main() -> None:
     subparsers.add_parser("acquire", help="Download data sources")
     subparsers.add_parser("parse", help="Parse raw data to staging")
     subparsers.add_parser("resolve", help="Entity resolution")
-    subparsers.add_parser("load", help="Load graph database")
+    load_parser = subparsers.add_parser("load", help="Load graph database")
+    load_parser.add_argument(
+        "--skip-validation", action="store_true", help="Skip validation queries after loading"
+    )
+    load_parser.add_argument(
+        "--nodes-only", action="store_true", help="Load only nodes (skip edges and validation)"
+    )
     subparsers.add_parser("enrich", help="Compute metrics and enrichment")
     subparsers.add_parser("validate", help="Run graph validation queries")
     subparsers.add_parser("validate-staging", help="Validate staging Parquet files")
@@ -141,6 +263,13 @@ def main() -> None:
         validate_staging(Path(settings.data_staging_dir))
     elif args.command == "resolve":
         _cmd_resolve()
+    elif args.command == "load":
+        _cmd_load(
+            skip_validation=args.skip_validation,
+            nodes_only=args.nodes_only,
+        )
+    elif args.command == "validate":
+        _cmd_validate()
     else:
         _cmd_stub(args.command)
 
