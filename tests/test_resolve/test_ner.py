@@ -7,9 +7,10 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from src.parse.schemas import HADITH_SCHEMA, NARRATOR_MENTION_SCHEMA
+from src.parse.schemas import NARRATOR_MENTION_SCHEMA
 from src.resolve.ner import _extract_from_hadiths, _load_phase1_mentions, run
 from src.resolve.schemas import NARRATOR_MENTIONS_RESOLVED_SCHEMA
+from tests.test_resolve.conftest import write_hadiths
 
 
 # ---------------------------------------------------------------------------
@@ -40,41 +41,6 @@ def _write_narrator_mentions_parquet(path: Path, rows: list[dict]) -> Path:
     return path
 
 
-def _write_hadiths_parquet(path: Path, rows: list[dict]) -> Path:
-    """Write a hadiths Parquet with HADITH_SCHEMA."""
-    arrays = {
-        "source_id": pa.array([r["source_id"] for r in rows], type=pa.string()),
-        "source_corpus": pa.array([r["source_corpus"] for r in rows], type=pa.string()),
-        "collection_name": pa.array(
-            [r["collection_name"] for r in rows], type=pa.string()
-        ),
-        "book_number": pa.array([r.get("book_number") for r in rows], type=pa.int32()),
-        "chapter_number": pa.array(
-            [r.get("chapter_number") for r in rows], type=pa.int32()
-        ),
-        "hadith_number": pa.array(
-            [r.get("hadith_number") for r in rows], type=pa.int32()
-        ),
-        "matn_ar": pa.array([r.get("matn_ar") for r in rows], type=pa.string()),
-        "matn_en": pa.array([r.get("matn_en") for r in rows], type=pa.string()),
-        "isnad_raw_ar": pa.array([r.get("isnad_raw_ar") for r in rows], type=pa.string()),
-        "isnad_raw_en": pa.array([r.get("isnad_raw_en") for r in rows], type=pa.string()),
-        "full_text_ar": pa.array([r.get("full_text_ar") for r in rows], type=pa.string()),
-        "full_text_en": pa.array([r.get("full_text_en") for r in rows], type=pa.string()),
-        "grade": pa.array([r.get("grade") for r in rows], type=pa.string()),
-        "chapter_name_ar": pa.array(
-            [r.get("chapter_name_ar") for r in rows], type=pa.string()
-        ),
-        "chapter_name_en": pa.array(
-            [r.get("chapter_name_en") for r in rows], type=pa.string()
-        ),
-        "sect": pa.array([r["sect"] for r in rows], type=pa.string()),
-    }
-    table = pa.table(arrays, schema=HADITH_SCHEMA)
-    pq.write_table(table, path)
-    return path
-
-
 # ---------------------------------------------------------------------------
 # Tests: Phase 1 mention loading
 # ---------------------------------------------------------------------------
@@ -95,7 +61,9 @@ class TestLoadPhase1Mentions:
         _write_narrator_mentions_parquet(
             tmp_path / "narrator_mentions_sanadset.parquet", mentions
         )
-        rows = _load_phase1_mentions(tmp_path, "sanadset", "narrator_mentions_sanadset.parquet")
+        rows = _load_phase1_mentions(
+            tmp_path, "sanadset", "narrator_mentions_sanadset.parquet"
+        )
         assert len(rows) == 1
         assert rows[0]["source_corpus"] == "sanadset"
         assert rows[0]["name_raw"] is not None
@@ -173,7 +141,7 @@ class TestArabicExtraction:
                 "chapter_name_en": None,
             },
         ]
-        _write_hadiths_parquet(tmp_path / "hadiths_thaqalayn.parquet", hadiths)
+        write_hadiths(tmp_path / "hadiths_thaqalayn.parquet", hadiths)
         rows = _extract_from_hadiths(tmp_path, "thaqalayn", "ar")
         assert len(rows) > 0
         assert all(r["source_corpus"] == "thaqalayn" for r in rows)
@@ -199,7 +167,7 @@ class TestArabicExtraction:
                 "chapter_name_en": None,
             },
         ]
-        _write_hadiths_parquet(tmp_path / "hadiths_thaqalayn.parquet", hadiths)
+        write_hadiths(tmp_path / "hadiths_thaqalayn.parquet", hadiths)
         rows = _extract_from_hadiths(tmp_path, "thaqalayn", "ar")
         assert len(rows) > 0
 
@@ -229,7 +197,7 @@ class TestEnglishExtraction:
                 "chapter_name_en": None,
             },
         ]
-        _write_hadiths_parquet(tmp_path / "hadiths_fawaz.parquet", hadiths)
+        write_hadiths(tmp_path / "hadiths_fawaz.parquet", hadiths)
         rows = _extract_from_hadiths(tmp_path, "fawaz", "en")
         assert len(rows) > 0
         assert all(r["source_corpus"] == "fawaz" for r in rows)
@@ -264,7 +232,7 @@ class TestNullHandling:
                 "chapter_name_en": None,
             },
         ]
-        _write_hadiths_parquet(tmp_path / "hadiths_fawaz.parquet", hadiths)
+        write_hadiths(tmp_path / "hadiths_fawaz.parquet", hadiths)
         rows = _extract_from_hadiths(tmp_path, "fawaz", "en")
         assert rows == []
 
@@ -289,7 +257,7 @@ class TestNullHandling:
                 "chapter_name_en": None,
             },
         ]
-        _write_hadiths_parquet(tmp_path / "hadiths_fawaz.parquet", hadiths)
+        write_hadiths(tmp_path / "hadiths_fawaz.parquet", hadiths)
         rows = _extract_from_hadiths(tmp_path, "fawaz", "en")
         assert rows == []
 
@@ -326,7 +294,7 @@ class TestOutputSchema:
                 "chapter_name_en": None,
             },
         ]
-        _write_hadiths_parquet(staging / "hadiths_fawaz.parquet", hadiths)
+        write_hadiths(staging / "hadiths_fawaz.parquet", hadiths)
 
         paths = run(staging, output)
         assert len(paths) >= 1

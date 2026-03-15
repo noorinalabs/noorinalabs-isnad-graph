@@ -8,12 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
 from src.models.enums import VariantType
-from src.parse.schemas import HADITH_SCHEMA
 from src.resolve.dedup import (
     _classify_pair,
     _is_cross_sect,
@@ -22,6 +20,7 @@ from src.resolve.dedup import (
     run_dedup,
 )
 from src.resolve.schemas import PARALLEL_LINKS_SCHEMA
+from tests.test_resolve.conftest import write_hadiths
 
 # Check ML availability at module level for marker.
 _ml_available = True
@@ -37,40 +36,6 @@ ml = pytest.mark.skipif(not _ml_available, reason="ML deps not installed")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _write_hadiths(path: Path, rows: list[dict]) -> Path:
-    arrays = {
-        "source_id": pa.array([r["source_id"] for r in rows], type=pa.string()),
-        "source_corpus": pa.array([r["source_corpus"] for r in rows], type=pa.string()),
-        "collection_name": pa.array(
-            [r["collection_name"] for r in rows], type=pa.string()
-        ),
-        "book_number": pa.array([r.get("book_number") for r in rows], type=pa.int32()),
-        "chapter_number": pa.array(
-            [r.get("chapter_number") for r in rows], type=pa.int32()
-        ),
-        "hadith_number": pa.array(
-            [r.get("hadith_number") for r in rows], type=pa.int32()
-        ),
-        "matn_ar": pa.array([r.get("matn_ar") for r in rows], type=pa.string()),
-        "matn_en": pa.array([r.get("matn_en") for r in rows], type=pa.string()),
-        "isnad_raw_ar": pa.array([r.get("isnad_raw_ar") for r in rows], type=pa.string()),
-        "isnad_raw_en": pa.array([r.get("isnad_raw_en") for r in rows], type=pa.string()),
-        "full_text_ar": pa.array([r.get("full_text_ar") for r in rows], type=pa.string()),
-        "full_text_en": pa.array([r.get("full_text_en") for r in rows], type=pa.string()),
-        "grade": pa.array([r.get("grade") for r in rows], type=pa.string()),
-        "chapter_name_ar": pa.array(
-            [r.get("chapter_name_ar") for r in rows], type=pa.string()
-        ),
-        "chapter_name_en": pa.array(
-            [r.get("chapter_name_en") for r in rows], type=pa.string()
-        ),
-        "sect": pa.array([r["sect"] for r in rows], type=pa.string()),
-    }
-    table = pa.table(arrays, schema=HADITH_SCHEMA)
-    pq.write_table(table, path)
-    return path
-
-
 def _make_hadith(
     source_id: str,
     matn_en: str,
@@ -146,7 +111,7 @@ class TestLoadHadithTexts:
             _make_hadith("h-1", "Actions are judged by intentions"),
             _make_hadith("h-2", "The best of you is the one who learns the Quran"),
         ]
-        _write_hadiths(tmp_path / "hadith_test.parquet", rows)
+        write_hadiths(tmp_path / "hadith_test.parquet", rows)
         ids, texts, corpora = _load_hadith_texts(tmp_path)
         assert len(ids) == 2
         assert len(texts) == 2
@@ -158,7 +123,7 @@ class TestLoadHadithTexts:
             _make_hadith("h-2", None),  # type: ignore[arg-type]
             _make_hadith("h-3", "   "),
         ]
-        _write_hadiths(tmp_path / "hadith_test.parquet", rows)
+        write_hadiths(tmp_path / "hadith_test.parquet", rows)
         ids, texts, corpora = _load_hadith_texts(tmp_path)
         assert len(ids) == 1
         assert ids[0] == "h-1"
@@ -181,18 +146,36 @@ class TestWriteEmptyOutput:
 
 
 # ---------------------------------------------------------------------------
-# Tests: pair ordering
+# Tests: canonical pair ordering (integration)
 # ---------------------------------------------------------------------------
-class TestPairOrdering:
-    def test_canonical_ordering(self) -> None:
-        """hadith_id_a < hadith_id_b in output pairs."""
-        # This is tested indirectly via run_dedup, but we verify the logic here.
-        a, b = "z-id", "a-id"
-        if a >= b:
-            pair = (b, a)
-        else:
-            pair = (a, b)
-        assert pair[0] < pair[1]
+class TestCanonicalPairOrdering:
+    def test_output_pairs_are_canonically_ordered(self, tmp_path: Path) -> None:
+        """Verify that run_dedup produces output with hadith_id_a < hadith_id_b
+        and that the output conforms to PARALLEL_LINKS_SCHEMA.
+
+        Uses intentionally reversed IDs (z-id before a-id) so the ordering logic
+        in run_dedup is exercised even without ML deps.
+        """
+        rows = [
+            _make_hadith("z-id", "Actions are judged by intentions"),
+            _make_hadith("a-id", "Actions are judged by intentions"),
+        ]
+        write_hadiths(tmp_path / "hadith_test.parquet", rows)
+
+        # run_dedup will produce empty output when ML deps are absent,
+        # or real pairs when they are present -- either way the schema must match.
+        output_path = run_dedup(tmp_path, threshold=0.70)
+        assert output_path.exists()
+
+        table = pq.read_table(output_path)
+        assert table.schema.equals(PARALLEL_LINKS_SCHEMA)
+
+        # When pairs are found, verify canonical ordering.
+        if table.num_rows > 0:
+            ids_a = table.column("hadith_id_a").to_pylist()
+            ids_b = table.column("hadith_id_b").to_pylist()
+            for a, b in zip(ids_a, ids_b):
+                assert a < b, f"Expected {a!r} < {b!r} (canonical ordering)"
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +193,9 @@ class TestEmbeddingPipeline:
                 "h-2",
                 "Actions are judged by intentions and every man shall have what he intended",
             ),
-            _make_hadith("h-3", "The best of you is the one who learns the Quran and teaches it"),
+            _make_hadith(
+                "h-3", "The best of you is the one who learns the Quran and teaches it"
+            ),
             _make_hadith(
                 "h-4",
                 "Whoever believes in Allah and the Last Day should speak good or keep silent",
@@ -222,7 +207,7 @@ class TestEmbeddingPipeline:
                 sect="shia",
             ),
         ]
-        _write_hadiths(tmp_path / "hadith_test.parquet", rows)
+        write_hadiths(tmp_path / "hadith_test.parquet", rows)
 
         output_path = run_dedup(tmp_path, threshold=0.70, top_k=5)
         assert output_path.exists()
@@ -237,7 +222,7 @@ class TestEmbeddingPipeline:
             _make_hadith("h-1", "Test text one"),
             _make_hadith("h-2", "Test text two"),
         ]
-        _write_hadiths(tmp_path / "hadith_test.parquet", rows)
+        write_hadiths(tmp_path / "hadith_test.parquet", rows)
 
         run_dedup(tmp_path, threshold=0.70)
         assert (tmp_path / "hadith_embeddings.faiss").exists()
@@ -246,7 +231,9 @@ class TestEmbeddingPipeline:
 
     def test_cross_sect_flagging(self, tmp_path: Path) -> None:
         rows = [
-            _make_hadith("h-1", "Actions are judged by intentions", source_corpus="sunnah"),
+            _make_hadith(
+                "h-1", "Actions are judged by intentions", source_corpus="sunnah"
+            ),
             _make_hadith(
                 "h-2",
                 "Actions are judged by intentions",
@@ -254,7 +241,7 @@ class TestEmbeddingPipeline:
                 sect="shia",
             ),
         ]
-        _write_hadiths(tmp_path / "hadith_test.parquet", rows)
+        write_hadiths(tmp_path / "hadith_test.parquet", rows)
 
         output_path = run_dedup(tmp_path, threshold=0.70)
         table = pq.read_table(output_path)
@@ -268,7 +255,7 @@ class TestEmbeddingPipeline:
 # ---------------------------------------------------------------------------
 class TestGracefulFallback:
     def test_empty_output_on_no_texts(self, tmp_path: Path) -> None:
-        # No hadith files → empty output regardless of ML availability.
+        # No hadith files -> empty output regardless of ML availability.
         path = run_dedup(tmp_path)
         assert path.exists()
         table = pq.read_table(path)
