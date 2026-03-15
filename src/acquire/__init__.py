@@ -27,12 +27,16 @@ SOURCES: list[tuple[str, ModuleType | None]] = [
     ("open_hadith", open_hadith),
     ("muhaddithat", muhaddithat),
 ]
+
+
 def _acquire_one(name: str, module: ModuleType | None, raw_dir: Path) -> Path | None:
     """Run a single downloader, returning its output path."""
     if name == "sanadset":
         return download_sanadset(raw_dir / "sanadset")
     assert module is not None
     return module.run(raw_dir)  # type: ignore[no-any-return]
+
+
 def run_all(raw_dir: Path) -> dict[str, Path | None]:
     """Run all downloaders. Continue on failure. Return dict of source -> path."""
     results: dict[str, Path | None] = {}

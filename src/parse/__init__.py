@@ -20,6 +20,8 @@ PARSERS: list[tuple[str, ModuleType | None]] = [
     ("open_hadith", open_hadith),
     ("muhaddithat", muhaddithat),
 ]
+
+
 def _normalize_output(result: Path | tuple[Path, ...] | list[Path] | dict[str, Path]) -> list[Path]:
     """Normalize parser return values to a flat list of Paths."""
     if isinstance(result, dict):
@@ -29,6 +31,8 @@ def _normalize_output(result: Path | tuple[Path, ...] | list[Path] | dict[str, P
     if isinstance(result, list):
         return result
     return [result]
+
+
 def _parse_one(
     name: str, module: ModuleType | None, raw_dir: Path, staging_dir: Path
 ) -> list[Path]:
@@ -37,6 +41,8 @@ def _parse_one(
         return _normalize_output(parse_sanadset(raw_dir / "sanadset", staging_dir))
     assert module is not None
     return _normalize_output(module.run(raw_dir, staging_dir))
+
+
 def run_all(raw_dir: Path, staging_dir: Path) -> dict[str, list[Path]]:
     """Run all parsers. Continue on failure. Return dict of source -> output files."""
     results: dict[str, list[Path]] = {}

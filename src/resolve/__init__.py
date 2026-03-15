@@ -71,6 +71,7 @@ def _collect_dedup_metrics(metrics: ResolveMetrics, staging_dir: Path) -> None:
     if not path.exists():
         return
     try:
+        import pyarrow.compute as pc
         import pyarrow.parquet as pq
 
         table = pq.read_table(path)
@@ -78,16 +79,12 @@ def _collect_dedup_metrics(metrics: ResolveMetrics, staging_dir: Path) -> None:
         if table.num_rows > 0:
             vt_col = table.column("variant_type")
             cs_col = table.column("cross_sect")
-            for i in range(table.num_rows):
-                vt = vt_col[i].as_py()
-                if vt == "verbatim":
-                    metrics.parallel_verbatim += 1
-                elif vt == "close_paraphrase":
-                    metrics.parallel_close_paraphrase += 1
-                elif vt == "thematic":
-                    metrics.parallel_thematic += 1
-                if cs_col[i].as_py():
-                    metrics.parallel_cross_sect += 1
+            metrics.parallel_verbatim = pc.sum(pc.equal(vt_col, "verbatim")).as_py()
+            metrics.parallel_close_paraphrase = pc.sum(
+                pc.equal(vt_col, "close_paraphrase")
+            ).as_py()
+            metrics.parallel_thematic = pc.sum(pc.equal(vt_col, "thematic")).as_py()
+            metrics.parallel_cross_sect = pc.sum(cs_col).as_py()
     except Exception:  # noqa: BLE001
         logger.warning("dedup_metrics_read_failed", path=str(path))
 
@@ -95,7 +92,7 @@ def _collect_dedup_metrics(metrics: ResolveMetrics, staging_dir: Path) -> None:
 def _collect_disambig_metrics(metrics: ResolveMetrics, output_dir: Path) -> None:
     """Read disambiguation outputs to populate narrator metrics."""
     canonical_path = output_dir / "narrators_canonical.parquet"
-    ambiguous_path = output_dir / "ambiguous_narrators.csv"
+    ambiguous_path = output_dir / "ambiguous_narrators.parquet"
 
     try:
         if canonical_path.exists():
@@ -108,12 +105,10 @@ def _collect_disambig_metrics(metrics: ResolveMetrics, output_dir: Path) -> None
 
     try:
         if ambiguous_path.exists():
-            import csv
+            import pyarrow.parquet as pq
 
-            with open(ambiguous_path, encoding="utf-8") as f:
-                reader = csv.reader(f)
-                next(reader, None)  # skip header
-                metrics.ambiguous_count = sum(1 for _ in reader)
+            meta = pq.read_metadata(ambiguous_path)
+            metrics.ambiguous_count = meta.num_rows
     except Exception:  # noqa: BLE001
         logger.warning("ambiguous_metrics_read_failed", path=str(ambiguous_path))
 
