@@ -74,3 +74,4 @@ warn_uninitialized = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["ml: marks tests requiring ML dependencies (sentence-transformers, faiss)"]
