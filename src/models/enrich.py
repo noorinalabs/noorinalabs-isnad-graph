@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["HistoricalResult", "MetricsResult", "TopicResult"]
+__all__ = ["EnrichSummary", "HistoricalResult", "MetricsResult", "TopicResult"]
 
 
 class MetricsResult(BaseModel):
@@ -39,3 +39,15 @@ class TopicResult(BaseModel):
     hadiths_skipped: int
     model_name: str
     labels_used: list[str]
+
+
+class EnrichSummary(BaseModel):
+    """Aggregated result of the full enrichment pipeline."""
+
+    model_config = ConfigDict(frozen=True)
+
+    metrics: MetricsResult | None
+    topics: TopicResult | None
+    historical: HistoricalResult | None
+    steps_completed: list[str]
+    steps_failed: list[str]
