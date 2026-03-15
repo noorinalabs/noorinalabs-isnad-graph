@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +26,70 @@ class ValidationResult:
     row_count: int
 
 
+ClassifierFunc = Callable[
+    [str, list[dict[str, object]], float],
+    ValidationResult,
+]
+
+
+def _classify_orphan_narrators(
+    query_name: str,
+    rows: list[dict[str, object]],
+    deviation_threshold: float,
+) -> ValidationResult:
+    count = len(rows)
+    passed = count == 0
+    details = "no orphans" if passed else f"{count} orphan narrator(s) found"
+    return ValidationResult(query_name, passed, details, count)
+
+
+def _classify_chain_integrity(
+    query_name: str,
+    rows: list[dict[str, object]],
+    deviation_threshold: float,
+) -> ValidationResult:
+    count = len(rows)
+    passed = count == 0
+    details = "no cycles" if passed else f"{count} cycle(s) detected"
+    return ValidationResult(query_name, passed, details, count)
+
+
+def _classify_collection_coverage(
+    query_name: str,
+    rows: list[dict[str, object]],
+    deviation_threshold: float,
+) -> ValidationResult:
+    count = len(rows)
+    failures: list[str] = []
+    for row in rows:
+        dev = row.get("deviation_pct")
+        if dev is not None and isinstance(dev, (int, float)) and dev > deviation_threshold:
+            cid = row.get("collection_id", "?")
+            failures.append(f"{cid}: {dev:.1f}% deviation")
+    passed = len(failures) == 0
+    details = "all within threshold" if passed else "; ".join(failures)
+    return ValidationResult(query_name, passed, details, count)
+
+
+def _classify_default(
+    query_name: str,
+    rows: list[dict[str, object]],
+    deviation_threshold: float,
+) -> ValidationResult:
+    """Default classifier — pass if 0 rows (conservative)."""
+    count = len(rows)
+    passed = count == 0
+    details = f"{count} row(s) returned" if count else "empty result"
+    return ValidationResult(query_name, passed, details, count)
+
+
+_CLASSIFIER_REGISTRY: dict[str, ClassifierFunc] = {
+    "orphan_narrators": _classify_orphan_narrators,
+    "chain_integrity": _classify_chain_integrity,
+    "collection_coverage": _classify_collection_coverage,
+}
+
+
 def _classify(
     query_name: str,
     rows: list[dict[str, object]],
@@ -32,33 +97,8 @@ def _classify(
     deviation_threshold: float = _DEFAULT_DEVIATION_THRESHOLD,
 ) -> ValidationResult:
     """Classify query results as pass/fail based on query semantics."""
-    count = len(rows)
-
-    if query_name == "orphan_narrators":
-        passed = count == 0
-        details = "no orphans" if passed else f"{count} orphan narrator(s) found"
-        return ValidationResult(query_name, passed, details, count)
-
-    if query_name == "chain_integrity":
-        passed = count == 0
-        details = "no cycles" if passed else f"{count} cycle(s) detected"
-        return ValidationResult(query_name, passed, details, count)
-
-    if query_name == "collection_coverage":
-        failures: list[str] = []
-        for row in rows:
-            dev = row.get("deviation_pct")
-            if dev is not None and isinstance(dev, (int, float)) and dev > deviation_threshold:
-                cid = row.get("collection_id", "?")
-                failures.append(f"{cid}: {dev:.1f}% deviation")
-        passed = len(failures) == 0
-        details = "all within threshold" if passed else "; ".join(failures)
-        return ValidationResult(query_name, passed, details, count)
-
-    # Unknown query — pass if 0 rows (conservative default)
-    passed = count == 0
-    details = f"{count} row(s) returned" if count else "empty result"
-    return ValidationResult(query_name, passed, details, count)
+    classifier = _CLASSIFIER_REGISTRY.get(query_name, _classify_default)
+    return classifier(query_name, rows, deviation_threshold)
 
 
 def run_validation(

@@ -13,6 +13,27 @@ def _mask_password(value: str) -> str:
     return value[0] + "*" * (len(value) - 2) + value[-1]
 
 
+def _check_neo4j() -> None:
+    """Pre-flight Neo4j connectivity check. Exits with code 1 on failure."""
+    from neo4j import GraphDatabase
+
+    from src.config import get_settings
+
+    settings = get_settings()
+    print("Checking Neo4j connectivity...")
+    try:
+        driver = GraphDatabase.driver(
+            settings.neo4j.uri,
+            auth=(settings.neo4j.user, settings.neo4j.password),
+        )
+        driver.verify_connectivity()
+        driver.close()
+    except Exception as exc:
+        print(f"ERROR: Cannot connect to Neo4j at {settings.neo4j.uri}: {exc}")
+        sys.exit(1)
+    print("  Neo4j is reachable.")
+
+
 def _cmd_info() -> None:
     """Print configuration (masked passwords) and check DB connectivity."""
     from src.config import get_settings
@@ -104,25 +125,11 @@ def _cmd_load(*, skip_validation: bool = False, nodes_only: bool = False) -> Non
     """Run the Phase 3 graph loading pipeline."""
     from pathlib import Path
 
-    from neo4j import GraphDatabase
-
     from src.config import get_settings
 
     settings = get_settings()
 
-    # Pre-flight Neo4j connectivity check
-    print("Checking Neo4j connectivity...")
-    try:
-        driver = GraphDatabase.driver(
-            settings.neo4j.uri,
-            auth=(settings.neo4j.user, settings.neo4j.password),
-        )
-        driver.verify_connectivity()
-        driver.close()
-    except Exception as exc:
-        print(f"ERROR: Cannot connect to Neo4j at {settings.neo4j.uri}: {exc}")
-        sys.exit(1)
-    print("  Neo4j is reachable.")
+    _check_neo4j()
 
     from src.graph import load_all
     from src.utils.neo4j_client import Neo4jClient
@@ -170,24 +177,7 @@ def _cmd_validate() -> None:
     """Run graph validation queries against an existing Neo4j database."""
     from pathlib import Path
 
-    from neo4j import GraphDatabase
-
-    from src.config import get_settings
-
-    settings = get_settings()
-
-    # Pre-flight connectivity check
-    print("Checking Neo4j connectivity...")
-    try:
-        driver = GraphDatabase.driver(
-            settings.neo4j.uri,
-            auth=(settings.neo4j.user, settings.neo4j.password),
-        )
-        driver.verify_connectivity()
-        driver.close()
-    except Exception as exc:
-        print(f"ERROR: Cannot connect to Neo4j at {settings.neo4j.uri}: {exc}")
-        sys.exit(1)
+    _check_neo4j()
 
     from src.graph.validate import run_validation
     from src.utils.neo4j_client import Neo4jClient
