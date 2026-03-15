@@ -27,11 +27,11 @@ format: ## Run ruff formatter
 typecheck: ## Run mypy type checker
 	uv run mypy src/
 
-acquire: ## Phase 1: Download data sources
-	@echo "Phase 1 not yet implemented"
+acquire: ## Phase 1: Download all data sources
+	uv run isnad acquire
 
-parse: ## Phase 1: Parse raw data
-	@echo "Phase 1 not yet implemented"
+parse: ## Phase 1: Parse raw data into staging Parquet files
+	uv run isnad parse
 
 resolve: ## Phase 2: Entity resolution
 	@echo "Phase 2 not yet implemented"

@@ -57,6 +57,32 @@ def _cmd_info() -> None:
         print("  postgres : unavailable")
 
 
+def _cmd_acquire() -> None:
+    """Run all data acquisition downloaders."""
+    from pathlib import Path
+
+    from src.acquire import run_all as acquire_all
+    from src.config import get_settings
+
+    settings = get_settings()
+    results = acquire_all(Path(settings.data_raw_dir))
+    ok = sum(1 for v in results.values() if v)
+    print(f"Acquisition complete. {ok}/{len(results)} sources downloaded.")
+
+
+def _cmd_parse() -> None:
+    """Run all parsers to produce staging Parquet files."""
+    from pathlib import Path
+
+    from src.config import get_settings
+    from src.parse import run_all as parse_all
+
+    settings = get_settings()
+    results = parse_all(Path(settings.data_raw_dir), Path(settings.data_staging_dir))
+    total_files = sum(len(v) for v in results.values())
+    print(f"Parsing complete. {total_files} staging files produced.")
+
+
 def _cmd_stub(name: str) -> None:
     """Print a not-yet-implemented message for a pipeline stage."""
     print(f"Command '{name}' not yet implemented. See Makefile targets.")
@@ -84,6 +110,10 @@ def main() -> None:
 
     if args.command == "info":
         _cmd_info()
+    elif args.command == "acquire":
+        _cmd_acquire()
+    elif args.command == "parse":
+        _cmd_parse()
     elif args.command == "validate-staging":
         from pathlib import Path
 
