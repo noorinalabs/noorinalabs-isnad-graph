@@ -3,7 +3,8 @@
 Batch UNWIND loaders for 6 relationship types: TRANSMITTED_TO, NARRATED,
 APPEARS_IN, PARALLEL_OF, STUDIED_UNDER, and GRADED_BY.  Each loader uses
 MATCH (not MERGE) for endpoints, logging and counting missing endpoints
-rather than silently creating dangling references.
+rather than silently creating dangling references.  Edge creation uses MERGE
+for idempotent re-runs.
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ from src.utils.neo4j_client import Neo4jClient
 logger = get_logger(__name__)
 
 __all__ = ["load_all_edges", "EdgeLoadResult"]
+
+DEFAULT_BATCH_SIZE = 1000
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,20 @@ def _transpose_pydict(col_dict: dict[str, list[Any]]) -> list[dict[str, Any]]:
     keys = list(col_dict.keys())
     n = len(col_dict[keys[0]])
     return [{k: col_dict[k][i] for k in keys} for i in range(n)]
+
+
+def _chunked_read(
+    client: Neo4jClient,
+    query: str,
+    batch: list[dict[str, Any]],
+    batch_size: int,
+) -> list[dict[str, Any]]:
+    """Execute a read query in chunks to avoid memory issues at scale."""
+    results: list[dict[str, Any]] = []
+    for i in range(0, len(batch), batch_size):
+        chunk = batch[i : i + batch_size]
+        results.extend(client.execute_read(query, {"batch": chunk}))
+    return results
 
 
 def _read_parquet_rows(path: Path) -> list[dict[str, Any]]:
@@ -71,7 +88,7 @@ _TRANSMITTED_TO_QUERY = """\
 UNWIND $batch AS row
 MATCH (n1:Narrator {id: row.from_id})
 MATCH (n2:Narrator {id: row.to_id})
-CREATE (n1)-[:TRANSMITTED_TO {
+MERGE (n1)-[:TRANSMITTED_TO {
     position_in_chain: row.position,
     hadith_id: row.hadith_id
 }]->(n2)
@@ -120,6 +137,7 @@ def _load_transmitted_to(
     staging_dir: Path,
     *,
     strict: bool = True,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> EdgeLoadResult:
     """Load TRANSMITTED_TO edges from narrator_mentions_resolved.parquet."""
     files = _parquet_files(staging_dir, "narrator_mentions_resolved")
@@ -152,7 +170,7 @@ def _load_transmitted_to(
         return EdgeLoadResult("TRANSMITTED_TO", 0, 0, 0)
 
     # Check for missing endpoints
-    check_results = client.execute_read(_TRANSMITTED_TO_CHECK, {"batch": all_pairs})
+    check_results = _chunked_read(client, _TRANSMITTED_TO_CHECK, all_pairs, batch_size)
     valid_batch: list[dict[str, Any]] = []
     missing = 0
     for pair, check in zip(all_pairs, check_results):
@@ -165,7 +183,11 @@ def _load_transmitted_to(
             if not check.get("to_exists"):
                 logger.debug("transmitted_to_missing_to", id=pair["to_id"])
 
-    created = client.execute_write_batch(_TRANSMITTED_TO_QUERY, valid_batch) if valid_batch else 0
+    created = (
+        client.execute_write_batch(_TRANSMITTED_TO_QUERY, valid_batch, batch_size=batch_size)
+        if valid_batch
+        else 0
+    )
     logger.info(
         "transmitted_to_loaded",
         created=created,
@@ -183,7 +205,7 @@ _NARRATED_QUERY = """\
 UNWIND $batch AS row
 MATCH (n:Narrator {id: row.narrator_id})
 MATCH (h:Hadith {id: row.hadith_id})
-CREATE (n)-[:NARRATED]->(h)
+MERGE (n)-[:NARRATED]->(h)
 """
 
 _NARRATED_CHECK = """\
@@ -202,6 +224,7 @@ def _load_narrated(
     staging_dir: Path,
     *,
     strict: bool = True,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> EdgeLoadResult:
     """Load NARRATED edges — first narrator (position 0) in each chain → hadith."""
     files = _parquet_files(staging_dir, "narrator_mentions_resolved")
@@ -237,7 +260,7 @@ def _load_narrated(
         return EdgeLoadResult("NARRATED", 0, 0, 0)
 
     # Check endpoints
-    check_results = client.execute_read(_NARRATED_CHECK, {"batch": batch})
+    check_results = _chunked_read(client, _NARRATED_CHECK, batch, batch_size)
     valid_batch: list[dict[str, Any]] = []
     missing = 0
     for item, check in zip(batch, check_results):
@@ -246,7 +269,11 @@ def _load_narrated(
         else:
             missing += 1
 
-    created = client.execute_write_batch(_NARRATED_QUERY, valid_batch) if valid_batch else 0
+    created = (
+        client.execute_write_batch(_NARRATED_QUERY, valid_batch, batch_size=batch_size)
+        if valid_batch
+        else 0
+    )
     logger.info("narrated_loaded", created=created, missing_endpoints=missing)
     return EdgeLoadResult("NARRATED", created, 0, missing)
 
@@ -259,7 +286,7 @@ _APPEARS_IN_QUERY = """\
 UNWIND $batch AS row
 MATCH (h:Hadith {id: row.hadith_id})
 MATCH (c:Collection {id: row.collection_id})
-CREATE (h)-[:APPEARS_IN {
+MERGE (h)-[:APPEARS_IN {
     book_number: row.book_number,
     chapter_number: row.chapter_number,
     hadith_number: row.hadith_number
@@ -282,6 +309,7 @@ def _load_appears_in(
     staging_dir: Path,
     *,
     strict: bool = True,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> EdgeLoadResult:
     """Load APPEARS_IN edges — hadith → collection with positional properties."""
     files = _parquet_files(staging_dir, "hadiths_")
@@ -320,7 +348,7 @@ def _load_appears_in(
         return EdgeLoadResult("APPEARS_IN", 0, skipped, 0)
 
     # Check endpoints
-    check_results = client.execute_read(_APPEARS_IN_CHECK, {"batch": batch})
+    check_results = _chunked_read(client, _APPEARS_IN_CHECK, batch, batch_size)
     valid_batch: list[dict[str, Any]] = []
     missing = 0
     for item, check in zip(batch, check_results):
@@ -329,7 +357,11 @@ def _load_appears_in(
         else:
             missing += 1
 
-    created = client.execute_write_batch(_APPEARS_IN_QUERY, valid_batch) if valid_batch else 0
+    created = (
+        client.execute_write_batch(_APPEARS_IN_QUERY, valid_batch, batch_size=batch_size)
+        if valid_batch
+        else 0
+    )
     logger.info(
         "appears_in_loaded", created=created, skipped=skipped, missing_endpoints=missing
     )
@@ -344,7 +376,7 @@ _PARALLEL_OF_QUERY = """\
 UNWIND $batch AS row
 MATCH (h1:Hadith {id: row.id_a})
 MATCH (h2:Hadith {id: row.id_b})
-CREATE (h1)-[:PARALLEL_OF {
+MERGE (h1)-[:PARALLEL_OF {
     similarity_score: row.score,
     variant_type: row.variant_type,
     cross_sect: row.cross_sect
@@ -367,6 +399,7 @@ def _load_parallel_of(
     staging_dir: Path,
     *,
     strict: bool = True,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> EdgeLoadResult:
     """Load PARALLEL_OF edges from parallel_links.parquet."""
     path = staging_dir / "parallel_links.parquet"
@@ -407,7 +440,7 @@ def _load_parallel_of(
         return EdgeLoadResult("PARALLEL_OF", 0, skipped, 0)
 
     # Check endpoints
-    check_results = client.execute_read(_PARALLEL_OF_CHECK, {"batch": batch})
+    check_results = _chunked_read(client, _PARALLEL_OF_CHECK, batch, batch_size)
     valid_batch: list[dict[str, Any]] = []
     missing = 0
     for item, check in zip(batch, check_results):
@@ -416,7 +449,11 @@ def _load_parallel_of(
         else:
             missing += 1
 
-    created = client.execute_write_batch(_PARALLEL_OF_QUERY, valid_batch) if valid_batch else 0
+    created = (
+        client.execute_write_batch(_PARALLEL_OF_QUERY, valid_batch, batch_size=batch_size)
+        if valid_batch
+        else 0
+    )
     logger.info(
         "parallel_of_loaded", created=created, skipped=skipped, missing_endpoints=missing
     )
@@ -431,7 +468,7 @@ _STUDIED_UNDER_QUERY = """\
 UNWIND $batch AS row
 MATCH (s:Narrator {id: row.from_id})
 MATCH (t:Narrator {id: row.to_id})
-CREATE (s)-[:STUDIED_UNDER]->(t)
+MERGE (s)-[:STUDIED_UNDER]->(t)
 """
 
 _STUDIED_UNDER_CHECK = """\
@@ -448,6 +485,8 @@ RETURN row.from_id AS from_id,
 def _load_studied_under(
     client: Neo4jClient,
     staging_dir: Path,
+    *,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> EdgeLoadResult:
     """Load STUDIED_UNDER edges from network_edges_muhaddithat.parquet.
 
@@ -478,7 +517,7 @@ def _load_studied_under(
         return EdgeLoadResult("STUDIED_UNDER", 0, skipped, 0)
 
     # Check endpoints
-    check_results = client.execute_read(_STUDIED_UNDER_CHECK, {"batch": batch})
+    check_results = _chunked_read(client, _STUDIED_UNDER_CHECK, batch, batch_size)
     valid_batch: list[dict[str, Any]] = []
     missing = 0
     for item, check in zip(batch, check_results):
@@ -487,7 +526,11 @@ def _load_studied_under(
         else:
             missing += 1
 
-    created = client.execute_write_batch(_STUDIED_UNDER_QUERY, valid_batch) if valid_batch else 0
+    created = (
+        client.execute_write_batch(_STUDIED_UNDER_QUERY, valid_batch, batch_size=batch_size)
+        if valid_batch
+        else 0
+    )
     logger.info(
         "studied_under_loaded", created=created, skipped=skipped, missing_endpoints=missing
     )
@@ -502,7 +545,7 @@ _GRADED_BY_QUERY = """\
 UNWIND $batch AS row
 MATCH (h:Hadith {id: row.hadith_id})
 MATCH (g:Grading {id: row.grading_id})
-CREATE (h)-[:GRADED_BY]->(g)
+MERGE (h)-[:GRADED_BY]->(g)
 """
 
 _GRADED_BY_CHECK = """\
@@ -519,6 +562,8 @@ RETURN row.hadith_id AS hadith_id,
 def _load_graded_by(
     client: Neo4jClient,
     staging_dir: Path,
+    *,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> EdgeLoadResult:
     """Load GRADED_BY edges from hadith staging data.
 
@@ -551,7 +596,7 @@ def _load_graded_by(
         return EdgeLoadResult("GRADED_BY", 0, skipped, 0)
 
     # Check endpoints
-    check_results = client.execute_read(_GRADED_BY_CHECK, {"batch": batch})
+    check_results = _chunked_read(client, _GRADED_BY_CHECK, batch, batch_size)
     valid_batch: list[dict[str, Any]] = []
     missing = 0
     for item, check in zip(batch, check_results):
@@ -560,7 +605,11 @@ def _load_graded_by(
         else:
             missing += 1
 
-    created = client.execute_write_batch(_GRADED_BY_QUERY, valid_batch) if valid_batch else 0
+    created = (
+        client.execute_write_batch(_GRADED_BY_QUERY, valid_batch, batch_size=batch_size)
+        if valid_batch
+        else 0
+    )
     logger.info("graded_by_loaded", created=created, skipped=skipped, missing_endpoints=missing)
     return EdgeLoadResult("GRADED_BY", created, skipped, missing)
 
@@ -576,6 +625,7 @@ def load_all_edges(
     curated_dir: Path,  # noqa: ARG001
     *,
     strict: bool = True,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> list[EdgeLoadResult]:
     """Load all edge/relationship types into Neo4j.
 
@@ -591,15 +641,21 @@ def load_all_edges(
     strict:
         If ``True``, raise on missing required files. If ``False``,
         skip gracefully.
+    batch_size:
+        Number of edges per batch for both read checks and writes.
     """
     results: list[EdgeLoadResult] = []
 
-    results.append(_load_transmitted_to(client, staging_dir, strict=strict))
-    results.append(_load_narrated(client, staging_dir, strict=strict))
-    results.append(_load_appears_in(client, staging_dir, strict=strict))
-    results.append(_load_parallel_of(client, staging_dir, strict=strict))
-    results.append(_load_studied_under(client, staging_dir))
-    results.append(_load_graded_by(client, staging_dir))
+    results.append(
+        _load_transmitted_to(client, staging_dir, strict=strict, batch_size=batch_size)
+    )
+    results.append(_load_narrated(client, staging_dir, strict=strict, batch_size=batch_size))
+    results.append(_load_appears_in(client, staging_dir, strict=strict, batch_size=batch_size))
+    results.append(
+        _load_parallel_of(client, staging_dir, strict=strict, batch_size=batch_size)
+    )
+    results.append(_load_studied_under(client, staging_dir, batch_size=batch_size))
+    results.append(_load_graded_by(client, staging_dir, batch_size=batch_size))
 
     total_created = sum(r.created for r in results)
     total_missing = sum(r.missing_endpoints for r in results)
