@@ -87,10 +87,12 @@ class ChainContext:
 # ---------------------------------------------------------------------------
 # Stage 1: Exact match
 # ---------------------------------------------------------------------------
-def _exact_match(mention: str, candidates: list[Candidate]) -> list[Match]:
-    """Full normalized-name match."""
+def _exact_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
+    """Full normalized-name match.
+
+    ``mention_norm`` must already be Arabic-normalized by the caller.
+    """
     results: list[Match] = []
-    mention_norm = normalize_arabic(mention) if mention else ""
     if not mention_norm:
         return results
     for c in candidates:
@@ -104,10 +106,12 @@ def _exact_match(mention: str, candidates: list[Candidate]) -> list[Match]:
 # ---------------------------------------------------------------------------
 # Stage 2: Fuzzy match
 # ---------------------------------------------------------------------------
-def _fuzzy_match(mention: str, candidates: list[Candidate]) -> list[Match]:
-    """rapidfuzz ratio >= threshold AND Levenshtein distance <= max."""
+def _fuzzy_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
+    """rapidfuzz ratio >= threshold AND Levenshtein distance <= max.
+
+    ``mention_norm`` must already be Arabic-normalized by the caller.
+    """
     results: list[Match] = []
-    mention_norm = normalize_arabic(mention) if mention else ""
     if not mention_norm:
         return results
     for c in candidates:
@@ -153,9 +157,6 @@ def _temporal_filter(
                 break
         if plausible:
             filtered.append(m)
-        elif not chain_context.adjacent_death_years:
-            # Should not reach here, but keep as safety net.
-            filtered.append(m)
 
     return filtered
 
@@ -164,24 +165,34 @@ def _temporal_filter(
 # Stage 4: Geographic filter
 # ---------------------------------------------------------------------------
 def _geographic_filter(matches: list[Match]) -> list[Match]:
-    """Soft geographic constraint — skip if data is missing.
+    """Soft geographic constraint — pass-through until location ontology exists.
 
-    Currently a pass-through that only filters when both candidates
-    have location data that is clearly incompatible. Since location
-    normalization is not yet implemented, this is conservative.
+    Geographic filtering is deferred because:
+    - No normalized location ontology exists yet (birth/death locations are
+      free-text strings with inconsistent transliteration across corpora).
+    - Effective filtering requires a curated mapping of historical Islamic
+      cities/regions plus known scholarly travel routes.
+    - Incorrect filtering would silently drop valid matches, so conservative
+      pass-through is preferable until location data is reliable.
+
+    TODO(phase4): Implement geographic filtering once a location ontology
+    is built in the enrich stage. Key steps:
+      1. Normalize location strings to canonical city/region IDs.
+      2. Build a travel-plausibility graph (e.g., Basra<->Baghdad: likely).
+      3. Filter candidates whose locations are implausible given chain context.
     """
-    # With no normalized location ontology yet, pass all through.
-    # Future: filter by known travel routes and regional proximity.
     return matches
 
 
 # ---------------------------------------------------------------------------
 # Stage 5: Cross-reference match
 # ---------------------------------------------------------------------------
-def _crossref_match(mention: str, candidates: list[Candidate]) -> list[Match]:
-    """Match via external IDs (e.g., muslimscholars.info)."""
+def _crossref_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
+    """Match via external IDs (e.g., muslimscholars.info).
+
+    ``mention_norm`` must already be Arabic-normalized by the caller.
+    """
     results: list[Match] = []
-    mention_norm = normalize_arabic(mention) if mention else ""
     if not mention_norm:
         return results
     for c in candidates:
@@ -286,7 +297,12 @@ def _disambiguate_mention(
     death_year_index: dict[str, int | None],
 ) -> tuple[Match | None, list[Match]]:
     """Run 5-stage pipeline on a single mention. Return (best_match, all_matches)."""
-    name = str(mention.get("name_normalized") or mention.get("name_raw") or "")
+    raw_name = str(mention.get("name_normalized") or mention.get("name_raw") or "")
+    if not raw_name:
+        return None, []
+
+    # Normalize Arabic once; all stages receive the pre-normalized form.
+    name = normalize_arabic(raw_name) if raw_name else ""
     if not name:
         return None, []
 

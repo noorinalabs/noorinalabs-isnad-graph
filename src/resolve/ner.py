@@ -157,31 +157,6 @@ def _extract_from_hadiths(
     return rows
 
 
-def _try_camelbert_fallback(
-    staging_dir: Path,
-    existing_rows: list[dict[str, str | int | None]],
-) -> list[dict[str, str | int | None]]:
-    """Attempt CAMeLBERT NER for Arabic sources if camel_tools is available.
-
-    If the library is not installed, logs a warning and returns the input unchanged.
-    """
-    try:
-        from camel_tools.ner import NERecognizer  # type: ignore[import-untyped]
-    except ImportError:
-        logger.warning(
-            "camelbert_unavailable",
-            msg="camel_tools not installed, skipping CAMeLBERT fallback",
-        )
-        return existing_rows
-
-    # Only attempt on Arabic rows that have no extraction results yet.
-    # For now, the fallback is a placeholder — full CAMeLBERT integration
-    # requires model download and configuration.
-    logger.info("camelbert_available", msg="CAMeLBERT fallback ready but not yet integrated")
-    _ = NERecognizer  # Acknowledge import to satisfy lint
-    return existing_rows
-
-
 def _write_name_audit_csv(
     rows: list[dict[str, str | int | None]],
     output_dir: Path,
@@ -195,7 +170,8 @@ def _write_name_audit_csv(
     candidates = [
         r for r in rows if r.get("name_raw") and r.get("name_normalized")
     ]
-    sample = random.sample(candidates, min(sample_size, len(candidates)))
+    rng = random.Random(42)
+    sample = rng.sample(candidates, min(sample_size, len(candidates)))
 
     with open(audit_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -239,10 +215,7 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
     for corpus in sorted(_SKIP_SOURCES):
         logger.info("ner_skip_source", corpus=corpus, reason="no_raw_isnads")
 
-    # Step 5: Try CAMeLBERT fallback for Arabic sources.
-    all_rows = _try_camelbert_fallback(staging_dir, all_rows)
-
-    # Step 6: Per-source metrics summary.
+    # Step 5: Per-source metrics summary.
     source_counts: dict[str, int] = {}
     for r in all_rows:
         src = str(r["source_corpus"])
@@ -251,7 +224,7 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
         logger.info("ner_source_summary", source_corpus=src, total_mentions=count)
     logger.info("ner_total_mentions", total=len(all_rows))
 
-    # Step 7: Build output table.
+    # Step 6: Build output table.
     output_paths: list[Path] = []
 
     if all_rows:
@@ -285,7 +258,7 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
     else:
         logger.warning("ner_no_mentions", msg="No narrator mentions extracted from any source")
 
-    # Step 8: Name audit CSV.
+    # Step 7: Name audit CSV.
     if all_rows:
         audit_path = _write_name_audit_csv(all_rows, output_dir)
         output_paths.append(audit_path)

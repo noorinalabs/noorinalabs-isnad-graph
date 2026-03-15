@@ -59,7 +59,7 @@ def _load_hadith_texts(
 
     Returns (hadith_ids, texts, corpora) with null/empty matn_en rows excluded.
     """
-    hadith_files = sorted(staging_dir.glob("**/hadith*.parquet"))
+    hadith_files = sorted(staging_dir.glob("**/hadiths_*.parquet"))
     if not hadith_files:
         logger.warning("dedup_no_hadith_files", staging_dir=str(staging_dir))
         return [], [], []
@@ -146,18 +146,24 @@ def run_dedup(
     model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
     logger.info("dedup_encoding", count=len(texts), batch_size=batch_size)
-    embeddings: npt.NDArray[np.float32] = model.encode(
-        texts,
-        batch_size=batch_size,
-        show_progress_bar=False,
-        convert_to_numpy=True,
-        normalize_embeddings=True,
-    )
+
+    # Encode in chunks to log progress during embedding generation (#81)
+    all_embeddings: list[npt.NDArray[np.float32]] = []
+    for start in range(0, len(texts), batch_size):
+        end = min(start + batch_size, len(texts))
+        chunk: npt.NDArray[np.float32] = model.encode(
+            texts[start:end],
+            batch_size=batch_size,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        )
+        all_embeddings.append(chunk)
+        logger.info("dedup_encoding_progress", processed=end, total=len(texts))
+
+    embeddings: npt.NDArray[np.float32] = np.vstack(all_embeddings)
     # Ensure float32 for FAISS
     embeddings = np.ascontiguousarray(embeddings, dtype=np.float32)
-
-    for i in range(0, len(texts), 1000):
-        logger.info("dedup_encoding_progress", processed=min(i + 1000, len(texts)))
 
     # ------------------------------------------------------------------
     # 3. Persist embeddings & ID mapping
@@ -268,7 +274,7 @@ def run_dedup(
     # 7. Summary logging
     # ------------------------------------------------------------------
     elapsed = time.monotonic() - t0
-    tier_counts = {"verbatim": 0, "close_paraphrase": 0, "thematic": 0}
+    tier_counts: dict[str, int] = {vt.value: 0 for vt in VariantType}
     cross_sect_count = 0
     for vt, cs in zip(variant_types, cross_sects):
         tier_counts[vt] = tier_counts.get(vt, 0) + 1
@@ -278,9 +284,9 @@ def run_dedup(
     logger.info(
         "dedup_complete",
         total_pairs=len(ids_a),
-        verbatim=tier_counts["verbatim"],
-        close_paraphrase=tier_counts["close_paraphrase"],
-        thematic=tier_counts["thematic"],
+        verbatim=tier_counts[VariantType.VERBATIM],
+        close_paraphrase=tier_counts[VariantType.CLOSE_PARAPHRASE],
+        thematic=tier_counts[VariantType.THEMATIC],
         cross_sect=cross_sect_count,
         elapsed_seconds=round(elapsed, 2),
     )

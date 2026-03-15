@@ -33,6 +33,7 @@ dev = [
     "ruff>=0.3",
     "mypy>=1.8",
     "types-tqdm>=4.66",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 ml = [
     "sentence-transformers>=2.5",
