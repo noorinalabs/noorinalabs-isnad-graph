@@ -83,6 +83,23 @@ def _cmd_parse() -> None:
     print(f"Parsing complete. {total_files} staging files produced.")
 
 
+def _cmd_resolve() -> None:
+    """Run the Phase 2 entity resolution pipeline."""
+    from pathlib import Path
+
+    from src.config import get_settings
+    from src.resolve import run_all as resolve_all
+
+    settings = get_settings()
+    results = resolve_all(
+        Path(settings.data_raw_dir),
+        Path(settings.data_staging_dir),
+        Path(settings.data_curated_dir),
+    )
+    total = sum(len(v) for v in results.values())
+    print(f"Resolution complete. {total} output files.")
+
+
 def _cmd_stub(name: str) -> None:
     """Print a not-yet-implemented message for a pipeline stage."""
     print(f"Command '{name}' not yet implemented. See Makefile targets.")
@@ -122,6 +139,8 @@ def main() -> None:
 
         settings = get_settings()
         validate_staging(Path(settings.data_staging_dir))
+    elif args.command == "resolve":
+        _cmd_resolve()
     else:
         _cmd_stub(args.command)
 
