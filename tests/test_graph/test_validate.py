@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from src.graph.validate import _classify
+
 # The validation queries live in queries/validation/*.cypher
 QUERIES_DIR = Path(__file__).resolve().parents[2] / "queries" / "validation"
 
@@ -38,37 +40,41 @@ class TestOrphanCheckClassification:
     """Orphan check: 0 results = pass (no orphan narrators)."""
 
     def test_zero_results_is_pass(self) -> None:
-        results: list[dict[str, str]] = []
-        assert len(results) == 0  # pass condition
+        result = _classify("orphan_narrators", [])
+        assert result.passed is True
+        assert result.row_count == 0
 
     def test_nonzero_results_is_fail(self) -> None:
-        results = [
+        rows: list[dict[str, object]] = [
             {"narrator_id": "nar:orphan-1", "name": "Orphan Narrator"},
         ]
-        assert len(results) > 0  # fail condition
+        result = _classify("orphan_narrators", rows)
+        assert result.passed is False
+        assert result.row_count == 1
 
 
 class TestChainIntegrityClassification:
     """Chain integrity: 0 cycles = pass."""
 
     def test_zero_cycles_is_pass(self) -> None:
-        results: list[dict[str, object]] = []
-        assert len(results) == 0  # no cycles found
+        result = _classify("chain_integrity", [])
+        assert result.passed is True
+        assert result.row_count == 0
 
     def test_cycles_detected_is_fail(self) -> None:
-        results = [
+        rows: list[dict[str, object]] = [
             {"narrator_id": "nar:cycle-node", "cycle_length": 3},
         ]
-        assert len(results) > 0  # cycles found = fail
+        result = _classify("chain_integrity", rows)
+        assert result.passed is False
+        assert result.row_count == 1
 
 
 class TestCollectionCoverageClassification:
     """Collection coverage: deviation within threshold = pass."""
 
-    THRESHOLD_PCT = 10.0
-
     def test_within_threshold_is_pass(self) -> None:
-        results = [
+        rows: list[dict[str, object]] = [
             {
                 "collection_id": "col:bukhari",
                 "expected": 7563,
@@ -82,30 +88,22 @@ class TestCollectionCoverageClassification:
                 "deviation_pct": 1.16,
             },
         ]
-        for row in results:
-            assert row["deviation_pct"] is None or row["deviation_pct"] <= self.THRESHOLD_PCT
+        result = _classify("collection_coverage", rows)
+        assert result.passed is True
 
     def test_exceeds_threshold_is_fail(self) -> None:
-        results = [
+        rows: list[dict[str, object]] = [
             {"collection_id": "col:bad", "expected": 1000, "actual": 500, "deviation_pct": 50.0},
         ]
-        failures = [
-            r
-            for r in results
-            if r["deviation_pct"] is not None and r["deviation_pct"] > self.THRESHOLD_PCT
-        ]
-        assert len(failures) > 0
+        result = _classify("collection_coverage", rows)
+        assert result.passed is False
 
     def test_null_expected_is_pass(self) -> None:
-        results = [
+        rows: list[dict[str, object]] = [
             {"collection_id": "col:unknown", "expected": None, "actual": 42, "deviation_pct": None},
         ]
-        failures = [
-            r
-            for r in results
-            if r["deviation_pct"] is not None and r["deviation_pct"] > self.THRESHOLD_PCT
-        ]
-        assert len(failures) == 0  # null expected count means no comparison possible
+        result = _classify("collection_coverage", rows)
+        assert result.passed is True
 
 
 class TestCypherFileLoading:
