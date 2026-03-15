@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,7 @@ DEFAULT_USER_AGENT = "isnad-graph/1.0 (hadith-research)"
 DEFAULT_TIMEOUT = 60.0
 
 # Type alias for paginated response parser callbacks.
-ResponseParser = Any  # Callable[[dict[str, Any]], tuple[list[dict[str, Any]], int | None]]
+ResponseParser = Callable[[dict[str, Any] | list[Any]], tuple[list[dict[str, Any]], int | None]]
 
 
 def ensure_dir(path: Path) -> Path:

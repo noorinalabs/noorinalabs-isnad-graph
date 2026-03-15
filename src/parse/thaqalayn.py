@@ -41,21 +41,35 @@ def _extract_hadiths_api(data: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+# Fields that indicate a dict is a hadith record rather than arbitrary metadata
+_HADITH_FIELD_INDICATORS = frozenset({
+    "hadithNumber", "hadith_number", "number",
+    "textAr", "text_ar", "arabicText", "arabic",
+    "textEn", "text_en", "englishText", "english", "translation",
+    "isnad", "matn", "grade", "grading",
+})
+
+
+def _looks_like_hadith(obj: object) -> bool:
+    """Return True if a dict has at least one hadith-indicative field."""
+    return isinstance(obj, dict) and bool(obj.keys() & _HADITH_FIELD_INDICATORS)
+
+
 def _extract_hadiths_github(data: Any) -> list[dict[str, Any]]:
     """Extract hadith list from GitHub-format JSON."""
     if isinstance(data, list):
-        return list(data)
+        return [item for item in data if _looks_like_hadith(item)]
     if isinstance(data, dict):
         # Try common wrapper keys
         for key in ("hadiths", "data", "chapters"):
             val = data.get(key)
             if isinstance(val, list):
-                return list(val)
-        # Might be nested chapters with hadiths
+                return [item for item in val if _looks_like_hadith(item)]
+        # Might be nested chapters with hadiths — require hadith-indicative fields
         result: list[dict[str, Any]] = []
-        for key, val in data.items():
+        for val in data.values():
             if isinstance(val, list):
-                result.extend(v for v in val if isinstance(v, dict))
+                result.extend(v for v in val if _looks_like_hadith(v))
         return result
     return []
 
@@ -152,8 +166,11 @@ def _infer_book_number(file_path: Path) -> int | None:
     return None
 
 
-def discover(raw_dir: Path) -> None:
-    """Load first JSON and log keys/structure for field mapping discovery."""
+def _discover(raw_dir: Path) -> None:
+    """Load first JSON and log keys/structure for field mapping discovery.
+
+    Development utility — only callable via ``python -m src.parse.thaqalayn``.
+    """
     thaq_dir = raw_dir / "thaqalayn"
     json_files = sorted(thaq_dir.glob("book_*.json"))
     if not json_files:
@@ -282,3 +299,13 @@ def run(raw_dir: Path, staging_dir: Path) -> tuple[Path, Path]:
         collections=len(coll_rows),
     )
     return hadiths_path, collections_path
+
+
+if __name__ == "__main__":
+    import sys
+
+    from src.config import get_settings
+
+    settings = get_settings()
+    if "--discover" in sys.argv:
+        _discover(settings.data_raw_dir)

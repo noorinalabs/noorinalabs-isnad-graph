@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from src.parse.schemas import (
@@ -19,7 +21,7 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-EXPECTED_SCHEMAS: dict[str, Any] = {
+EXPECTED_SCHEMAS: dict[str, pa.Schema] = {
     "hadiths_": HADITH_SCHEMA,
     "narrator_mentions_": NARRATOR_MENTION_SCHEMA,
     "narrators_bio_": NARRATOR_BIO_SCHEMA,
@@ -35,7 +37,7 @@ def _has_arabic(text: str) -> bool:
     return bool(_ARABIC_RE.search(text))
 
 
-def _null_percentages(table: pq.ParquetFile | Any) -> dict[str, float]:
+def _null_percentages(table: pa.Table) -> dict[str, float]:
     """Compute null percentage per column for a PyArrow table."""
     result: dict[str, float] = {}
     num_rows = len(table)
@@ -48,7 +50,7 @@ def _null_percentages(table: pq.ParquetFile | Any) -> dict[str, float]:
     return result
 
 
-def _match_schema(filename: str) -> tuple[str, Any] | None:
+def _match_schema(filename: str) -> tuple[str, pa.Schema] | None:
     """Match a filename against expected schema prefixes."""
     for prefix, schema in EXPECTED_SCHEMAS.items():
         if filename.startswith(prefix):
@@ -57,7 +59,7 @@ def _match_schema(filename: str) -> tuple[str, Any] | None:
 
 
 def _check_schema_conformance(
-    table_schema: Any, expected_schema: Any
+    table_schema: pa.Schema, expected_schema: pa.Schema
 ) -> list[str]:
     """Compare table schema against expected. Return list of issues."""
     issues: list[str] = []
@@ -133,27 +135,29 @@ def validate_staging(staging_dir: Path) -> dict[str, Any]:
 
             # Duplicate source_ids
             if "source_id" in table.column_names:
-                source_ids = table.column("source_id").to_pylist()
-                total = len(source_ids)
-                unique = len(set(source_ids))
+                source_col = table.column("source_id")
+                total = len(source_col)
+                unique = pc.count(pc.unique(source_col)).as_py()
                 dupes = total - unique
                 hadith_checks["duplicate_source_ids"] = dupes
             else:
                 hadith_checks["duplicate_source_ids"] = None
 
-            # Empty matn fields
+            # Empty matn fields — count nulls + empty/whitespace-only strings
             empty_matn_ar = 0
             empty_matn_en = 0
             if "matn_ar" in table.column_names:
-                matn_ar = table.column("matn_ar")
-                for val in matn_ar.to_pylist():
-                    if val is None or val.strip() == "":
-                        empty_matn_ar += 1
+                col = table.column("matn_ar")
+                null_count = col.null_count
+                stripped = pc.utf8_trim(col.drop_null(), " \t\n\r")
+                blank_count = pc.sum(pc.equal(stripped, "")).as_py()
+                empty_matn_ar = null_count + blank_count
             if "matn_en" in table.column_names:
-                matn_en = table.column("matn_en")
-                for val in matn_en.to_pylist():
-                    if val is None or val.strip() == "":
-                        empty_matn_en += 1
+                col = table.column("matn_en")
+                null_count = col.null_count
+                stripped = pc.utf8_trim(col.drop_null(), " \t\n\r")
+                blank_count = pc.sum(pc.equal(stripped, "")).as_py()
+                empty_matn_en = null_count + blank_count
             hadith_checks["empty_matn_ar"] = empty_matn_ar
             hadith_checks["empty_matn_en"] = empty_matn_en
 
@@ -161,13 +165,16 @@ def validate_staging(staging_dir: Path) -> dict[str, Any]:
             ar_count = 0
             en_count = 0
             if "matn_ar" in table.column_names:
-                for val in table.column("matn_ar").to_pylist():
-                    if val is not None and _has_arabic(val):
-                        ar_count += 1
+                col = table.column("matn_ar")
+                non_null = col.drop_null()
+                ar_count = pc.sum(
+                    pc.match_substring_regex(non_null, r"[\u0600-\u06FF]")
+                ).as_py()
             if "matn_en" in table.column_names:
-                for val in table.column("matn_en").to_pylist():
-                    if val is not None and val.strip() != "":
-                        en_count += 1
+                col = table.column("matn_en")
+                non_null = col.drop_null()
+                stripped = pc.utf8_trim(non_null, " \t\n\r")
+                en_count = pc.sum(pc.not_equal(stripped, "")).as_py()
             if num_rows > 0:
                 hadith_checks["arabic_coverage_pct"] = round(100.0 * ar_count / num_rows, 2)
                 hadith_checks["english_coverage_pct"] = round(100.0 * en_count / num_rows, 2)

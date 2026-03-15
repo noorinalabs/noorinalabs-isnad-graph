@@ -49,7 +49,14 @@ def run(raw_dir: Path) -> Path:
     """
     dest = ensure_dir(raw_dir / "fawaz")
 
-    # 1. Download editions.json (small catalog file)
+    # 1. Idempotency check — skip network requests if edition files already present
+    existing_editions = list(dest.glob("eng-*.json"))
+    if len(existing_editions) >= MIN_EXPECTED_EDITIONS:
+        logger.info("fawaz_already_acquired", edition_count=len(existing_editions))
+        write_manifest(dest, existing_editions)
+        return dest
+
+    # 2. Download editions.json (small catalog file)
     editions_path = dest / "editions.json"
     editions_data = fetch_json(EDITIONS_URL)
     if not editions_path.exists() or editions_path.stat().st_size == 0:
@@ -57,11 +64,11 @@ def run(raw_dir: Path) -> Path:
             json.dump(editions_data, f, indent=2)
         logger.info("editions_catalog_saved", path=str(editions_path))
 
-    # 2. Download info.json (grading metadata)
+    # 3. Download info.json (grading metadata)
     info_path = dest / "info.json"
     download_file(INFO_URL, info_path)
 
-    # 3. Filter English editions and download each
+    # 4. Filter English editions and download each
     keys = _english_edition_keys(editions_data)
     logger.info("english_editions_found", count=len(keys))
 
@@ -78,7 +85,7 @@ def run(raw_dir: Path) -> Path:
             download_file(url, edition_path, client=client, timeout=120.0)
             downloaded.append(edition_path)
 
-    # 4. Validate minimum edition count
+    # 5. Validate minimum edition count
     edition_files = [p for p in dest.glob("eng-*.json")]
     if len(edition_files) < MIN_EXPECTED_EDITIONS:
         msg = (

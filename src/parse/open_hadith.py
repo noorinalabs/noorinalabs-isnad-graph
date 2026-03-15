@@ -86,11 +86,17 @@ def run(raw_dir: Path, staging_dir: Path) -> Path:
         book_col = _find_column(headers, _BOOK_COLUMNS)
         chapter_col = _find_column(headers, _CHAPTER_COLUMNS)
 
+        # Convert columns to Python lists once (avoid O(n^2) per-row conversion).
+        number_vals = table.column(number_col).to_pylist() if number_col else None
+        text_vals = table.column(text_col).to_pylist() if text_col else None
+        book_vals = table.column(book_col).to_pylist() if book_col else None
+        chapter_vals = table.column(chapter_col).to_pylist() if chapter_col else None
+
         for i in range(table.num_rows):
-            hadith_num = safe_int(table.column(number_col).as_py()[i]) if number_col else i + 1
-            text_value = safe_str(table.column(text_col).as_py()[i]) if text_col else None
-            book_num = safe_int(table.column(book_col).as_py()[i]) if book_col else None
-            chapter_num = safe_int(table.column(chapter_col).as_py()[i]) if chapter_col else None
+            hadith_num = safe_int(number_vals[i]) if number_vals is not None else i + 1
+            text_value = safe_str(text_vals[i]) if text_vals is not None else None
+            book_num = safe_int(book_vals[i]) if book_vals is not None else None
+            chapter_num = safe_int(chapter_vals[i]) if chapter_vals is not None else None
 
             source_id = generate_source_id("open_hadith", collection, hadith_num or (i + 1))
 

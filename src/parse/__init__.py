@@ -3,28 +3,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from types import ModuleType
 
 from src.parse import fawaz, lk_corpus, muhaddithat, open_hadith, sunnah_api, thaqalayn
 from src.parse.sanadset import parse_sanadset
 from src.utils.logging import get_logger
 
-if TYPE_CHECKING:
-    from types import ModuleType
-
 logger = get_logger(__name__)
 
-PARSERS: list[tuple[str, ModuleType]] = [
+PARSERS: list[tuple[str, ModuleType | None]] = [
     ("lk", lk_corpus),
-    ("sanadset", None),  # type: ignore[list-item]  # handled separately
+    ("sanadset", None),
     ("thaqalayn", thaqalayn),
     ("fawaz", fawaz),
     ("sunnah", sunnah_api),
     ("open_hadith", open_hadith),
     ("muhaddithat", muhaddithat),
 ]
-
-
 def _normalize_output(result: Path | tuple[Path, ...] | list[Path] | dict[str, Path]) -> list[Path]:
     """Normalize parser return values to a flat list of Paths."""
     if isinstance(result, dict):
@@ -34,8 +29,6 @@ def _normalize_output(result: Path | tuple[Path, ...] | list[Path] | dict[str, P
     if isinstance(result, list):
         return result
     return [result]
-
-
 def _parse_one(
     name: str, module: ModuleType | None, raw_dir: Path, staging_dir: Path
 ) -> list[Path]:
@@ -44,8 +37,6 @@ def _parse_one(
         return _normalize_output(parse_sanadset(raw_dir / "sanadset", staging_dir))
     assert module is not None
     return _normalize_output(module.run(raw_dir, staging_dir))
-
-
 def run_all(raw_dir: Path, staging_dir: Path) -> dict[str, list[Path]]:
     """Run all parsers. Continue on failure. Return dict of source -> output files."""
     results: dict[str, list[Path]] = {}
@@ -56,7 +47,7 @@ def run_all(raw_dir: Path, staging_dir: Path) -> dict[str, list[Path]]:
             results[name] = output_files
             logger.info("parsed", source=name, files=len(output_files))
         except Exception as exc:  # noqa: BLE001
-            logger.error("parse_failed", source=name, error=str(exc))
+            logger.error("parse_failed", source=name, error=str(exc), exc_info=True)
             results[name] = []
 
     # Summary with row counts

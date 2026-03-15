@@ -33,8 +33,8 @@ acquire: ## Phase 1: Download all data sources
 parse: ## Phase 1: Parse raw data into staging Parquet files
 	uv run isnad parse
 
-resolve: ## Phase 2: Entity resolution
-	@echo "Phase 2 not yet implemented"
+resolve: ## Phase 2: Entity resolution (NER + disambiguation + dedup)
+	uv run isnad resolve
 
 load: ## Phase 3: Load graph database
 	@echo "Phase 3 not yet implemented"

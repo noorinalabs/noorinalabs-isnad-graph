@@ -11,10 +11,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pandas as pd  # type: ignore[import-untyped]
 import pyarrow as pa
+import pyarrow.csv as pcsv
 
-from src.parse.base import generate_source_id, safe_int, safe_str, write_parquet
+from src.parse.base import generate_source_id, read_csv_robust, safe_int, safe_str, write_parquet
 from src.parse.narrator_extraction import extract_narrator_mentions
 from src.parse.schemas import COLLECTION_SCHEMA, HADITH_SCHEMA, NARRATOR_MENTION_SCHEMA
 from src.utils.arabic import normalize_arabic
@@ -82,29 +82,41 @@ def _derive_collection_name(filename: str) -> str | None:
     return FILENAME_TO_COLLECTION.get(stem)
 
 
+def _invalid_row_handler(row: pcsv.InvalidRow) -> str:
+    """Log and skip invalid CSV rows (equivalent to pandas on_bad_lines='warn')."""
+    logger.warning(
+        "lk_bad_csv_line",
+        row_number=row.number,
+        expected_columns=row.expected_columns,
+        actual_columns=row.actual_columns,
+    )
+    return "skip"
+
+
 def _parse_single_csv(
     csv_path: Path,
     collection_name: str,
 ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
     """Parse a single LK CSV into hadith rows and narrator mention rows."""
-    df = pd.read_csv(csv_path, encoding="utf-8", on_bad_lines="warn")
+    parse_options = pcsv.ParseOptions(invalid_row_handler=_invalid_row_handler)
+    table, _enc = read_csv_robust(csv_path, parse_options=parse_options)
 
     # Validate column count.
-    if len(df.columns) != len(LK_COLUMNS):
+    if len(table.column_names) != len(LK_COLUMNS):
         logger.warning(
             "lk_column_mismatch",
             path=str(csv_path),
             expected=len(LK_COLUMNS),
-            actual=len(df.columns),
+            actual=len(table.column_names),
         )
     # Re-assign column names from schema if column count matches.
-    if len(df.columns) == len(LK_COLUMNS):
-        df.columns = pd.Index(LK_COLUMNS)
+    if len(table.column_names) == len(LK_COLUMNS):
+        table = table.rename_columns(LK_COLUMNS)
 
     hadith_rows: list[dict[str, object]] = []
     mention_rows: list[dict[str, object]] = []
 
-    for _, row in df.iterrows():
+    for row in table.to_pylist():
         chapter_num = safe_int(row.get("Chapter_Number"))
         section_num = safe_int(row.get("Section_Number"))
         hadith_num = safe_int(row.get("Hadith_number"))
