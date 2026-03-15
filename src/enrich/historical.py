@@ -86,7 +86,7 @@ def run_historical_overlay(client: Neo4jClient) -> HistoricalResult:
         for evt in events:
             e_start = evt["year_start_ah"]
             e_end = evt["year_end_ah"]
-            # Overlap: narrator was alive during any part of the event
+            # Overlap: narrator alive during any part of the event
             if n_birth <= e_end and n_death >= e_start:
                 batch.append({"narrator_id": nar["id"], "event_id": evt["id"]})
                 linked_narrators.add(nar["id"])
