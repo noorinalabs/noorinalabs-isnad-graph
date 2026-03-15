@@ -33,6 +33,15 @@ Every newly created issue receives a review pass from each of the following role
 
 Reviews may include: architectural concerns, infrastructure requirements, data impact, testing strategy, security flags, or cross-team dependencies. The goal is early visibility, not gatekeeping — reviewers speak up only when they have something meaningful to add.
 
+### Work Gate: Issues Before Implementation
+
+**No lead (System Architect, DevOps Architect, Data Lead, or Tech Lead) may begin implementation work or delegate it to their reports until ALL GitHub Issues for the current phase have been:**
+
+1. **Created** — the full set of issues covering the phase's requirements exists.
+2. **Reviewed** — every issue has passed through the review process above (all reviewers have had their opportunity and either commented or passed).
+
+Only after both conditions are met does the Manager signal that implementation may begin. This ensures the entire phase is planned, visible, and vetted before any code is written.
+
 ## Org Chart
 
 ```mermaid
@@ -201,6 +210,24 @@ graph TD
 - The new member's roster file is created in `roster/`
 - The Manager is the only role that can fire/hire (except the Manager themselves, who the user fires)
 
+### Trust Identity Matrix
+
+Each team member maintains a directional trust score (1–5) for every other team member they interact with.
+
+| Score | Meaning |
+|-------|---------|
+| 1 | Very low trust — repeated failures, dishonesty, or poor quality |
+| 2 | Low trust — notable issues, caution warranted |
+| 3 | Neutral (default) — no strong signal either way |
+| 4 | High trust — consistently reliable, good communication |
+| 5 | Very high trust — exceptional reliability, goes above and beyond |
+
+- **Default:** Every pair starts at 3.
+- **Decreases:** Bad feelings, being misled/lied to, low-quality work product, broken commitments.
+- **Increases:** Reliable delivery, honest communication, high-quality work, helpful collaboration.
+- **Storage:** The full matrix and change log live in `.claude/team/trust_matrix.md` on the long-running branch `CEO/0000-Trust_Matrix`. Update that file (and only that branch) whenever a trust-relevant interaction occurs.
+- **Directional:** A's trust in B may differ from B's trust in A.
+
 ## Steady-State Goal
 
 The team should evolve through feedback cycles toward a steady state of little to no negative feedback. Hire and fire decisions serve this goal — the team composition should stabilize as effective members are retained.
@@ -235,12 +262,48 @@ After receiving the review, the submitter evaluates each tech debt item:
 - The Tech Lead tracks all tech debt in GitHub Issues (labeled appropriately).
 - The Tech Lead assigns tech debt work to engineers such that **tech debt never exceeds 20% of any single engineer's work for the day**. The remaining 80%+ is feature/bug work from the roadmap.
 
+## Pull Requests
+
+When all work on a feature branch is complete (code committed, peer review done, must-fixes resolved), the submitting engineer **automatically creates a PR to `main`** using the `gh` CLI. Do not wait for manual instruction.
+
+```bash
+git push -u origin <branch-name>
+gh pr create --base main --title "<short title>" --body "$(cat <<'EOF'
+## Summary
+<1-3 bullet points describing the change>
+
+## Related Issues
+Closes #<issue-number>
+
+## Review Checklist
+- [ ] Peer reviewed by another engineer
+- [ ] Must-fix items resolved
+- [ ] Tech debt items filed as GitHub Issues (if any)
+
+Co-Authored-By: Firstname Lastname <parametrization+Firstname.Lastname@gmail.com>
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+- PR title should be concise (under 70 characters).
+- The body must reference the related GitHub Issue(s) with `Closes #N`.
+- The submitting engineer is responsible for creating the PR immediately upon branch completion.
+
 ## Commit Identity
 
 Every team member MUST use their personal git identity (from their roster card's `## Git Identity` section) when committing. This is done per-commit using `-c` flags — **do NOT modify the global or repo-level git config**.
 
+Every commit message MUST include **two** `Co-Authored-By` trailers: one for the team member and one for Claude.
+
 ```bash
-git -c user.name="Firstname Lastname" -c user.email="parametrization+Firstname.Lastname@gmail.com" commit -m "message"
+git -c user.name="Firstname Lastname" -c user.email="parametrization+Firstname.Lastname@gmail.com" commit -m "$(cat <<'EOF'
+Commit message here.
+
+Co-Authored-By: Firstname Lastname <parametrization+Firstname.Lastname@gmail.com>
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
 ```
 
 | Team Member | user.name | user.email |
