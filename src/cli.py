@@ -206,6 +206,42 @@ def _cmd_validate() -> None:
         print("\nAll validation checks passed.")
 
 
+def _cmd_enrich() -> None:
+    """Run the Phase 4 enrichment pipeline."""
+    from pathlib import Path
+
+    from src.config import get_settings
+    from src.enrich import run_all as enrich_all
+    from src.utils.neo4j_client import Neo4jClient
+
+    settings = get_settings()
+    _check_neo4j()
+
+    staging_dir = Path(settings.data_staging_dir)
+
+    with Neo4jClient() as client:
+        summary = enrich_all(client, staging_dir)
+
+    print("\n=== Enrich Summary ===")
+    print(f"  Steps completed: {', '.join(summary.steps_completed) or 'none'}")
+    print(f"  Steps failed   : {', '.join(summary.steps_failed) or 'none'}")
+
+    if summary.metrics:
+        m = summary.metrics
+        print(f"\n  Metrics: {m.narrators_enriched} narrators enriched, "
+              f"{m.communities_found} communities")
+    if summary.topics:
+        t = summary.topics
+        print(f"  Topics: {t.hadiths_classified} classified, {t.hadiths_skipped} skipped")
+    if summary.historical:
+        h = summary.historical
+        print(f"  Historical: {h.edges_created} edges, "
+              f"{h.narrators_linked} narrators, {h.events_linked} events")
+
+    if summary.steps_failed:
+        sys.exit(1)
+
+
 def _cmd_stub(name: str) -> None:
     """Print a not-yet-implemented message for a pipeline stage."""
     print(f"Command '{name}' not yet implemented. See Makefile targets.")
@@ -258,6 +294,8 @@ def main() -> None:
             skip_validation=args.skip_validation,
             nodes_only=args.nodes_only,
         )
+    elif args.command == "enrich":
+        _cmd_enrich()
     elif args.command == "validate":
         _cmd_validate()
     else:

@@ -39,8 +39,8 @@ resolve: ## Phase 2: Entity resolution (NER + disambiguation + dedup)
 load: ## Phase 3: Load graph into Neo4j
 	uv run isnad load
 
-enrich: ## Phase 4: Compute metrics
-	@echo "Phase 4 not yet implemented"
+enrich: ## Phase 4: Compute metrics, topics, historical overlay
+	uv run isnad enrich
 
 clean: ## Remove staging data and caches
 	rm -rf data/staging/*
