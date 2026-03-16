@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
@@ -18,7 +19,7 @@ def mock_neo4j() -> MagicMock:
 
 
 @pytest.fixture
-def app(mock_neo4j: MagicMock) -> object:
+def app(mock_neo4j: MagicMock) -> FastAPI:
     """FastAPI app with mocked Neo4j (lifespan disabled)."""
     from src.api.app import create_app
 
@@ -28,6 +29,6 @@ def app(mock_neo4j: MagicMock) -> object:
 
 
 @pytest.fixture
-def client(app: object) -> TestClient:
+def client(app: FastAPI) -> TestClient:
     """Test client."""
-    return TestClient(app)  # type: ignore[arg-type]
+    return TestClient(app)
