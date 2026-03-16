@@ -1,10 +1,16 @@
-"""Security middleware: headers, rate limiting, request size limits."""
+"""Authentication and security middleware for FastAPI."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+from fastapi import Request
+from fastapi.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.requests import Request
+from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response
+
+from src.auth.models import User
 
 # Default maximum request body size: 1 MB.
 DEFAULT_MAX_BODY_SIZE = 1_048_576
@@ -13,7 +19,9 @@ DEFAULT_MAX_BODY_SIZE = 1_048_576
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add OWASP-recommended security headers to all responses."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: StarletteRequest, call_next: RequestResponseEndpoint
+    ) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -32,7 +40,9 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)  # type: ignore[arg-type]
         self.max_body_size = max_body_size
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: StarletteRequest, call_next: RequestResponseEndpoint
+    ) -> Response:
         content_length = request.headers.get("content-length")
         if content_length is not None:
             try:
@@ -63,7 +73,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute = requests_per_minute
         self._window: dict[str, list[float]] = {}
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: StarletteRequest, call_next: RequestResponseEndpoint
+    ) -> Response:
         import time
 
         client_ip = request.client.host if request.client else "unknown"
@@ -85,3 +97,40 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         timestamps.append(now)
         self._window[client_ip] = timestamps
         return await call_next(request)
+
+
+async def require_auth(request: Request) -> User:
+    """FastAPI dependency that requires a valid Bearer token.
+
+    Extracts the JWT from the Authorization header, verifies it,
+    and returns a User object. Raises 401 if the token is missing or invalid.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+
+    token = auth_header.removeprefix("Bearer ")
+
+    from src.auth.tokens import verify_token
+
+    try:
+        payload = verify_token(token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")  # noqa: B904
+
+    token_type = payload.get("type")
+    if token_type != "access":
+        raise HTTPException(status_code=401, detail="Invalid token type")
+
+    user_id = payload.get("sub")
+    if not isinstance(user_id, str):
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    return User(
+        id=user_id,
+        email=f"{user_id}@placeholder",
+        name=user_id,
+        provider="jwt",
+        provider_user_id=user_id,
+        created_at=datetime.now(UTC),
+    )

@@ -34,12 +34,32 @@ class RedisSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
 
+class AuthSettings(BaseSettings):
+    """OAuth and JWT authentication settings."""
+
+    jwt_secret: str = "dev-secret-change-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    apple_client_id: str = ""
+    apple_client_secret: str = ""
+    facebook_client_id: str = ""
+    facebook_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+
+    model_config = SettingsConfigDict(env_prefix="AUTH_")
+
+
 class Settings(BaseSettings):
     """Root application settings, composed from nested service settings."""
 
     neo4j: Neo4jSettings = Neo4jSettings()
     postgres: PostgresSettings = PostgresSettings()
     redis: RedisSettings = RedisSettings()
+    auth: AuthSettings = AuthSettings()
 
     sunnah_api_key: str = ""
     kaggle_username: str = ""

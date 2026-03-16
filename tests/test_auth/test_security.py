@@ -47,12 +47,24 @@ def mock_neo4j() -> MagicMock:
 @pytest.fixture
 def app(mock_neo4j: MagicMock):  # noqa: ANN201
     """FastAPI app with mocked Neo4j (lifespan disabled)."""
+    from datetime import UTC, datetime
+
     from fastapi import FastAPI
 
     from src.api.app import create_app
+    from src.api.middleware import require_auth
+    from src.auth.models import User
 
     app: FastAPI = create_app()
     app.state.neo4j = mock_neo4j
+    app.dependency_overrides[require_auth] = lambda: User(
+        id="test-user",
+        email="test@example.com",
+        name="Test User",
+        provider="jwt",
+        provider_user_id="test-user",
+        created_at=datetime.now(UTC),
+    )
     return app
 
 
