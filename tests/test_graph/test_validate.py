@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from src.graph.validate import (
+    _CLASSIFIER_REGISTRY,
     ValidationResult,
     _classify,
-    _CLASSIFIER_REGISTRY,
     register_classifier,
 )
 
