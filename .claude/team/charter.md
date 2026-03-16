@@ -370,6 +370,27 @@ This removes references to worktrees whose directories no longer exist. Without 
 
 The orchestrating agent is responsible for running `git worktree prune` after shutting down all wave agents and before creating the next wave's deployments branch.
 
+### Agent Naming Convention
+
+**Every spawned agent MUST map to a team roster member.** No anonymous functional agents.
+
+- **Naming pattern:** `{firstname}-{task-description}` (e.g., `tomasz-ci-fix`, `fatima-issue-audit`)
+- The orchestrator determines the most appropriate team member for the task BEFORE spawning
+- Tasks are assigned based on role fit (DevOps tasks → Tomasz, security → Yara, tests → Carolina, etc.)
+- **Violations:** Agents named with functional-only names (e.g., `ci-fixer`, `issue-closer`, `wave1-p7-launcher`) are NOT allowed
+
+**Mapping guide:**
+| Task Type | Assigned To |
+|-----------|-------------|
+| CI/CD, Docker, infrastructure | Tomasz Wójcik |
+| Security reviews, auth, OWASP | Yara Hadid |
+| Issue management, planning, retros | Fatima Okonkwo |
+| Architecture, diagrams, ADRs | Renaud Tremblay |
+| Code review, tech lead decisions | Dmitri Volkov |
+| Data quality, profiling, validation | Elena Petrova |
+| Test suites, QA | Priya Nair / Carolina Méndez-Ríos |
+| Feature implementation | Kwame / Amara / Hiro / Carolina |
+
 ## Code Review & Tech Debt
 
 ### Peer Review
@@ -410,6 +431,16 @@ When all work on a feature branch is complete (code committed, peer review done,
    - **Non-trivial tech debt**: Create a GitHub Issue assigned to themselves (labeled `tech-debt` + their `FIRSTNAME_LASTNAME` label) for the Tech Lead to allocate in future planning (max 20% of any team member's capacity).
 5. **Push final changes** from the review fixes.
 6. **The team merges** the PR into the deployments branch themselves — no user approval needed for PRs into deployments branches.
+
+### Cross-PR Dependency Sequencing
+
+When multiple PRs in the same wave have dependencies (e.g., PR B imports a module created by PR A):
+
+1. **Identify dependencies** before merging — check if any PR imports files from another PR's branch
+2. **Merge in dependency order** — base PR first, dependent PR second
+3. **Do NOT merge dependent PRs in parallel** — even if both have green CI, the dependent PR's CI ran against the base branch WITHOUT the dependency
+4. **After merging the base PR**, the dependent PR must rebase/merge the updated base before its CI result is trusted
+5. **Document dependencies** in PR descriptions: "Depends on PR #N (must merge first)"
 
 At the **end of a phase**, the Manager creates a PR from the final deployments branch into `main`. The **user reviews and merges** this PR. Do not proceed to the next phase until the user has merged.
 

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean pipeline validate-staging validate-pipeline profile-data test-e2e test-e2e-headed
+.PHONY: help setup setup-hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean pipeline validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -73,6 +73,13 @@ test-e2e: ## Run Playwright browser tests (requires running app)
 
 test-e2e-headed: ## Run Playwright tests with visible browser
 	uv run pytest tests/e2e/ -v -m e2e --headed
+
+check:           ## Run all CI checks locally (lint + typecheck + test)
+	uv run ruff check src/ tests/
+	uv run ruff format --check src/ tests/
+	uv run mypy src/
+	uv run pytest tests/ -v --tb=short -x -m "not integration and not e2e"
+	@echo "All checks passed. Safe to push."
 
 pipeline: ## Run full pipeline
 	$(MAKE) acquire
