@@ -22,10 +22,7 @@ from src.utils.arabic import (
 
 class TestStripDiacritics:
     def test_basmala(self) -> None:
-        assert (
-            strip_diacritics("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ")
-            == "بسم الله الرحمن الرحيم"
-        )
+        assert strip_diacritics("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ") == "بسم الله الرحمن الرحيم"
 
     def test_no_diacritics_unchanged(self) -> None:
         plain = "بسم الله"
@@ -36,7 +33,7 @@ class TestStripDiacritics:
 
     def test_diacritics_only(self) -> None:
         """A string of only diacritics should produce an empty string."""
-        diacritics = "\u064B\u064C\u064D\u064E\u064F\u0650"
+        diacritics = "\u064b\u064c\u064d\u064e\u064f\u0650"
         assert strip_diacritics(diacritics) == ""
 
     def test_latin_text_unchanged(self) -> None:
@@ -180,7 +177,7 @@ class TestIsArabic:
 
     def test_arabic_diacritics_only(self) -> None:
         """Diacritics (U+064B-U+065F) are within the Arabic block U+0600-U+06FF."""
-        assert is_arabic("\u064B\u064C") is True
+        assert is_arabic("\u064b\u064c") is True
 
     def test_numbers_only(self) -> None:
         assert is_arabic("12345") is False

@@ -77,20 +77,22 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
         name = coll.get("name", coll.get("collection", ""))
         if not name:
             continue
-        collection_rows.append({
-            "collection_id": generate_source_id(SOURCE_CORPUS, name),
-            "name_ar": safe_str(coll.get("collection", [{}])[0].get("title"))
-            if isinstance(coll.get("collection"), list)
-            else safe_str(coll.get("title")),
-            "name_en": name,
-            "compiler_name": safe_str(coll.get("shortIntro"))
-            if isinstance(coll.get("shortIntro"), str)
-            else None,
-            "compilation_year_ah": None,
-            "sect": SECT,
-            "total_hadiths": safe_int(coll.get("totalHadith", coll.get("hadithsCount"))),
-            "source_corpus": SOURCE_CORPUS,
-        })
+        collection_rows.append(
+            {
+                "collection_id": generate_source_id(SOURCE_CORPUS, name),
+                "name_ar": safe_str(coll.get("collection", [{}])[0].get("title"))
+                if isinstance(coll.get("collection"), list)
+                else safe_str(coll.get("title")),
+                "name_en": name,
+                "compiler_name": safe_str(coll.get("shortIntro"))
+                if isinstance(coll.get("shortIntro"), str)
+                else None,
+                "compilation_year_ah": None,
+                "sect": SECT,
+                "total_hadiths": safe_int(coll.get("totalHadith", coll.get("hadithsCount"))),
+                "source_corpus": SOURCE_CORPUS,
+            }
+        )
 
     # Parse hadiths per collection
     hadith_rows: list[dict[str, Any]] = []
@@ -119,24 +121,26 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
                 hadith_number or 0,
             )
 
-            hadith_rows.append({
-                "source_id": source_id,
-                "source_corpus": SOURCE_CORPUS,
-                "collection_name": name,
-                "book_number": book_number,
-                "chapter_number": chapter_number,
-                "hadith_number": hadith_number,
-                "matn_ar": _extract_text(h, "ar"),
-                "matn_en": _extract_text(h, "en"),
-                "isnad_raw_ar": None,
-                "isnad_raw_en": None,
-                "full_text_ar": _extract_text(h, "ar"),
-                "full_text_en": _extract_text(h, "en"),
-                "grade": _serialize_grades(h),
-                "chapter_name_ar": None,
-                "chapter_name_en": safe_str(h.get("chapterTitle")),
-                "sect": SECT,
-            })
+            hadith_rows.append(
+                {
+                    "source_id": source_id,
+                    "source_corpus": SOURCE_CORPUS,
+                    "collection_name": name,
+                    "book_number": book_number,
+                    "chapter_number": chapter_number,
+                    "hadith_number": hadith_number,
+                    "matn_ar": _extract_text(h, "ar"),
+                    "matn_en": _extract_text(h, "en"),
+                    "isnad_raw_ar": None,
+                    "isnad_raw_en": None,
+                    "full_text_ar": _extract_text(h, "ar"),
+                    "full_text_en": _extract_text(h, "en"),
+                    "grade": _serialize_grades(h),
+                    "chapter_name_ar": None,
+                    "chapter_name_en": safe_str(h.get("chapterTitle")),
+                    "sect": SECT,
+                }
+            )
 
     output_files: list[Path] = []
 

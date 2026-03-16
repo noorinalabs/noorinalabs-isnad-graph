@@ -121,18 +121,14 @@ def _fuzzy_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
         ratio = fuzz.ratio(mention_norm, cand_name)
         dist = Levenshtein.distance(mention_norm, cand_name)
         if ratio >= _FUZZY_RATIO_THRESHOLD and dist <= _LEVENSHTEIN_MAX_DIST:
-            results.append(
-                Match(candidate=c, stage="fuzzy", score=round(ratio / 100.0, 4))
-            )
+            results.append(Match(candidate=c, stage="fuzzy", score=round(ratio / 100.0, 4)))
     return results
 
 
 # ---------------------------------------------------------------------------
 # Stage 3: Temporal filter
 # ---------------------------------------------------------------------------
-def _temporal_filter(
-    matches: list[Match], chain_context: ChainContext
-) -> list[Match]:
+def _temporal_filter(matches: list[Match], chain_context: ChainContext) -> list[Match]:
     """Filter matches by plausible teacher-student temporal gap.
 
     If both the candidate and adjacent narrators in the chain have
@@ -201,9 +197,7 @@ def _crossref_match(mention_norm: str, candidates: list[Candidate]) -> list[Matc
             # boost confidence via cross-reference.
             ratio = fuzz.ratio(mention_norm, c.name_ar_normalized)
             if ratio >= 60:
-                results.append(
-                    Match(candidate=c, stage="crossref", score=round(ratio / 100.0, 4))
-                )
+                results.append(Match(candidate=c, stage="crossref", score=round(ratio / 100.0, 4)))
     return results
 
 
@@ -271,9 +265,7 @@ def _load_mentions(
                 "position_in_chain": table.column("position_in_chain")[i].as_py(),
                 "name_raw": safe_str(table.column("name_raw")[i].as_py()),
                 "name_normalized": safe_str(table.column("name_normalized")[i].as_py()),
-                "transmission_method": safe_str(
-                    table.column("transmission_method")[i].as_py()
-                ),
+                "transmission_method": safe_str(table.column("transmission_method")[i].as_py()),
             }
         )
     logger.info("mentions_loaded", total=len(rows))
@@ -377,29 +369,17 @@ def _build_canonical_table(
         "name_ar_normalized": pa.array(
             [r.get("name_ar_normalized") for r in rows], type=pa.string()
         ),
-        "aliases": pa.array(
-            [r.get("aliases") or [] for r in rows], type=pa.list_(pa.string())
-        ),
-        "birth_year_ah": pa.array(
-            [r.get("birth_year_ah") for r in rows], type=pa.int32()
-        ),
-        "death_year_ah": pa.array(
-            [r.get("death_year_ah") for r in rows], type=pa.int32()
-        ),
+        "aliases": pa.array([r.get("aliases") or [] for r in rows], type=pa.list_(pa.string())),
+        "birth_year_ah": pa.array([r.get("birth_year_ah") for r in rows], type=pa.int32()),
+        "death_year_ah": pa.array([r.get("death_year_ah") for r in rows], type=pa.int32()),
         "generation": pa.array([r.get("generation") for r in rows], type=pa.string()),
         "gender": pa.array([r.get("gender") for r in rows], type=pa.string()),
-        "trustworthiness": pa.array(
-            [r.get("trustworthiness") for r in rows], type=pa.string()
-        ),
+        "trustworthiness": pa.array([r.get("trustworthiness") for r in rows], type=pa.string()),
         "source_ids": pa.array(
             [r.get("source_ids") or [] for r in rows], type=pa.list_(pa.string())
         ),
-        "external_id": pa.array(
-            [r.get("external_id") for r in rows], type=pa.string()
-        ),
-        "mention_count": pa.array(
-            [r.get("mention_count", 0) for r in rows], type=pa.int32()
-        ),
+        "external_id": pa.array([r.get("external_id") for r in rows], type=pa.string()),
+        "mention_count": pa.array([r.get("mention_count", 0) for r in rows], type=pa.int32()),
     }
     return pa.table(arrays, schema=NARRATORS_CANONICAL_SCHEMA)
 
@@ -477,14 +457,10 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
         corpus = str(mention.get("source_corpus", "unknown"))
         source_total[corpus] = source_total.get(corpus, 0) + 1
 
-        best, all_matches = _disambiguate_mention(
-            mention, candidates, death_year_index
-        )
+        best, all_matches = _disambiguate_mention(mention, candidates, death_year_index)
 
         mention_id = str(mention.get("mention_id", ""))
-        mention_text = str(
-            mention.get("name_normalized") or mention.get("name_raw") or ""
-        )
+        mention_text = str(mention.get("name_normalized") or mention.get("name_raw") or "")
 
         if best and best.score >= _CONFIDENCE_THRESHOLD:
             # Resolved.
@@ -554,9 +530,7 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
                     m = top3[idx]
                     norm = m.candidate.name_ar_normalized or ""
                     row[f"candidate_{n}_id"] = _make_canonical_id(norm)
-                    row[f"candidate_{n}_name"] = (
-                        m.candidate.name_ar or m.candidate.name_en or ""
-                    )
+                    row[f"candidate_{n}_name"] = m.candidate.name_ar or m.candidate.name_en or ""
                     row[f"candidate_{n}_score"] = m.score
                     row[f"candidate_{n}_stage"] = m.stage
                 else:
@@ -587,11 +561,7 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
         )
 
     # Bio coverage: fraction of candidates that got at least one mention match.
-    matched_bios = {
-        r["canonical_id"]
-        for r in merge_log_rows
-        if r.get("canonical_id")
-    }
+    matched_bios = {r["canonical_id"] for r in merge_log_rows if r.get("canonical_id")}
     bio_coverage = round(len(matched_bios) / max(len(candidates), 1) * 100, 1)
 
     logger.info(
@@ -625,21 +595,11 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
     # 3. merge_log.parquet
     if merge_log_rows:
         log_arrays: dict[str, pa.Array] = {
-            "canonical_id": pa.array(
-                [r["canonical_id"] for r in merge_log_rows], type=pa.string()
-            ),
-            "mention_id": pa.array(
-                [r["mention_id"] for r in merge_log_rows], type=pa.string()
-            ),
-            "mention_text": pa.array(
-                [r["mention_text"] for r in merge_log_rows], type=pa.string()
-            ),
-            "merge_stage": pa.array(
-                [r["merge_stage"] for r in merge_log_rows], type=pa.string()
-            ),
-            "score": pa.array(
-                [r["score"] for r in merge_log_rows], type=pa.float32()
-            ),
+            "canonical_id": pa.array([r["canonical_id"] for r in merge_log_rows], type=pa.string()),
+            "mention_id": pa.array([r["mention_id"] for r in merge_log_rows], type=pa.string()),
+            "mention_text": pa.array([r["mention_text"] for r in merge_log_rows], type=pa.string()),
+            "merge_stage": pa.array([r["merge_stage"] for r in merge_log_rows], type=pa.string()),
+            "score": pa.array([r["score"] for r in merge_log_rows], type=pa.float32()),
         }
         log_table = pa.table(log_arrays, schema=_MERGE_LOG_SCHEMA)
         log_path = output_dir / "merge_log.parquet"

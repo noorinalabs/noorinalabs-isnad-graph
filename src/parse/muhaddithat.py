@@ -95,26 +95,28 @@ def _parse_narrator_bios(narrators_path: Path) -> tuple[pa.Table, dict[str, str]
         if display_name:
             id_to_name[ext_id] = display_name
 
-        rows.append({
-            "bio_id": f"{SOURCE}:{ext_id}",
-            "source": SOURCE,
-            "name_ar": name_ar,
-            "name_en": None,
-            "name_ar_normalized": name_ar_norm,
-            "name_en_normalized": None,
-            "kunya": None,
-            "nisba": None,
-            "laqab": None,
-            "birth_year_ah": None,
-            "death_year_ah": None,
-            "birth_location": None,
-            "death_location": None,
-            "generation": None,
-            "gender": gender,
-            "trustworthiness": None,
-            "bio_text": bio_text,
-            "external_id": ext_id,
-        })
+        rows.append(
+            {
+                "bio_id": f"{SOURCE}:{ext_id}",
+                "source": SOURCE,
+                "name_ar": name_ar,
+                "name_en": None,
+                "name_ar_normalized": name_ar_norm,
+                "name_en_normalized": None,
+                "kunya": None,
+                "nisba": None,
+                "laqab": None,
+                "birth_year_ah": None,
+                "death_year_ah": None,
+                "birth_location": None,
+                "death_location": None,
+                "generation": None,
+                "gender": gender,
+                "trustworthiness": None,
+                "bio_text": bio_text,
+                "external_id": ext_id,
+            }
+        )
 
     if not rows:
         msg = "No valid narrator bios parsed"
@@ -188,14 +190,16 @@ def _parse_network_edges(
             from_name = id_to_name.get(from_id, from_id)
             to_name = id_to_name.get(to_id, to_id)
 
-            edges.append({
-                "from_narrator_name": from_name,
-                "to_narrator_name": to_name,
-                "hadith_id": hadith_ref,
-                "source": SOURCE,
-                "from_external_id": from_id,
-                "to_external_id": to_id,
-            })
+            edges.append(
+                {
+                    "from_narrator_name": from_name,
+                    "to_narrator_name": to_name,
+                    "hadith_id": hadith_ref,
+                    "source": SOURCE,
+                    "from_external_id": from_id,
+                    "to_external_id": to_id,
+                }
+            )
 
     if not edges:
         msg = "No network edges extracted from hadith chains"
@@ -210,9 +214,9 @@ def _parse_network_edges(
     )
     avg_chain = sum(chain_lengths) / len(chain_lengths) if chain_lengths else 0
     bio_narrator_ids = set(id_to_name.keys())
-    edge_narrator_ids = (
-        {e["from_external_id"] for e in edges} | {e["to_external_id"] for e in edges}
-    )
+    edge_narrator_ids = {e["from_external_id"] for e in edges} | {
+        e["to_external_id"] for e in edges
+    }
     matched = len(edge_narrator_ids & bio_narrator_ids)
     match_rate = matched / len(edge_narrator_ids) if edge_narrator_ids else 0
 

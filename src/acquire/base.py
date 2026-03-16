@@ -231,11 +231,13 @@ def write_manifest(dest_dir: Path, files: list[Path]) -> Path:
     """Write ``manifest.json`` listing files with sizes and SHA-256 hashes."""
     manifest: list[dict[str, str | int]] = []
     for f in files:
-        manifest.append({
-            "path": str(f.relative_to(dest_dir)),
-            "size": f.stat().st_size,
-            "sha256": sha256_file(f),
-        })
+        manifest.append(
+            {
+                "path": str(f.relative_to(dest_dir)),
+                "size": f.stat().st_size,
+                "sha256": sha256_file(f),
+            }
+        )
 
     manifest_path = dest_dir / "manifest.json"
     with open(manifest_path, "w") as fp:

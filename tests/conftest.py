@@ -175,13 +175,9 @@ def sample_narrator_mentions(tmp_path: Path) -> Path:
         "source_hadith_id": pa.array(["h-1", "h-1", "h-2"], type=pa.string()),
         "source_corpus": pa.array(["sanadset", "sanadset", "lk"], type=pa.string()),
         "position_in_chain": pa.array([0, 1, 0], type=pa.int32()),
-        "name_ar": pa.array(
-            ["أبو هريرة", "محمد", "أنس بن مالك"], type=pa.string()
-        ),
+        "name_ar": pa.array(["أبو هريرة", "محمد", "أنس بن مالك"], type=pa.string()),
         "name_en": pa.array(["Abu Hurayra", "Muhammad", "Anas ibn Malik"], type=pa.string()),
-        "name_ar_normalized": pa.array(
-            ["ابو هريره", "محمد", "انس بن مالك"], type=pa.string()
-        ),
+        "name_ar_normalized": pa.array(["ابو هريره", "محمد", "انس بن مالك"], type=pa.string()),
         "transmission_method": pa.array(["haddathana", "an", None], type=pa.string()),
     }
     table = pa.table(rows, schema=NARRATOR_MENTION_SCHEMA)
@@ -246,11 +242,22 @@ def sample_lk_csv(tmp_raw_dir: Path) -> Path:
 
     rows = [
         [
-            "1", "Revelation", "الوحي", "1", "Beginning", "بدء الوحي",
+            "1",
+            "Revelation",
+            "الوحي",
+            "1",
+            "Beginning",
+            "بدء الوحي",
             str(i),
-            "Full English text", "Narrated Abu Hurayra: The Prophet said",
-            "Actions are by intentions", "النص الكامل", "حدثنا أبو هريرة",
-            "إنما الأعمال بالنيات", "", "Sahih", "صحيح",
+            "Full English text",
+            "Narrated Abu Hurayra: The Prophet said",
+            "Actions are by intentions",
+            "النص الكامل",
+            "حدثنا أبو هريرة",
+            "إنما الأعمال بالنيات",
+            "",
+            "Sahih",
+            "صحيح",
         ]
         for i in range(1, 6)
     ]
@@ -271,17 +278,20 @@ def sample_sanadset_csv(tmp_raw_dir: Path) -> Path:
     header = "hadith_id,book_id,hadith,grade"
     rows = [
         (
-            "1", "1",
+            "1",
+            "1",
             "<SANAD><NAR>محمد</NAR> عن <NAR>علي</NAR></SANAD><MATN>متن</MATN>",
             "Sahih",
         ),
         (
-            "2", "1",
+            "2",
+            "1",
             "<SANAD><NAR>أنس</NAR> عن <NAR>مالك</NAR></SANAD><MATN>متن ثاني</MATN>",
             "Hasan",
         ),
         (
-            "3", "2",
+            "3",
+            "2",
             "<SANAD>No SANAD</SANAD><MATN>متن ثالث</MATN>",
             "",
         ),

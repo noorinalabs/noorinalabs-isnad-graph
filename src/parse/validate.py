@@ -58,9 +58,7 @@ def _match_schema(filename: str) -> tuple[str, pa.Schema] | None:
     return None
 
 
-def _check_schema_conformance(
-    table_schema: pa.Schema, expected_schema: pa.Schema
-) -> list[str]:
+def _check_schema_conformance(table_schema: pa.Schema, expected_schema: pa.Schema) -> list[str]:
     """Compare table schema against expected. Return list of issues."""
     issues: list[str] = []
     expected_names = {f.name for f in expected_schema}
@@ -167,9 +165,7 @@ def validate_staging(staging_dir: Path) -> dict[str, Any]:
             if "matn_ar" in table.column_names:
                 col = table.column("matn_ar")
                 non_null = col.drop_null()
-                ar_count = pc.sum(
-                    pc.match_substring_regex(non_null, r"[\u0600-\u06FF]")
-                ).as_py()
+                ar_count = pc.sum(pc.match_substring_regex(non_null, r"[\u0600-\u06FF]")).as_py()
             if "matn_en" in table.column_names:
                 col = table.column("matn_en")
                 non_null = col.drop_null()

@@ -42,12 +42,26 @@ def _extract_hadiths_api(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # Fields that indicate a dict is a hadith record rather than arbitrary metadata
-_HADITH_FIELD_INDICATORS = frozenset({
-    "hadithNumber", "hadith_number", "number",
-    "textAr", "text_ar", "arabicText", "arabic",
-    "textEn", "text_en", "englishText", "english", "translation",
-    "isnad", "matn", "grade", "grading",
-})
+_HADITH_FIELD_INDICATORS = frozenset(
+    {
+        "hadithNumber",
+        "hadith_number",
+        "number",
+        "textAr",
+        "text_ar",
+        "arabicText",
+        "arabic",
+        "textEn",
+        "text_en",
+        "englishText",
+        "english",
+        "translation",
+        "isnad",
+        "matn",
+        "grade",
+        "grading",
+    }
+)
 
 
 def _looks_like_hadith(obj: object) -> bool:
@@ -96,9 +110,7 @@ def _hadith_to_row(
     book_number: int | None,
 ) -> dict[str, Any]:
     """Convert a single hadith dict to a staging row."""
-    hadith_num = safe_int(
-        h.get("hadithNumber") or h.get("hadith_number") or h.get("number")
-    )
+    hadith_num = safe_int(h.get("hadithNumber") or h.get("hadith_number") or h.get("number"))
     source_id = generate_source_id(
         SOURCE_CORPUS,
         collection_name,
@@ -111,12 +123,20 @@ def _hadith_to_row(
     isnad_ar = safe_str(h.get("isnad") or h.get("isnad_ar"))
     matn_ar = safe_str(h.get("matn") or h.get("matn_ar") or h.get("textAr") or h.get("text_ar"))
     full_ar = safe_str(
-        h.get("fullText") or h.get("full_text") or h.get("textAr") or h.get("text_ar")
-        or h.get("arabicText") or h.get("arabic")
+        h.get("fullText")
+        or h.get("full_text")
+        or h.get("textAr")
+        or h.get("text_ar")
+        or h.get("arabicText")
+        or h.get("arabic")
     )
     matn_en = safe_str(
-        h.get("matn_en") or h.get("textEn") or h.get("text_en") or h.get("english")
-        or h.get("englishText") or h.get("translation")
+        h.get("matn_en")
+        or h.get("textEn")
+        or h.get("text_en")
+        or h.get("english")
+        or h.get("englishText")
+        or h.get("translation")
     )
     full_en = safe_str(h.get("fullTextEn") or h.get("full_text_en"))
     chapter_ar = safe_str(h.get("chapterAr") or h.get("chapter_ar") or h.get("babAr"))

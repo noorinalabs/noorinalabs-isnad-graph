@@ -23,15 +23,9 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-EDITIONS_URL = (
-    "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions.json"
-)
-INFO_URL = (
-    "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/info.json"
-)
-EDITION_URL_TEMPLATE = (
-    "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/{key}.json"
-)
+EDITIONS_URL = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions.json"
+INFO_URL = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/info.json"
+EDITION_URL_TEMPLATE = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/{key}.json"
 MIN_EXPECTED_EDITIONS = 10
 
 
@@ -89,8 +83,7 @@ def run(raw_dir: Path) -> Path:
     edition_files = [p for p in dest.glob("eng-*.json")]
     if len(edition_files) < MIN_EXPECTED_EDITIONS:
         msg = (
-            f"Expected >={MIN_EXPECTED_EDITIONS} English edition files, "
-            f"found {len(edition_files)}"
+            f"Expected >={MIN_EXPECTED_EDITIONS} English edition files, found {len(edition_files)}"
         )
         raise AssertionError(msg)
 

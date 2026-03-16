@@ -33,9 +33,7 @@ class Neo4jClient:
         self._user = user or settings.neo4j.user
         self._password = password or settings.neo4j.password
         try:
-            self._driver = GraphDatabase.driver(
-                self._uri, auth=(self._user, self._password)
-            )
+            self._driver = GraphDatabase.driver(self._uri, auth=(self._user, self._password))
         except neo4j_exc.Neo4jError as exc:
             log.error("neo4j_connect_failed", uri=self._uri, error=str(exc))
             raise
@@ -49,9 +47,7 @@ class Neo4jClient:
         """Run a read transaction and return a list of record dicts."""
         try:
             with self._driver.session() as session:
-                return session.execute_read(
-                    lambda tx: list(tx.run(query, parameters or {}).data())
-                )
+                return session.execute_read(lambda tx: list(tx.run(query, parameters or {}).data()))
         except neo4j_exc.Neo4jError as exc:
             log.error("neo4j_read_failed", query=query, error=str(exc))
             raise
@@ -90,10 +86,7 @@ class Neo4jClient:
                     summary = session.execute_write(
                         lambda tx, c=chunk: tx.run(query, batch=c).consume()  # type: ignore[misc]
                     )
-                    total += (
-                        summary.counters.nodes_created
-                        + summary.counters.relationships_created
-                    )
+                    total += summary.counters.nodes_created + summary.counters.relationships_created
             except neo4j_exc.Neo4jError as exc:
                 log.error(
                     "neo4j_batch_failed",
@@ -118,10 +111,7 @@ class Neo4jClient:
             "Location",
         ]
         for node_type in node_types:
-            query = (
-                f"CREATE CONSTRAINT IF NOT EXISTS "
-                f"FOR (n:{node_type}) REQUIRE n.id IS UNIQUE"
-            )
+            query = f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{node_type}) REQUIRE n.id IS UNIQUE"
             self.execute_write(query)
             log.info("constraint_ensured", node_type=node_type)
 

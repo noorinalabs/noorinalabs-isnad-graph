@@ -37,9 +37,7 @@ def write_parquet(table: pa.Table, path: Path, schema: pa.Schema | None = None) 
     return path
 
 
-def read_csv_robust(
-    path: Path, encoding: str = "utf-8", **kwargs: Any
-) -> tuple[pa.Table, str]:
+def read_csv_robust(path: Path, encoding: str = "utf-8", **kwargs: Any) -> tuple[pa.Table, str]:
     """Read CSV with fallback encoding chain. Returns (table, encoding_used).
 
     Try: specified -> utf-8-sig -> latin-1.
@@ -79,7 +77,7 @@ def safe_int(value: Any) -> int | None:
         return None
     try:
         return int(float(str(value).strip()))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 

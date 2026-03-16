@@ -47,15 +47,15 @@ class ResolveMetrics:
             f"  Parallel links           : {self.parallel_links_count}",
         ]
         if self.parallel_links_count > 0:
-            lines.extend([
-                f"    verbatim               : {self.parallel_verbatim}",
-                f"    close paraphrase       : {self.parallel_close_paraphrase}",
-                f"    thematic               : {self.parallel_thematic}",
-                f"    cross-sect             : {self.parallel_cross_sect}",
-            ])
-        total_files = (
-            len(self.ner_files) + len(self.disambiguate_files) + len(self.dedup_files)
-        )
+            lines.extend(
+                [
+                    f"    verbatim               : {self.parallel_verbatim}",
+                    f"    close paraphrase       : {self.parallel_close_paraphrase}",
+                    f"    thematic               : {self.parallel_thematic}",
+                    f"    cross-sect             : {self.parallel_cross_sect}",
+                ]
+            )
+        total_files = len(self.ner_files) + len(self.disambiguate_files) + len(self.dedup_files)
         lines.append(f"  Output files             : {total_files}")
         return "\n".join(lines)
 
@@ -80,9 +80,7 @@ def _collect_dedup_metrics(metrics: ResolveMetrics, staging_dir: Path) -> None:
             vt_col = table.column("variant_type")
             cs_col = table.column("cross_sect")
             metrics.parallel_verbatim = pc.sum(pc.equal(vt_col, "verbatim")).as_py()
-            metrics.parallel_close_paraphrase = pc.sum(
-                pc.equal(vt_col, "close_paraphrase")
-            ).as_py()
+            metrics.parallel_close_paraphrase = pc.sum(pc.equal(vt_col, "close_paraphrase")).as_py()
             metrics.parallel_thematic = pc.sum(pc.equal(vt_col, "thematic")).as_py()
             metrics.parallel_cross_sect = pc.sum(cs_col).as_py()
     except Exception:  # noqa: BLE001
@@ -127,9 +125,7 @@ def _collect_ner_metrics(metrics: ResolveMetrics, output_dir: Path) -> None:
         logger.warning("ner_metrics_read_failed", path=str(path))
 
 
-def run_all(
-    raw_dir: Path, staging_dir: Path, output_dir: Path
-) -> dict[str, list[Path]]:
+def run_all(raw_dir: Path, staging_dir: Path, output_dir: Path) -> dict[str, list[Path]]:
     """Run full entity resolution pipeline: NER -> disambiguate -> dedup.
 
     Dependency-aware: if NER fails, skip disambiguation but still run dedup
@@ -191,13 +187,9 @@ def run_all(
     try:
         logger.info("resolve_step", step="dedup", status="running")
         results["dedup"] = dedup.run(staging_dir, output_dir)
-        logger.info(
-            "resolve_step", step="dedup", status="complete", files=len(results["dedup"])
-        )
+        logger.info("resolve_step", step="dedup", status="complete", files=len(results["dedup"]))
     except Exception:  # noqa: BLE001
-        logger.error(
-            "resolve_step_failed", step="dedup", traceback=traceback.format_exc()
-        )
+        logger.error("resolve_step_failed", step="dedup", traceback=traceback.format_exc())
 
     # Collect metrics from output files.
     metrics = ResolveMetrics(

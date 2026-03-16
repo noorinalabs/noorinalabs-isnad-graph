@@ -102,9 +102,7 @@ def run_historical_overlay(client: Neo4jClient) -> HistoricalResult:
             events_per_narrator[row["narrator_id"]] = (
                 events_per_narrator.get(row["narrator_id"], 0) + 1
             )
-            narrators_per_event[row["event_id"]] = (
-                narrators_per_event.get(row["event_id"], 0) + 1
-            )
+            narrators_per_event[row["event_id"]] = narrators_per_event.get(row["event_id"], 0) + 1
 
         epn_values = list(events_per_narrator.values())
         npe_values = list(narrators_per_event.values())

@@ -20,13 +20,9 @@ def _write_narrator_mentions_parquet(path: Path, rows: list[dict]) -> Path:
     """Write a narrator_mentions Parquet with NARRATOR_MENTION_SCHEMA."""
     arrays = {
         "mention_id": pa.array([r["mention_id"] for r in rows], type=pa.string()),
-        "source_hadith_id": pa.array(
-            [r["source_hadith_id"] for r in rows], type=pa.string()
-        ),
+        "source_hadith_id": pa.array([r["source_hadith_id"] for r in rows], type=pa.string()),
         "source_corpus": pa.array([r["source_corpus"] for r in rows], type=pa.string()),
-        "position_in_chain": pa.array(
-            [r["position_in_chain"] for r in rows], type=pa.int32()
-        ),
+        "position_in_chain": pa.array([r["position_in_chain"] for r in rows], type=pa.int32()),
         "name_ar": pa.array([r.get("name_ar") for r in rows], type=pa.string()),
         "name_en": pa.array([r.get("name_en") for r in rows], type=pa.string()),
         "name_ar_normalized": pa.array(
@@ -58,12 +54,8 @@ class TestLoadPhase1Mentions:
                 "transmission_method": "haddathana",
             },
         ]
-        _write_narrator_mentions_parquet(
-            tmp_path / "narrator_mentions_sanadset.parquet", mentions
-        )
-        rows = _load_phase1_mentions(
-            tmp_path, "sanadset", "narrator_mentions_sanadset.parquet"
-        )
+        _write_narrator_mentions_parquet(tmp_path / "narrator_mentions_sanadset.parquet", mentions)
+        rows = _load_phase1_mentions(tmp_path, "sanadset", "narrator_mentions_sanadset.parquet")
         assert len(rows) == 1
         assert rows[0]["source_corpus"] == "sanadset"
         assert rows[0]["name_raw"] is not None
@@ -86,9 +78,7 @@ class TestLoadPhase1Mentions:
                 "transmission_method": None,
             },
         ]
-        _write_narrator_mentions_parquet(
-            tmp_path / "narrator_mentions_lk.parquet", mentions
-        )
+        _write_narrator_mentions_parquet(tmp_path / "narrator_mentions_lk.parquet", mentions)
         rows = _load_phase1_mentions(tmp_path, "lk", "narrator_mentions_lk.parquet")
         assert rows[0]["name_raw"] == "\u0639\u0644\u064a"
 
@@ -105,9 +95,7 @@ class TestLoadPhase1Mentions:
                 "transmission_method": None,
             },
         ]
-        _write_narrator_mentions_parquet(
-            tmp_path / "narrator_mentions_lk.parquet", mentions
-        )
+        _write_narrator_mentions_parquet(tmp_path / "narrator_mentions_lk.parquet", mentions)
         rows = _load_phase1_mentions(tmp_path, "lk", "narrator_mentions_lk.parquet")
         assert rows[0]["name_raw"] == "Malik"
         assert rows[0]["name_normalized"] == "Malik"

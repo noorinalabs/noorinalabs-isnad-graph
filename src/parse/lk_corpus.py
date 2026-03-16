@@ -132,56 +132,62 @@ def _parse_single_csv(
         ar_grade = safe_str(row.get("Arabic_Grade"))
         grade = en_grade or ar_grade
 
-        hadith_rows.append({
-            "source_id": source_id,
-            "source_corpus": "lk",
-            "collection_name": collection_name,
-            "book_number": chapter_num,
-            "chapter_number": section_num,
-            "hadith_number": hadith_num,
-            "matn_ar": _strip_html(safe_str(row.get("Arabic_Matn"))),
-            "matn_en": _strip_html(safe_str(row.get("English_Matn"))),
-            "isnad_raw_ar": _strip_html(safe_str(row.get("Arabic_Isnad"))),
-            "isnad_raw_en": _strip_html(safe_str(row.get("English_Isnad"))),
-            "full_text_ar": _strip_html(safe_str(row.get("Arabic_Hadith"))),
-            "full_text_en": _strip_html(safe_str(row.get("English_Hadith"))),
-            "grade": grade,
-            "chapter_name_ar": safe_str(row.get("Chapter_Arabic")),
-            "chapter_name_en": safe_str(row.get("Chapter_English")),
-            "sect": "sunni",
-        })
+        hadith_rows.append(
+            {
+                "source_id": source_id,
+                "source_corpus": "lk",
+                "collection_name": collection_name,
+                "book_number": chapter_num,
+                "chapter_number": section_num,
+                "hadith_number": hadith_num,
+                "matn_ar": _strip_html(safe_str(row.get("Arabic_Matn"))),
+                "matn_en": _strip_html(safe_str(row.get("English_Matn"))),
+                "isnad_raw_ar": _strip_html(safe_str(row.get("Arabic_Isnad"))),
+                "isnad_raw_en": _strip_html(safe_str(row.get("English_Isnad"))),
+                "full_text_ar": _strip_html(safe_str(row.get("Arabic_Hadith"))),
+                "full_text_en": _strip_html(safe_str(row.get("English_Hadith"))),
+                "grade": grade,
+                "chapter_name_ar": safe_str(row.get("Chapter_Arabic")),
+                "chapter_name_en": safe_str(row.get("Chapter_English")),
+                "sect": "sunni",
+            }
+        )
 
         # Extract narrator mentions from English isnad.
         en_isnad = safe_str(row.get("English_Isnad"))
         if en_isnad:
             for span in extract_narrator_mentions(_strip_html(en_isnad) or "", "en"):
                 mention_id = f"{source_id}:en:{span.position}"
-                mention_rows.append({
-                    "mention_id": mention_id,
-                    "source_hadith_id": source_id,
-                    "source_corpus": "lk",
-                    "position_in_chain": span.position,
-                    "name_ar": None,
-                    "name_en": span.name,
-                    "name_ar_normalized": None,
-                    "transmission_method": span.transmission_method,
-                })
+                mention_rows.append(
+                    {
+                        "mention_id": mention_id,
+                        "source_hadith_id": source_id,
+                        "source_corpus": "lk",
+                        "position_in_chain": span.position,
+                        "name_ar": None,
+                        "name_en": span.name,
+                        "name_ar_normalized": None,
+                        "transmission_method": span.transmission_method,
+                    }
+                )
 
         # Extract narrator mentions from Arabic isnad.
         ar_isnad = safe_str(row.get("Arabic_Isnad"))
         if ar_isnad:
             for span in extract_narrator_mentions(_strip_html(ar_isnad) or "", "ar"):
                 mention_id = f"{source_id}:ar:{span.position}"
-                mention_rows.append({
-                    "mention_id": mention_id,
-                    "source_hadith_id": source_id,
-                    "source_corpus": "lk",
-                    "position_in_chain": span.position,
-                    "name_ar": span.name,
-                    "name_en": None,
-                    "name_ar_normalized": normalize_arabic(span.name),
-                    "transmission_method": span.transmission_method,
-                })
+                mention_rows.append(
+                    {
+                        "mention_id": mention_id,
+                        "source_hadith_id": source_id,
+                        "source_corpus": "lk",
+                        "position_in_chain": span.position,
+                        "name_ar": span.name,
+                        "name_en": None,
+                        "name_ar_normalized": normalize_arabic(span.name),
+                        "transmission_method": span.transmission_method,
+                    }
+                )
 
     return hadith_rows, mention_rows
 
@@ -240,16 +246,18 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
                     actual=actual_count,
                     reference=ref_count,
                 )
-            collection_rows.append({
-                "collection_id": f"lk:{collection_name}",
-                "name_ar": None,
-                "name_en": name_en,
-                "compiler_name": compiler,
-                "compilation_year_ah": year_ah,
-                "sect": "sunni",
-                "total_hadiths": actual_count,
-                "source_corpus": "lk",
-            })
+            collection_rows.append(
+                {
+                    "collection_id": f"lk:{collection_name}",
+                    "name_ar": None,
+                    "name_en": name_en,
+                    "compiler_name": compiler,
+                    "compilation_year_ah": year_ah,
+                    "sect": "sunni",
+                    "total_hadiths": actual_count,
+                    "source_corpus": "lk",
+                }
+            )
 
         if collection_name == "bukhari":
             logger.info("lk_bukhari_gold_standard", row_count=actual_count)

@@ -193,9 +193,7 @@ class TestEmbeddingPipeline:
                 "h-2",
                 "Actions are judged by intentions and every man shall have what he intended",
             ),
-            _make_hadith(
-                "h-3", "The best of you is the one who learns the Quran and teaches it"
-            ),
+            _make_hadith("h-3", "The best of you is the one who learns the Quran and teaches it"),
             _make_hadith(
                 "h-4",
                 "Whoever believes in Allah and the Last Day should speak good or keep silent",
@@ -231,9 +229,7 @@ class TestEmbeddingPipeline:
 
     def test_cross_sect_flagging(self, tmp_path: Path) -> None:
         rows = [
-            _make_hadith(
-                "h-1", "Actions are judged by intentions", source_corpus="sunnah"
-            ),
+            _make_hadith("h-1", "Actions are judged by intentions", source_corpus="sunnah"),
             _make_hadith(
                 "h-2",
                 "Actions are judged by intentions",

@@ -26,9 +26,7 @@ class TestGdsAvailable:
     def test_returns_true_when_gds_installed(self, mock_client: MagicMock) -> None:
         mock_client.execute_read.return_value = [{"version": "2.6.0"}]
         assert _gds_available(mock_client) is True
-        mock_client.execute_read.assert_called_once_with(
-            "RETURN gds.version() AS version"
-        )
+        mock_client.execute_read.assert_called_once_with("RETURN gds.version() AS version")
 
     def test_returns_false_when_gds_missing(self, mock_client: MagicMock) -> None:
         mock_client.execute_read.side_effect = neo4j_exc.Neo4jError(
@@ -40,12 +38,8 @@ class TestGdsAvailable:
 class TestRunMetrics:
     """Tests for run_metrics orchestration."""
 
-    def test_graceful_fallback_when_gds_unavailable(
-        self, mock_client: MagicMock
-    ) -> None:
-        mock_client.execute_read.side_effect = neo4j_exc.Neo4jError(
-            "gds not installed"
-        )
+    def test_graceful_fallback_when_gds_unavailable(self, mock_client: MagicMock) -> None:
+        mock_client.execute_read.side_effect = neo4j_exc.Neo4jError("gds not installed")
         result = run_metrics(mock_client)
         assert isinstance(result, MetricsResult)
         assert result.narrators_enriched == 0

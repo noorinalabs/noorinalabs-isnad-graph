@@ -116,9 +116,7 @@ def _build_chain_pairs(
     """
     sorted_mentions = sorted(mentions, key=lambda r: r.get("position_in_chain", 0))
     # Filter to mentions with resolved narrator IDs
-    resolved = [
-        m for m in sorted_mentions if m.get("canonical_narrator_id")
-    ]
+    resolved = [m for m in sorted_mentions if m.get("canonical_narrator_id")]
     pairs: list[dict[str, Any]] = []
     for i in range(len(resolved) - 1):
         pairs.append(
@@ -362,9 +360,7 @@ def _load_appears_in(
         if valid_batch
         else 0
     )
-    logger.info(
-        "appears_in_loaded", created=created, skipped=skipped, missing_endpoints=missing
-    )
+    logger.info("appears_in_loaded", created=created, skipped=skipped, missing_endpoints=missing)
     return EdgeLoadResult("APPEARS_IN", created, skipped, missing)
 
 
@@ -454,9 +450,7 @@ def _load_parallel_of(
         if valid_batch
         else 0
     )
-    logger.info(
-        "parallel_of_loaded", created=created, skipped=skipped, missing_endpoints=missing
-    )
+    logger.info("parallel_of_loaded", created=created, skipped=skipped, missing_endpoints=missing)
     return EdgeLoadResult("PARALLEL_OF", created, skipped, missing)
 
 
@@ -531,9 +525,7 @@ def _load_studied_under(
         if valid_batch
         else 0
     )
-    logger.info(
-        "studied_under_loaded", created=created, skipped=skipped, missing_endpoints=missing
-    )
+    logger.info("studied_under_loaded", created=created, skipped=skipped, missing_endpoints=missing)
     return EdgeLoadResult("STUDIED_UNDER", created, skipped, missing)
 
 
@@ -646,14 +638,10 @@ def load_all_edges(
     """
     results: list[EdgeLoadResult] = []
 
-    results.append(
-        _load_transmitted_to(client, staging_dir, strict=strict, batch_size=batch_size)
-    )
+    results.append(_load_transmitted_to(client, staging_dir, strict=strict, batch_size=batch_size))
     results.append(_load_narrated(client, staging_dir, strict=strict, batch_size=batch_size))
     results.append(_load_appears_in(client, staging_dir, strict=strict, batch_size=batch_size))
-    results.append(
-        _load_parallel_of(client, staging_dir, strict=strict, batch_size=batch_size)
-    )
+    results.append(_load_parallel_of(client, staging_dir, strict=strict, batch_size=batch_size))
     results.append(_load_studied_under(client, staging_dir, batch_size=batch_size))
     results.append(_load_graded_by(client, staging_dir, batch_size=batch_size))
 

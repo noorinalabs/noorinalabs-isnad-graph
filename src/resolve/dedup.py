@@ -28,9 +28,7 @@ logger = get_logger(__name__)
 __all__ = ["run", "run_dedup"]
 
 # Source corpora classified by sect
-_SUNNI_SOURCES: frozenset[str] = frozenset(
-    {"lk", "sanadset", "sunnah", "fawaz", "open_hadith"}
-)
+_SUNNI_SOURCES: frozenset[str] = frozenset({"lk", "sanadset", "sunnah", "fawaz", "open_hadith"})
 _SHIA_SOURCES: frozenset[str] = frozenset({"thaqalayn"})
 
 
@@ -69,9 +67,7 @@ def _load_hadith_texts(
     corpora: list[str] = []
     skipped = 0
     for fpath in hadith_files:
-        table = pq.read_table(
-            fpath, columns=["source_id", "matn_en", "source_corpus"]
-        )
+        table = pq.read_table(fpath, columns=["source_id", "matn_en", "source_corpus"])
         for i in range(table.num_rows):
             matn = table.column("matn_en")[i].as_py()
             if not matn or not matn.strip():
@@ -194,9 +190,7 @@ def run_dedup(
     if index_type == "ivf":
         nlist = min(100, len(texts))
         quantizer = faiss.IndexFlatIP(dim)
-        faiss_index = faiss.IndexIVFFlat(
-            quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT
-        )
+        faiss_index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
         faiss_index.train(embeddings)
         faiss_index.nprobe = min(10, nlist)
     else:
@@ -249,9 +243,7 @@ def run_dedup(
             ids_b.append(pair_key[1])
             sim_scores.append(score)
             variant_types.append(str(_classify_pair(score)))
-            cross_sects.append(
-                _is_cross_sect(id_to_corpus[pair_key[0]], id_to_corpus[pair_key[1]])
-            )
+            cross_sects.append(_is_cross_sect(id_to_corpus[pair_key[0]], id_to_corpus[pair_key[1]]))
 
     # ------------------------------------------------------------------
     # 6. Write output

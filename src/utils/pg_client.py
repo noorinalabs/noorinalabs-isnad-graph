@@ -40,9 +40,7 @@ class PgClient:
 
     # --- queries ---------------------------------------------------------
 
-    def execute(
-        self, query: str, params: tuple[Any, ...] | None = None
-    ) -> list[dict[str, Any]]:
+    def execute(self, query: str, params: tuple[Any, ...] | None = None) -> list[dict[str, Any]]:
         """Execute *query* and return rows as dicts (empty list for DML)."""
         try:
             with self._conn.cursor() as cur:
@@ -56,9 +54,7 @@ class PgClient:
             log.error("pg_execute_failed", query=query, error=str(exc))
             raise
 
-    def execute_many(
-        self, query: str, params_list: list[tuple[Any, ...]]
-    ) -> int:
+    def execute_many(self, query: str, params_list: list[tuple[Any, ...]]) -> int:
         """Execute *query* for each parameter tuple. Returns ``rowcount``."""
         try:
             with self._conn.cursor() as cur:

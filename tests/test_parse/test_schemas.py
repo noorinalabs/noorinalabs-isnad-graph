@@ -29,23 +29,17 @@ class TestEmptyTables:
         assert table.schema == NARRATOR_MENTION_SCHEMA
 
     def test_narrator_bio_schema_empty(self) -> None:
-        table = pa.table(
-            {f.name: [] for f in NARRATOR_BIO_SCHEMA}, schema=NARRATOR_BIO_SCHEMA
-        )
+        table = pa.table({f.name: [] for f in NARRATOR_BIO_SCHEMA}, schema=NARRATOR_BIO_SCHEMA)
         assert table.num_rows == 0
         assert table.schema == NARRATOR_BIO_SCHEMA
 
     def test_collection_schema_empty(self) -> None:
-        table = pa.table(
-            {f.name: [] for f in COLLECTION_SCHEMA}, schema=COLLECTION_SCHEMA
-        )
+        table = pa.table({f.name: [] for f in COLLECTION_SCHEMA}, schema=COLLECTION_SCHEMA)
         assert table.num_rows == 0
         assert table.schema == COLLECTION_SCHEMA
 
     def test_network_edge_schema_empty(self) -> None:
-        table = pa.table(
-            {f.name: [] for f in NETWORK_EDGE_SCHEMA}, schema=NETWORK_EDGE_SCHEMA
-        )
+        table = pa.table({f.name: [] for f in NETWORK_EDGE_SCHEMA}, schema=NETWORK_EDGE_SCHEMA)
         assert table.num_rows == 0
         assert table.schema == NETWORK_EDGE_SCHEMA
 

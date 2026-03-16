@@ -19,9 +19,15 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Edition name substrings that indicate Shia sources.
-_SHIA_INDICATORS = frozenset({
-    "nahj", "kafi", "tahdhib", "istibsar", "man-la",
-})
+_SHIA_INDICATORS = frozenset(
+    {
+        "nahj",
+        "kafi",
+        "tahdhib",
+        "istibsar",
+        "man-la",
+    }
+)
 
 SOURCE_CORPUS = "fawaz"
 
@@ -67,24 +73,26 @@ def _parse_edition(
         grades_raw = h.get("grades", [])
         grade_str = json.dumps(grades_raw) if grades_raw else None
 
-        hadith_rows.append({
-            "source_id": source_id,
-            "source_corpus": SOURCE_CORPUS,
-            "collection_name": collection_name,
-            "book_number": None,
-            "chapter_number": None,
-            "hadith_number": hadith_number,
-            "matn_ar": None,
-            "matn_en": h.get("text"),
-            "isnad_raw_ar": None,
-            "isnad_raw_en": None,
-            "full_text_ar": None,
-            "full_text_en": h.get("text"),
-            "grade": grade_str,
-            "chapter_name_ar": None,
-            "chapter_name_en": None,
-            "sect": sect,
-        })
+        hadith_rows.append(
+            {
+                "source_id": source_id,
+                "source_corpus": SOURCE_CORPUS,
+                "collection_name": collection_name,
+                "book_number": None,
+                "chapter_number": None,
+                "hadith_number": hadith_number,
+                "matn_ar": None,
+                "matn_en": h.get("text"),
+                "isnad_raw_ar": None,
+                "isnad_raw_en": None,
+                "full_text_ar": None,
+                "full_text_en": h.get("text"),
+                "grade": grade_str,
+                "chapter_name_ar": None,
+                "chapter_name_en": None,
+                "sect": sect,
+            }
+        )
 
     # Build collection row
     collection_row: dict[str, Any] | None = None
@@ -154,9 +162,7 @@ def run(raw_dir: Path, staging_dir: Path) -> tuple[Path, Path]:
         {field.name: [r[field.name] for r in all_collections] for field in COLLECTION_SCHEMA},
         schema=COLLECTION_SCHEMA,
     )
-    collections_path = write_parquet(
-        collections_table, staging_dir / "collections_fawaz.parquet"
-    )
+    collections_path = write_parquet(collections_table, staging_dir / "collections_fawaz.parquet")
 
     logger.info(
         "fawaz_parse_complete",

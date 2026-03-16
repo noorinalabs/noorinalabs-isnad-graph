@@ -77,9 +77,7 @@ def _load_phase1_mentions(
                 "name_raw": name_raw,
                 "name_normalized": name_normalized,
                 "canonical_narrator_id": None,
-                "transmission_method": safe_str(
-                    table.column("transmission_method")[i].as_py()
-                ),
+                "transmission_method": safe_str(table.column("transmission_method")[i].as_py()),
                 "confidence": None,
             }
         )
@@ -167,9 +165,7 @@ def _write_name_audit_csv(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Collect rows that have both raw and normalized names.
-    candidates = [
-        r for r in rows if r.get("name_raw") and r.get("name_normalized")
-    ]
+    candidates = [r for r in rows if r.get("name_raw") and r.get("name_normalized")]
     rng = random.Random(42)
     sample = rng.sample(candidates, min(sample_size, len(candidates)))
 
@@ -178,9 +174,7 @@ def _write_name_audit_csv(
         writer.writerow(["source_corpus", "name_raw", "name_normalized", "is_arabic"])
         for r in sample:
             raw = str(r["name_raw"])
-            writer.writerow(
-                [r["source_corpus"], raw, r["name_normalized"], is_arabic(raw)]
-            )
+            writer.writerow([r["source_corpus"], raw, r["name_normalized"], is_arabic(raw)])
 
     logger.info("name_audit_written", path=str(audit_path), rows=len(sample))
     return audit_path
@@ -231,25 +225,19 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
         arrays: dict[str, pa.Array] = {
             "mention_id": pa.array([r["mention_id"] for r in all_rows], type=pa.string()),
             "hadith_id": pa.array([r["hadith_id"] for r in all_rows], type=pa.string()),
-            "source_corpus": pa.array(
-                [r["source_corpus"] for r in all_rows], type=pa.string()
-            ),
+            "source_corpus": pa.array([r["source_corpus"] for r in all_rows], type=pa.string()),
             "position_in_chain": pa.array(
                 [r["position_in_chain"] for r in all_rows], type=pa.int32()
             ),
             "name_raw": pa.array([r["name_raw"] for r in all_rows], type=pa.string()),
-            "name_normalized": pa.array(
-                [r["name_normalized"] for r in all_rows], type=pa.string()
-            ),
+            "name_normalized": pa.array([r["name_normalized"] for r in all_rows], type=pa.string()),
             "canonical_narrator_id": pa.array(
                 [r["canonical_narrator_id"] for r in all_rows], type=pa.string()
             ),
             "transmission_method": pa.array(
                 [r["transmission_method"] for r in all_rows], type=pa.string()
             ),
-            "confidence": pa.array(
-                [r["confidence"] for r in all_rows], type=pa.float32()
-            ),
+            "confidence": pa.array([r["confidence"] for r in all_rows], type=pa.float32()),
         }
         table = pa.table(arrays, schema=NARRATOR_MENTIONS_RESOLVED_SCHEMA)
         resolved_path = output_dir / "narrator_mentions_resolved.parquet"

@@ -88,16 +88,18 @@ def _extract_narrator_mentions(
             if phrases:
                 transmission_method = phrases[0][2]  # label of first match
 
-        mentions.append({
-            "mention_id": mention_id,
-            "source_hadith_id": source_hadith_id,
-            "source_corpus": _SOURCE_CORPUS,
-            "position_in_chain": idx,
-            "name_ar": name_raw,
-            "name_en": None,
-            "name_ar_normalized": name_ar_normalized,
-            "transmission_method": transmission_method,
-        })
+        mentions.append(
+            {
+                "mention_id": mention_id,
+                "source_hadith_id": source_hadith_id,
+                "source_corpus": _SOURCE_CORPUS,
+                "position_in_chain": idx,
+                "name_ar": name_raw,
+                "name_en": None,
+                "name_ar_normalized": name_ar_normalized,
+                "transmission_method": transmission_method,
+            }
+        )
 
     return mentions
 
@@ -116,9 +118,7 @@ def _process_chunk(
         if full_text is None:
             continue
 
-        hadith_num = safe_int(
-            row.get("hadith_id") or row.get("id") or row.get("Hadith_ID")
-        )
+        hadith_num = safe_int(row.get("hadith_id") or row.get("id") or row.get("Hadith_ID"))
         book_num = safe_int(row.get("book_id") or row.get("book") or row.get("Book_ID"))
 
         source_id = generate_source_id(
@@ -137,24 +137,26 @@ def _process_chunk(
         if sanad_text and sanad_text.lower() != "no sanad":
             isnad_raw_ar = sanad_text
 
-        hadiths.append({
-            "source_id": source_id,
-            "source_corpus": _SOURCE_CORPUS,
-            "collection_name": collection_name,
-            "book_number": book_num,
-            "chapter_number": None,
-            "hadith_number": hadith_num,
-            "matn_ar": matn_text,
-            "matn_en": None,
-            "isnad_raw_ar": isnad_raw_ar,
-            "isnad_raw_en": None,
-            "full_text_ar": full_text,
-            "full_text_en": None,
-            "grade": safe_str(row.get("grade") or row.get("Grade")),
-            "chapter_name_ar": safe_str(row.get("chapter") or row.get("Chapter")),
-            "chapter_name_en": None,
-            "sect": "sunni",
-        })
+        hadiths.append(
+            {
+                "source_id": source_id,
+                "source_corpus": _SOURCE_CORPUS,
+                "collection_name": collection_name,
+                "book_number": book_num,
+                "chapter_number": None,
+                "hadith_number": hadith_num,
+                "matn_ar": matn_text,
+                "matn_en": None,
+                "isnad_raw_ar": isnad_raw_ar,
+                "isnad_raw_en": None,
+                "full_text_ar": full_text,
+                "full_text_en": None,
+                "grade": safe_str(row.get("grade") or row.get("Grade")),
+                "chapter_name_ar": safe_str(row.get("chapter") or row.get("Chapter")),
+                "chapter_name_en": None,
+                "sect": "sunni",
+            }
+        )
 
         # Extract narrator mentions from SANAD if available
         if isnad_raw_ar:
@@ -241,32 +243,28 @@ def _parse_narrators_bio(narrators_dir: Path) -> pa.Table | None:
             )
             name_ar_norm = normalize_arabic(name_ar) if name_ar else None
 
-            all_bios.append({
-                "bio_id": bio_id,
-                "source": _BIO_SOURCE,
-                "name_ar": name_ar,
-                "name_en": safe_str(row_dict.get(field_map.get("name_en", ""))),
-                "name_ar_normalized": name_ar_norm,
-                "name_en_normalized": None,
-                "kunya": safe_str(row_dict.get(field_map.get("kunya", ""))),
-                "nisba": safe_str(row_dict.get(field_map.get("nisba", ""))),
-                "laqab": safe_str(row_dict.get(field_map.get("laqab", ""))),
-                "birth_year_ah": safe_int(row_dict.get(field_map.get("birth_year_ah", ""))),
-                "death_year_ah": safe_int(row_dict.get(field_map.get("death_year_ah", ""))),
-                "birth_location": safe_str(
-                    row_dict.get(field_map.get("birth_location", ""))
-                ),
-                "death_location": safe_str(
-                    row_dict.get(field_map.get("death_location", ""))
-                ),
-                "generation": safe_str(row_dict.get(field_map.get("generation", ""))),
-                "gender": safe_str(row_dict.get(field_map.get("gender", ""))),
-                "trustworthiness": safe_str(
-                    row_dict.get(field_map.get("trustworthiness", ""))
-                ),
-                "bio_text": safe_str(row_dict.get(field_map.get("bio_text", ""))),
-                "external_id": str(ext_id) if ext_id else None,
-            })
+            all_bios.append(
+                {
+                    "bio_id": bio_id,
+                    "source": _BIO_SOURCE,
+                    "name_ar": name_ar,
+                    "name_en": safe_str(row_dict.get(field_map.get("name_en", ""))),
+                    "name_ar_normalized": name_ar_norm,
+                    "name_en_normalized": None,
+                    "kunya": safe_str(row_dict.get(field_map.get("kunya", ""))),
+                    "nisba": safe_str(row_dict.get(field_map.get("nisba", ""))),
+                    "laqab": safe_str(row_dict.get(field_map.get("laqab", ""))),
+                    "birth_year_ah": safe_int(row_dict.get(field_map.get("birth_year_ah", ""))),
+                    "death_year_ah": safe_int(row_dict.get(field_map.get("death_year_ah", ""))),
+                    "birth_location": safe_str(row_dict.get(field_map.get("birth_location", ""))),
+                    "death_location": safe_str(row_dict.get(field_map.get("death_location", ""))),
+                    "generation": safe_str(row_dict.get(field_map.get("generation", ""))),
+                    "gender": safe_str(row_dict.get(field_map.get("gender", ""))),
+                    "trustworthiness": safe_str(row_dict.get(field_map.get("trustworthiness", ""))),
+                    "bio_text": safe_str(row_dict.get(field_map.get("bio_text", ""))),
+                    "external_id": str(ext_id) if ext_id else None,
+                }
+            )
 
     if not all_bios:
         return None
@@ -343,9 +341,7 @@ def parse_sanadset(
     # Data quality logging
     valid_sanad_count = sum(1 for h in all_hadiths if h["isnad_raw_ar"] is not None)
     valid_sanad_pct = (valid_sanad_count / len(all_hadiths) * 100) if all_hadiths else 0
-    avg_narrators = (
-        len(all_mentions) / valid_sanad_count if valid_sanad_count > 0 else 0
-    )
+    avg_narrators = len(all_mentions) / valid_sanad_count if valid_sanad_count > 0 else 0
 
     logger.info(
         "sanadset_parse_quality",

@@ -431,6 +431,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "rapidfuzz" },
     { name = "structlog" },
     { name = "tenacity" },
     { name = "tqdm" },
@@ -449,7 +450,6 @@ dev = [
 ml = [
     { name = "camel-tools" },
     { name = "faiss-cpu" },
-    { name = "rapidfuzz" },
     { name = "sentence-transformers" },
     { name = "torch" },
     { name = "transformers" },
@@ -469,6 +469,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.1" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rapidfuzz", specifier = ">=3.6" },
     { name = "structlog", specifier = ">=24.1" },
     { name = "tenacity", specifier = ">=8.2" },
     { name = "tqdm", specifier = ">=4.66" },
@@ -487,7 +488,6 @@ dev = [
 ml = [
     { name = "camel-tools", specifier = ">=1.5" },
     { name = "faiss-cpu", specifier = ">=1.7" },
-    { name = "rapidfuzz", specifier = ">=3.6" },
     { name = "sentence-transformers", specifier = ">=2.5" },
     { name = "torch", specifier = ">=2.2" },
     { name = "transformers", specifier = ">=4.38" },

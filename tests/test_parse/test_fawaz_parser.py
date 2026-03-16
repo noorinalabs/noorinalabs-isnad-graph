@@ -32,9 +32,7 @@ def _make_fawaz_data(raw_dir: Path) -> None:
             {"hadithnumber": 3, "text": "None of you truly believes", "grades": []},
         ],
     }
-    (fawaz_dir / "eng-bukhari.json").write_text(
-        json.dumps(edition_data), encoding="utf-8"
-    )
+    (fawaz_dir / "eng-bukhari.json").write_text(json.dumps(edition_data), encoding="utf-8")
 
 
 class TestFawazParser:

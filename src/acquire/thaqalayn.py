@@ -74,9 +74,7 @@ def _download_via_api(dest: Path, client: httpx.Client) -> list[Path]:
         try:
             url = f"{THAQALAYN_API_BASE}/hadith/{book_id}"
             data = _fetch_json(url, client)
-            book_path.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            book_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             saved.append(book_path)
             consecutive_5xx = 0
             logger.info("thaqalayn_book_downloaded", book_id=book_id)

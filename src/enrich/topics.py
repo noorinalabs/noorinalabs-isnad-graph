@@ -66,9 +66,7 @@ def _load_pipeline() -> Any | None:
 def _fetch_hadiths(client: Neo4jClient) -> list[dict[str, Any]]:
     """Read hadith id and English matn from Neo4j."""
     return client.execute_read(
-        "MATCH (h:Hadith) "
-        "WHERE h.matn_en IS NOT NULL "
-        "RETURN h.id AS id, h.matn_en AS matn_en"
+        "MATCH (h:Hadith) WHERE h.matn_en IS NOT NULL RETURN h.id AS id, h.matn_en AS matn_en"
     )
 
 

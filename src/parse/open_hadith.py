@@ -100,24 +100,26 @@ def run(raw_dir: Path, staging_dir: Path) -> Path:
 
             source_id = generate_source_id("open_hadith", collection, hadith_num or (i + 1))
 
-            rows.append({
-                "source_id": source_id,
-                "source_corpus": "open_hadith",
-                "collection_name": collection,
-                "book_number": book_num,
-                "chapter_number": chapter_num,
-                "hadith_number": hadith_num,
-                "matn_ar": text_value,
-                "matn_en": None,
-                "isnad_raw_ar": None,
-                "isnad_raw_en": None,
-                "full_text_ar": text_value if text_col is None else None,
-                "full_text_en": None,
-                "grade": None,
-                "chapter_name_ar": None,
-                "chapter_name_en": None,
-                "sect": "sunni",
-            })
+            rows.append(
+                {
+                    "source_id": source_id,
+                    "source_corpus": "open_hadith",
+                    "collection_name": collection,
+                    "book_number": book_num,
+                    "chapter_number": chapter_num,
+                    "hadith_number": hadith_num,
+                    "matn_ar": text_value,
+                    "matn_en": None,
+                    "isnad_raw_ar": None,
+                    "isnad_raw_en": None,
+                    "full_text_ar": text_value if text_col is None else None,
+                    "full_text_en": None,
+                    "grade": None,
+                    "chapter_name_ar": None,
+                    "chapter_name_en": None,
+                    "sect": "sunni",
+                }
+            )
 
         logger.info(
             "open_hadith_csv_parsed",

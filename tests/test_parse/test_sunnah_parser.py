@@ -23,9 +23,7 @@ def _make_sunnah_data(raw_dir: Path) -> None:
             "totalHadith": 2,
         },
     ]
-    (sunnah_dir / "collections.json").write_text(
-        json.dumps(collections), encoding="utf-8"
-    )
+    (sunnah_dir / "collections.json").write_text(json.dumps(collections), encoding="utf-8")
 
     hadiths = [
         {
@@ -48,9 +46,7 @@ def _make_sunnah_data(raw_dir: Path) -> None:
             ],
         },
     ]
-    (sunnah_dir / "bukhari_hadiths.json").write_text(
-        json.dumps(hadiths), encoding="utf-8"
-    )
+    (sunnah_dir / "bukhari_hadiths.json").write_text(json.dumps(hadiths), encoding="utf-8")
 
 
 class TestSunnahParser:

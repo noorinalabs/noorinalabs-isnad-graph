@@ -228,15 +228,19 @@ def _cmd_enrich() -> None:
 
     if summary.metrics:
         m = summary.metrics
-        print(f"\n  Metrics: {m.narrators_enriched} narrators enriched, "
-              f"{m.communities_found} communities")
+        print(
+            f"\n  Metrics: {m.narrators_enriched} narrators enriched, "
+            f"{m.communities_found} communities"
+        )
     if summary.topics:
         t = summary.topics
         print(f"  Topics: {t.hadiths_classified} classified, {t.hadiths_skipped} skipped")
     if summary.historical:
         h = summary.historical
-        print(f"  Historical: {h.edges_created} edges, "
-              f"{h.narrators_linked} narrators, {h.events_linked} events")
+        print(
+            f"  Historical: {h.edges_created} edges, "
+            f"{h.narrators_linked} narrators, {h.events_linked} events"
+        )
 
     if summary.steps_failed:
         sys.exit(1)

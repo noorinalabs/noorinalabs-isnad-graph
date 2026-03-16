@@ -102,9 +102,7 @@ class TestExactMatch:
 class TestFuzzyMatch:
     def test_similar_name_matches(self, candidates: list[Candidate]) -> None:
         # One-char difference from normalized name should match (Levenshtein <= 2).
-        matches = _fuzzy_match(
-            "\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0629", candidates
-        )
+        matches = _fuzzy_match("\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0629", candidates)
         assert len(matches) >= 1
         assert all(m.stage == "fuzzy" for m in matches)
         assert all(0 < m.score <= 1.0 for m in matches)
@@ -144,9 +142,7 @@ class TestTemporalFilter:
         filtered = _temporal_filter([match], ctx)
         assert len(filtered) == 0
 
-    def test_no_adjacent_years_passes_all(
-        self, candidate_abu_hurayra: Candidate
-    ) -> None:
+    def test_no_adjacent_years_passes_all(self, candidate_abu_hurayra: Candidate) -> None:
         match = Match(candidate=candidate_abu_hurayra, stage="fuzzy", score=0.85)
         ctx = ChainContext(
             hadith_id="h-1",
@@ -157,9 +153,7 @@ class TestTemporalFilter:
         filtered = _temporal_filter([match], ctx)
         assert len(filtered) == 1
 
-    def test_candidate_no_death_year_passes(
-        self, candidate_no_temporal: Candidate
-    ) -> None:
+    def test_candidate_no_death_year_passes(self, candidate_no_temporal: Candidate) -> None:
         match = Match(candidate=candidate_no_temporal, stage="fuzzy", score=0.80)
         ctx = ChainContext(
             hadith_id="h-1",
@@ -190,9 +184,7 @@ class TestGeographicFilter:
 class TestCrossrefMatch:
     def test_external_id_boosts_match(self, candidates: list[Candidate]) -> None:
         # candidate_abu_hurayra has external_id="ms-001" and name_ar_normalized set.
-        matches = _crossref_match(
-            "\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0647", candidates
-        )
+        matches = _crossref_match("\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0647", candidates)
         assert len(matches) >= 1
         assert all(m.stage == "crossref" for m in matches)
 

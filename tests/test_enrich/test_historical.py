@@ -19,15 +19,11 @@ def mock_client() -> MagicMock:
     return client
 
 
-def _make_narrator(
-    nid: str, birth: int, death: int
-) -> dict[str, str | int]:
+def _make_narrator(nid: str, birth: int, death: int) -> dict[str, str | int]:
     return {"id": nid, "birth_year_ah": birth, "death_year_ah": death}
 
 
-def _make_event(
-    eid: str, start: int, end: int
-) -> dict[str, str | int]:
+def _make_event(eid: str, start: int, end: int) -> dict[str, str | int]:
     return {"id": eid, "year_start_ah": start, "year_end_ah": end}
 
 
