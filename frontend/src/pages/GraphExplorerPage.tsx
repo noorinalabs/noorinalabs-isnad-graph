@@ -15,7 +15,7 @@ export default function GraphExplorerPage() {
 
   const { data: searchResults } = useQuery({
     queryKey: ['narrator-search', searchInput],
-    queryFn: () => fetchNarrators(1, 10),
+    queryFn: () => fetchNarrators(1, 10, searchInput),
     enabled: searchInput.length > 0,
   })
 
@@ -127,10 +127,10 @@ export default function GraphExplorerPage() {
                   borderBottom: '1px solid #eee',
                 }}
               >
-                <span style={{ direction: 'rtl' }}>{n.name_arabic}</span>
-                {n.name_transliterated && (
+                <span style={{ direction: 'rtl' }}>{n.name_ar}</span>
+                {n.name_en && (
                   <span style={{ marginLeft: '0.5rem', color: '#666' }}>
-                    ({n.name_transliterated})
+                    ({n.name_en})
                   </span>
                 )}
               </div>

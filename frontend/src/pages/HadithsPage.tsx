@@ -12,6 +12,8 @@ export default function HadithsPage() {
     queryFn: () => fetchHadiths(page, 20),
   })
 
+  const totalPages = data ? Math.ceil(data.total / data.limit) : 0
+
   return (
     <div>
       <h2>Hadiths</h2>
@@ -24,8 +26,7 @@ export default function HadithsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Collection</th>
-                <th style={{ padding: '0.5rem' }}>Number</th>
+                <th style={{ padding: '0.5rem' }}>Source</th>
                 <th style={{ padding: '0.5rem' }}>Grade</th>
                 <th style={{ padding: '0.5rem' }}>Topics</th>
               </tr>
@@ -37,27 +38,28 @@ export default function HadithsPage() {
                   onClick={() => navigate(`/hadiths/${h.id}`)}
                   style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
                 >
-                  <td style={{ padding: '0.5rem' }}>{h.collection_name ?? h.collection_id}</td>
-                  <td style={{ padding: '0.5rem' }}>{h.hadith_number}</td>
+                  <td style={{ padding: '0.5rem' }}>{h.source_corpus}</td>
                   <td style={{ padding: '0.5rem' }}>
-                    {h.grade && (
+                    {h.grade_composite && (
                       <span
                         style={{
                           padding: '0.15rem 0.5rem',
                           borderRadius: 4,
                           fontSize: '0.85rem',
-                          background: h.grade.toLowerCase() === 'sahih' ? '#e6f4ea' : '#fef7e0',
-                          color: h.grade.toLowerCase() === 'sahih' ? '#137333' : '#b06000',
+                          background:
+                            h.grade_composite.toLowerCase() === 'sahih' ? '#e6f4ea' : '#fef7e0',
+                          color:
+                            h.grade_composite.toLowerCase() === 'sahih' ? '#137333' : '#b06000',
                         }}
                       >
-                        {h.grade}
+                        {h.grade_composite}
                       </span>
                     )}
                   </td>
                   <td style={{ padding: '0.5rem' }}>
-                    {h.topics?.map((t) => (
+                    {h.topic_tags?.map((tag) => (
                       <span
-                        key={t.label}
+                        key={tag}
                         style={{
                           display: 'inline-block',
                           marginRight: '0.25rem',
@@ -68,7 +70,7 @@ export default function HadithsPage() {
                           color: '#283593',
                         }}
                       >
-                        {t.label}
+                        {tag}
                       </span>
                     ))}
                   </td>
@@ -82,9 +84,9 @@ export default function HadithsPage() {
               Previous
             </button>
             <span>
-              Page {data.page} of {data.pages}
+              Page {data.page} of {totalPages}
             </span>
-            <button disabled={page >= data.pages} onClick={() => setPage((p) => p + 1)}>
+            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
               Next
             </button>
           </div>

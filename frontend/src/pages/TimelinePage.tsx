@@ -2,21 +2,27 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as d3 from 'd3'
 import { fetchTimeline } from '../api/client'
-import type { TimelineEvent } from '../types/api'
+import type { TimelineEntry } from '../types/api'
 
 const MARGIN = { top: 30, right: 30, bottom: 40, left: 60 }
 
 export default function TimelinePage() {
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEntry | null>(null)
   const [yearRange, setYearRange] = useState<[number, number]>([0, 300])
 
-  const { data: events, isLoading, error } = useQuery({
+  const {
+    data: timelineData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['timeline', yearRange[0], yearRange[1]],
     queryFn: () => fetchTimeline(yearRange[0], yearRange[1]),
   })
 
-  const handleEventClick = useCallback((event: TimelineEvent) => {
+  const events = timelineData?.entries
+
+  const handleEventClick = useCallback((event: TimelineEntry) => {
     setSelectedEvent((prev) => (prev?.id === event.id ? null : event))
   }, [])
 
@@ -30,7 +36,7 @@ export default function TimelinePage() {
     svg.attr('height', height)
     svg.selectAll('*').remove()
 
-    const allYears = events.flatMap((e) => [e.year_start, e.year_end ?? e.year_start])
+    const allYears = events.flatMap((e) => [e.year_ah, e.end_year_ah ?? e.year_ah])
     const xMin = d3.min(allYears) ?? 0
     const xMax = d3.max(allYears) ?? 300
 
@@ -61,9 +67,11 @@ export default function TimelinePage() {
 
     bars
       .append('rect')
-      .attr('x', (d) => xScale(d.year_start))
+      .attr('x', (d) => xScale(d.year_ah))
       .attr('y', (_d, i) => yScale(i) ?? 0)
-      .attr('width', (d) => Math.max(4, xScale(d.year_end ?? d.year_start) - xScale(d.year_start)))
+      .attr('width', (d) =>
+        Math.max(4, xScale(d.end_year_ah ?? d.year_ah) - xScale(d.year_ah)),
+      )
       .attr('height', yScale.bandwidth())
       .attr('rx', 3)
       .attr('fill', '#1a73e8')
@@ -71,7 +79,7 @@ export default function TimelinePage() {
 
     bars
       .append('text')
-      .attr('x', (d) => xScale(d.year_start) - 4)
+      .attr('x', (d) => xScale(d.year_ah) - 4)
       .attr('y', (_d, i) => (yScale(i) ?? 0) + yScale.bandwidth() / 2)
       .attr('text-anchor', 'end')
       .attr('dominant-baseline', 'central')
@@ -130,19 +138,14 @@ export default function TimelinePage() {
           >
             <h3 style={{ margin: '0 0 0.5rem' }}>{selectedEvent.name}</h3>
             <p style={{ color: '#666', fontSize: '0.875rem' }}>
-              {selectedEvent.year_start}
-              {selectedEvent.year_end ? ` - ${selectedEvent.year_end}` : ''} AH
+              {selectedEvent.year_ah}
+              {selectedEvent.end_year_ah ? ` - ${selectedEvent.end_year_ah}` : ''} AH
             </p>
             {selectedEvent.description && <p>{selectedEvent.description}</p>}
-            {selectedEvent.narrators.length > 0 && (
-              <>
-                <h4 style={{ marginBottom: '0.25rem' }}>Active Narrators</h4>
-                <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
-                  {selectedEvent.narrators.map((n) => (
-                    <li key={n.id}>{n.name}</li>
-                  ))}
-                </ul>
-              </>
+            {selectedEvent.narrator_count > 0 && (
+              <p style={{ color: '#666', fontSize: '0.875rem' }}>
+                {selectedEvent.narrator_count} active narrators
+              </p>
             )}
           </div>
         )}

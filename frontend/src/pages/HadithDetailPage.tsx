@@ -15,7 +15,7 @@ export default function HadithDetailPage() {
     enabled: !!id,
   })
 
-  const { data: parallels } = useQuery({
+  const { data: parallelsData } = useQuery({
     queryKey: ['hadith-parallels', id],
     queryFn: () => fetchHadithParallels(id!),
     enabled: !!id,
@@ -32,22 +32,23 @@ export default function HadithDetailPage() {
       </Link>
 
       <h2 style={{ marginTop: '1rem' }}>
-        {hadith.collection_name ?? hadith.collection_id} #{hadith.hadith_number}
+        {hadith.source_corpus} &mdash; {hadith.id}
       </h2>
 
-      {hadith.grade && (
+      {hadith.grade_composite && (
         <span
           style={{
             display: 'inline-block',
             padding: '0.2rem 0.6rem',
             borderRadius: 4,
             fontSize: '0.9rem',
-            background: hadith.grade.toLowerCase() === 'sahih' ? '#e6f4ea' : '#fef7e0',
-            color: hadith.grade.toLowerCase() === 'sahih' ? '#137333' : '#b06000',
+            background:
+              hadith.grade_composite.toLowerCase() === 'sahih' ? '#e6f4ea' : '#fef7e0',
+            color: hadith.grade_composite.toLowerCase() === 'sahih' ? '#137333' : '#b06000',
             marginBottom: '1rem',
           }}
         >
-          {hadith.grade}
+          {hadith.grade_composite}
         </span>
       )}
 
@@ -64,11 +65,11 @@ export default function HadithDetailPage() {
             fontSize: '1.1rem',
           }}
         >
-          {hadith.text_arabic}
+          {hadith.matn_ar}
         </div>
       </section>
 
-      {hadith.text_english && (
+      {hadith.matn_en && (
         <section style={{ marginTop: '1.5rem' }}>
           <h3>English Translation</h3>
           <div
@@ -79,18 +80,18 @@ export default function HadithDetailPage() {
               lineHeight: 1.6,
             }}
           >
-            {hadith.text_english}
+            {hadith.matn_en}
           </div>
         </section>
       )}
 
-      {hadith.topics && hadith.topics.length > 0 && (
+      {hadith.topic_tags && hadith.topic_tags.length > 0 && (
         <section style={{ marginTop: '1.5rem' }}>
           <h3>Topics</h3>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {hadith.topics.map((t) => (
+            {hadith.topic_tags.map((tag) => (
               <span
-                key={t.label}
+                key={tag}
                 style={{
                   padding: '0.3rem 0.6rem',
                   borderRadius: 4,
@@ -99,37 +100,38 @@ export default function HadithDetailPage() {
                   fontSize: '0.9rem',
                 }}
               >
-                {t.label}{' '}
-                <span style={{ color: '#666', fontSize: '0.8rem' }}>
-                  ({(t.confidence * 100).toFixed(0)}%)
-                </span>
+                {tag}
               </span>
             ))}
           </div>
         </section>
       )}
 
-      {parallels && parallels.length > 0 && (
+      {parallelsData && parallelsData.parallels.length > 0 && (
         <section style={{ marginTop: '1.5rem' }}>
-          <h3>Parallel Hadiths ({parallels.length})</h3>
+          <h3>Parallel Hadiths ({parallelsData.total})</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Collection</th>
-                <th style={{ padding: '0.5rem' }}>Number</th>
+                <th style={{ padding: '0.5rem' }}>Source Corpus</th>
                 <th style={{ padding: '0.5rem' }}>Grade</th>
+                <th style={{ padding: '0.5rem' }}>Similarity</th>
+                <th style={{ padding: '0.5rem' }}>Cross-sect</th>
               </tr>
             </thead>
             <tbody>
-              {parallels.map((p) => (
+              {parallelsData.parallels.map((p) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={{ padding: '0.5rem' }}>
                     <Link to={`/hadiths/${p.id}`} style={{ color: '#1a73e8' }}>
-                      {p.collection_name ?? p.collection_id}
+                      {p.source_corpus}
                     </Link>
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{p.hadith_number}</td>
                   <td style={{ padding: '0.5rem' }}>{p.grade ?? '-'}</td>
+                  <td style={{ padding: '0.5rem' }}>
+                    {p.similarity_score != null ? `${(p.similarity_score * 100).toFixed(0)}%` : '-'}
+                  </td>
+                  <td style={{ padding: '0.5rem' }}>{p.cross_sect ? 'Yes' : 'No'}</td>
                 </tr>
               ))}
             </tbody>

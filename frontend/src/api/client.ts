@@ -3,11 +3,11 @@ import type {
   Narrator,
   Hadith,
   Collection,
-  Chain,
-  SearchResult,
-  TimelineEvent,
-  ParallelPair,
-  GraphNetwork,
+  NarratorChainsResponse,
+  SearchResultsResponse,
+  TimelineResponse,
+  ParallelsResponse,
+  NarratorNetworkResponse,
 } from '../types/api'
 
 const API_BASE = '/api/v1'
@@ -34,8 +34,8 @@ export async function fetchNarrator(id: string): Promise<Narrator> {
   return fetchJson(`${API_BASE}/narrators/${encodeURIComponent(id)}`)
 }
 
-export async function fetchNarratorChains(id: string): Promise<Chain[]> {
-  return fetchJson(`${API_BASE}/narrators/${encodeURIComponent(id)}/chains`)
+export async function fetchNarratorChains(id: string): Promise<NarratorChainsResponse> {
+  return fetchJson(`${API_BASE}/graph/narrator/${encodeURIComponent(id)}/chains`)
 }
 
 export async function fetchHadiths(
@@ -49,68 +49,59 @@ export async function fetchHadith(id: string): Promise<Hadith> {
   return fetchJson(`${API_BASE}/hadiths/${encodeURIComponent(id)}`)
 }
 
-export async function fetchHadithParallels(id: string): Promise<Hadith[]> {
-  return fetchJson(`${API_BASE}/hadiths/${encodeURIComponent(id)}/parallels`)
+export async function fetchHadithParallels(id: string): Promise<ParallelsResponse> {
+  return fetchJson(`${API_BASE}/parallels/${encodeURIComponent(id)}`)
 }
 
-export async function fetchCollections(
-  page = 1,
-  limit = 20,
-): Promise<PaginatedResponse<Collection>> {
-  return fetchJson(`${API_BASE}/collections?page=${page}&limit=${limit}`)
+export async function fetchCollections(): Promise<Collection[]> {
+  return fetchJson(`${API_BASE}/collections`)
 }
 
 export async function fetchCollection(id: string): Promise<Collection> {
   return fetchJson(`${API_BASE}/collections/${encodeURIComponent(id)}`)
 }
 
-export async function fetchCollectionHadiths(
-  id: string,
-  page = 1,
-  limit = 20,
-): Promise<PaginatedResponse<Hadith>> {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
-  return fetchJson(`${API_BASE}/collections/${encodeURIComponent(id)}/hadiths?${params}`)
-}
-
 export async function fetchTimeline(
-  yearStart?: number,
-  yearEnd?: number,
-): Promise<TimelineEvent[]> {
+  startYear?: number,
+  endYear?: number,
+): Promise<TimelineResponse> {
   const params = new URLSearchParams()
-  if (yearStart != null) params.set('year_start', String(yearStart))
-  if (yearEnd != null) params.set('year_end', String(yearEnd))
+  if (startYear != null) params.set('start_year', String(startYear))
+  if (endYear != null) params.set('end_year', String(endYear))
   const qs = params.toString()
   return fetchJson(`${API_BASE}/timeline${qs ? `?${qs}` : ''}`)
-}
-
-export async function fetchParallels(
-  page = 1,
-  limit = 20,
-): Promise<PaginatedResponse<ParallelPair>> {
-  return fetchJson(`${API_BASE}/parallels?page=${page}&limit=${limit}`)
 }
 
 export async function fetchGraphNetwork(
   narratorId: string,
   depth = 1,
-): Promise<GraphNetwork> {
+): Promise<NarratorNetworkResponse> {
   const params = new URLSearchParams({
-    narrator_id: narratorId,
     depth: String(depth),
   })
-  return fetchJson(`${API_BASE}/graph/network?${params}`)
+  return fetchJson(
+    `${API_BASE}/graph/narrator/${encodeURIComponent(narratorId)}/network?${params}`,
+  )
 }
 
 export async function searchAll(
   query: string,
-  mode: 'fulltext' | 'semantic' = 'fulltext',
   limit = 20,
-): Promise<SearchResult[]> {
+): Promise<SearchResultsResponse> {
   const params = new URLSearchParams({
     q: query,
-    mode,
     limit: String(limit),
   })
   return fetchJson(`${API_BASE}/search?${params}`)
+}
+
+export async function searchSemantic(
+  query: string,
+  limit = 10,
+): Promise<SearchResultsResponse> {
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(limit),
+  })
+  return fetchJson(`${API_BASE}/search/semantic?${params}`)
 }

@@ -3,90 +3,123 @@ export interface PaginatedResponse<T> {
   total: number
   page: number
   limit: number
-  pages: number
 }
 
 export interface Narrator {
   id: string
-  name_arabic: string
-  name_transliterated: string | null
+  name_ar: string
+  name_en: string
   kunya: string | null
   nisba: string | null
-  birth_year: number | null
-  death_year: number | null
-  generation: string | null
-  reliability_grade: string | null
-  sect: string | null
-  location: string | null
+  laqab: string | null
+  birth_year_ah: number | null
+  death_year_ah: number | null
+  generation: string
+  gender: string
+  sect_affiliation: string
+  trustworthiness_consensus: string
+  aliases: string[]
+  betweenness_centrality: number | null
   in_degree: number | null
   out_degree: number | null
-  betweenness_centrality: number | null
   pagerank: number | null
   community_id: number | null
 }
 
-export interface TopicTag {
-  label: string
-  confidence: number
-}
-
 export interface Hadith {
   id: string
-  collection_id: string
-  collection_name: string | null
-  book_number: number | null
-  hadith_number: string
-  text_arabic: string
-  text_english: string | null
-  grade: string | null
-  chapter: string | null
-  topics: TopicTag[] | null
-  parallels: Hadith[] | null
+  matn_ar: string
+  matn_en: string | null
+  isnad_raw_ar: string | null
+  isnad_raw_en: string | null
+  grade_composite: string | null
+  topic_tags: string[]
+  source_corpus: string
+  has_shia_parallel: boolean
+  has_sunni_parallel: boolean
 }
 
 export interface Collection {
   id: string
-  name_arabic: string
-  name_english: string
-  compiler: string | null
+  name_ar: string
+  name_en: string
+  compiler_name: string | null
+  compiler_id: string | null
+  compilation_year_ah: number | null
   sect: string
-  hadith_count: number
+  canonical_rank: number | null
+  total_hadiths: number | null
+  book_count: number | null
 }
 
-export interface Chain {
-  id: string
+export interface ChainSummary {
+  chain_id: string
   hadith_id: string
-  narrators: Narrator[]
-  is_complete: boolean
+  matn_ar: string
+  matn_en: string | null
+  grade: string | null
+}
+
+export interface NarratorChainsResponse {
+  narrator_id: string
+  chains: ChainSummary[]
+  total: number
 }
 
 export interface SearchResult {
-  type: 'narrator' | 'hadith' | 'collection'
   id: string
-  label: string
-  snippet: string
+  type: string
+  title: string
+  title_ar: string
+  score: number
 }
 
-export interface TimelineEvent {
+export interface SearchResultsResponse {
+  results: SearchResult[]
+  total: number
+  query: string
+}
+
+export interface TimelineEntry {
   id: string
   name: string
-  year_start: number
-  year_end: number | null
+  name_ar: string | null
+  year_ah: number
+  end_year_ah: number | null
+  event_type: string | null
   description: string | null
-  narrators: { id: string; name: string }[]
+  narrator_count: number
 }
 
-export interface ParallelPair {
-  sunni_hadith: Hadith
-  shia_hadith: Hadith
-  similarity_score: number
+export interface TimelineResponse {
+  entries: TimelineEntry[]
+  total: number
+}
+
+export interface ParallelHadith {
+  id: string
+  matn_ar: string
+  matn_en: string | null
+  source_corpus: string
+  grade: string | null
+  similarity_score: number | null
+  variant_type: string | null
+  cross_sect: boolean
+}
+
+export interface ParallelsResponse {
+  hadith_id: string
+  parallels: ParallelHadith[]
+  total: number
 }
 
 export interface GraphNode {
   id: string
   label: string
-  community_id: number | null
-  type: 'narrator' | 'hadith'
+  name_ar: string
+  name_en: string | null
+  type: string
+  generation: string | null
 }
 
 export interface GraphEdge {
@@ -95,7 +128,10 @@ export interface GraphEdge {
   relationship: string
 }
 
-export interface GraphNetwork {
+export interface NarratorNetworkResponse {
+  narrator_id: string
   nodes: GraphNode[]
   edges: GraphEdge[]
+  teachers: number
+  students: number
 }

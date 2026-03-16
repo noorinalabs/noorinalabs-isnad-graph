@@ -19,6 +19,8 @@ export default function NarratorsPage() {
     setPage(1)
   }
 
+  const totalPages = data ? Math.ceil(data.total / data.limit) : 0
+
   return (
     <div>
       <h2>Narrators</h2>
@@ -46,9 +48,9 @@ export default function NarratorsPage() {
             <thead>
               <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
                 <th style={{ padding: '0.5rem' }}>Name (Arabic)</th>
-                <th style={{ padding: '0.5rem' }}>Name (Transliterated)</th>
+                <th style={{ padding: '0.5rem' }}>Name (English)</th>
                 <th style={{ padding: '0.5rem' }}>Generation</th>
-                <th style={{ padding: '0.5rem' }}>Reliability</th>
+                <th style={{ padding: '0.5rem' }}>Trustworthiness</th>
                 <th style={{ padding: '0.5rem' }}>Community</th>
               </tr>
             </thead>
@@ -59,10 +61,10 @@ export default function NarratorsPage() {
                   onClick={() => navigate(`/narrators/${n.id}`)}
                   style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
                 >
-                  <td style={{ padding: '0.5rem', direction: 'rtl' }}>{n.name_arabic}</td>
-                  <td style={{ padding: '0.5rem' }}>{n.name_transliterated ?? '-'}</td>
+                  <td style={{ padding: '0.5rem', direction: 'rtl' }}>{n.name_ar}</td>
+                  <td style={{ padding: '0.5rem' }}>{n.name_en ?? '-'}</td>
                   <td style={{ padding: '0.5rem' }}>{n.generation ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>{n.reliability_grade ?? '-'}</td>
+                  <td style={{ padding: '0.5rem' }}>{n.trustworthiness_consensus ?? '-'}</td>
                   <td style={{ padding: '0.5rem' }}>
                     {n.community_id != null ? `#${n.community_id}` : '-'}
                   </td>
@@ -76,9 +78,9 @@ export default function NarratorsPage() {
               Previous
             </button>
             <span>
-              Page {data.page} of {data.pages}
+              Page {data.page} of {totalPages}
             </span>
-            <button disabled={page >= data.pages} onClick={() => setPage((p) => p + 1)}>
+            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
               Next
             </button>
           </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { searchAll } from '../api/client'
+import { searchAll, searchSemantic } from '../api/client'
 
 export default function SearchPage() {
   const [inputValue, setInputValue] = useState('')
@@ -20,11 +20,13 @@ export default function SearchPage() {
     }
   }, [inputValue])
 
-  const { data: results, isLoading } = useQuery({
+  const { data: searchData, isLoading } = useQuery({
     queryKey: ['search', query, mode],
-    queryFn: () => searchAll(query, mode),
+    queryFn: () => (mode === 'semantic' ? searchSemantic(query) : searchAll(query)),
     enabled: query.length >= 2,
   })
+
+  const results = searchData?.results
 
   const handleResultClick = (result: { type: string; id: string }) => {
     if (result.type === 'narrator') navigate(`/narrators/${result.id}`)
@@ -102,11 +104,18 @@ export default function SearchPage() {
                   >
                     {r.type}
                   </span>
-                  <span style={{ fontWeight: 500 }}>{r.label}</span>
+                  <span style={{ fontWeight: 500 }}>{r.title}</span>
                 </div>
-                {r.snippet && (
-                  <p style={{ margin: '0.25rem 0 0', color: '#666', fontSize: '0.9rem' }}>
-                    {r.snippet}
+                {r.title_ar && (
+                  <p
+                    style={{
+                      margin: '0.25rem 0 0',
+                      color: '#666',
+                      fontSize: '0.9rem',
+                      direction: 'rtl',
+                    }}
+                  >
+                    {r.title_ar}
                   </p>
                 )}
               </div>

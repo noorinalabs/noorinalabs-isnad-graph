@@ -15,7 +15,7 @@ export default function NarratorDetailPage() {
     enabled: !!id,
   })
 
-  const { data: chains } = useQuery({
+  const { data: chainsData } = useQuery({
     queryKey: ['narrator-chains', id],
     queryFn: () => fetchNarratorChains(id!),
     enabled: !!id,
@@ -32,10 +32,10 @@ export default function NarratorDetailPage() {
       </Link>
 
       <h2 style={{ direction: 'rtl', textAlign: 'right', marginTop: '1rem' }}>
-        {narrator.name_arabic}
+        {narrator.name_ar}
       </h2>
-      {narrator.name_transliterated && (
-        <h3 style={{ color: '#555', fontWeight: 400 }}>{narrator.name_transliterated}</h3>
+      {narrator.name_en && (
+        <h3 style={{ color: '#555', fontWeight: 400 }}>{narrator.name_en}</h3>
       )}
 
       <section style={{ marginTop: '1.5rem' }}>
@@ -45,12 +45,19 @@ export default function NarratorDetailPage() {
             {[
               ['Kunya', narrator.kunya],
               ['Nisba', narrator.nisba],
-              ['Birth Year', narrator.birth_year != null ? `${narrator.birth_year} AH` : null],
-              ['Death Year', narrator.death_year != null ? `${narrator.death_year} AH` : null],
+              ['Laqab', narrator.laqab],
+              [
+                'Birth Year',
+                narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : null,
+              ],
+              [
+                'Death Year',
+                narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : null,
+              ],
               ['Generation', narrator.generation],
-              ['Reliability', narrator.reliability_grade],
-              ['Sect', narrator.sect],
-              ['Location', narrator.location],
+              ['Gender', narrator.gender],
+              ['Sect Affiliation', narrator.sect_affiliation],
+              ['Trustworthiness', narrator.trustworthiness_consensus],
             ].map(
               ([label, value]) =>
                 value && (
@@ -96,17 +103,17 @@ export default function NarratorDetailPage() {
         </div>
       </section>
 
-      {chains && chains.length > 0 && (
+      {chainsData && chainsData.chains.length > 0 && (
         <section style={{ marginTop: '1.5rem' }}>
-          <h3>Chains ({chains.length})</h3>
+          <h3>Chains ({chainsData.total})</h3>
           <ul style={{ paddingLeft: '1.25rem' }}>
-            {chains.map((chain) => (
-              <li key={chain.id} style={{ marginBottom: '0.5rem' }}>
+            {chainsData.chains.map((chain) => (
+              <li key={chain.chain_id} style={{ marginBottom: '0.5rem' }}>
                 <Link to={`/hadiths/${chain.hadith_id}`} style={{ color: '#1a73e8' }}>
                   Hadith {chain.hadith_id}
                 </Link>
-                {!chain.is_complete && (
-                  <span style={{ color: '#999', marginLeft: '0.5rem' }}>(incomplete chain)</span>
+                {chain.grade && (
+                  <span style={{ color: '#999', marginLeft: '0.5rem' }}>({chain.grade})</span>
                 )}
               </li>
             ))}
