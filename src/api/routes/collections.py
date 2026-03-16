@@ -2,24 +2,35 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
-from src.api.models import CollectionResponse
+from src.api.models import CollectionResponse, PaginatedResponse
 from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter()
 
 
-@router.get("/collections", response_model=list[CollectionResponse])
+@router.get("/collections", response_model=PaginatedResponse[CollectionResponse])
 def list_collections(
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
     neo4j: Neo4jClient = Depends(get_neo4j),
-) -> list[CollectionResponse]:
-    """Return all collections."""
-    rows = neo4j.execute_read(
-        "MATCH (c:Collection) RETURN properties(c) AS props ORDER BY c.id",
+) -> PaginatedResponse[CollectionResponse]:
+    """Return paginated collections."""
+    skip = (page - 1) * limit
+
+    count_rows = neo4j.execute_read(
+        "MATCH (c:Collection) RETURN count(c) AS total",
     )
-    return [CollectionResponse(**row["props"]) for row in rows]
+    total = count_rows[0]["total"] if count_rows else 0
+
+    rows = neo4j.execute_read(
+        "MATCH (c:Collection) RETURN properties(c) AS props ORDER BY c.id SKIP $skip LIMIT $limit",
+        {"skip": skip, "limit": limit},
+    )
+    items = [CollectionResponse(**row["props"]) for row in rows]
+    return PaginatedResponse[CollectionResponse](items=items, total=total, page=page, limit=limit)
 
 
 @router.get("/collections/{collection_id}", response_model=CollectionResponse)

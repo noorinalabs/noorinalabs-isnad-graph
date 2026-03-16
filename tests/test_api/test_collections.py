@@ -14,22 +14,27 @@ SAMPLE_COLLECTION = {
 }
 
 
-def test_list_collections_empty(client: TestClient) -> None:
-    """GET /api/v1/collections returns empty list when no data."""
-    resp = client.get("/api/v1/collections")
-    assert resp.status_code == 200
-    assert resp.json() == []
-
-
-def test_list_collections_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
-    """GET /api/v1/collections returns collections from Neo4j."""
-    mock_neo4j.execute_read.return_value = [{"props": SAMPLE_COLLECTION}]
+def test_list_collections_empty(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/collections returns empty paginated response when no data."""
+    mock_neo4j.execute_read.side_effect = [[{"total": 0}], []]
     resp = client.get("/api/v1/collections")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body) == 1
-    assert body[0]["id"] == "col-001"
-    assert body[0]["name_en"] == "Sahih al-Bukhari"
+    assert body["items"] == []
+    assert body["total"] == 0
+    assert body["page"] == 1
+
+
+def test_list_collections_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/collections returns paginated collections from Neo4j."""
+    mock_neo4j.execute_read.side_effect = [[{"total": 1}], [{"props": SAMPLE_COLLECTION}]]
+    resp = client.get("/api/v1/collections")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["id"] == "col-001"
+    assert body["items"][0]["name_en"] == "Sahih al-Bukhari"
+    assert body["total"] == 1
 
 
 def test_get_collection_found(client: TestClient, mock_neo4j: MagicMock) -> None:
