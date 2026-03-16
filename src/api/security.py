@@ -65,10 +65,11 @@ def audit_cypher_queries(root: Path | None = None) -> list[dict[str, str]]:
     # of node types (no user input). Flag but note as low-risk.
     constraint_pattern = re.compile(r"CREATE CONSTRAINT IF NOT EXISTS")
 
+    _skip_dirs = {".venv", "__pycache__", ".git", "build", "dist", "node_modules", ".tox"}
+
     for py_file in root.rglob("*.py"):
-        # Skip __pycache__
         parts = py_file.parts
-        if "__pycache__" in parts:
+        if _skip_dirs & set(parts):
             continue
         try:
             content = py_file.read_text(encoding="utf-8", errors="replace")
