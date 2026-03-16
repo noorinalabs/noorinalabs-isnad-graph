@@ -71,7 +71,7 @@ def audit_cypher_queries(root: Path | None = None) -> list[dict[str, str]]:
         if "__pycache__" in parts:
             continue
         try:
-            content = py_file.read_text(encoding="utf-8")
+            content = py_file.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
 
