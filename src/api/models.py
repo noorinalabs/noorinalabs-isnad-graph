@@ -124,9 +124,7 @@ class HealthResponse(BaseModel):
 
     model_config = ConfigDict(
         frozen=True,
-        json_schema_extra={
-            "examples": [{"status": "ok", "neo4j_connected": True}]
-        },
+        json_schema_extra={"examples": [{"status": "ok", "neo4j_connected": True}]},
     )
 
     status: str
