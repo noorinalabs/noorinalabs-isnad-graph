@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from src.utils.arabic import (
@@ -12,26 +12,34 @@ from src.utils.arabic import (
     strip_diacritics,
 )
 
+# Register Hypothesis profiles for different CI environments.
+# Default "ci" profile uses 200 examples; "nightly" uses 1000 for deeper coverage.
+# Usage: pytest --hypothesis-profile=nightly
+settings.register_profile("ci", max_examples=200)
+settings.register_profile(
+    "nightly",
+    max_examples=1000,
+    suppress_health_check=[HealthCheck.too_slow],
+)
+settings.load_profile("ci")
+
 
 class TestArabicFuzz:
     """Property-based fuzz tests ensuring Arabic utilities never crash."""
 
     @given(st.text(min_size=0, max_size=1000))
-    @settings(max_examples=200)
     def test_normalize_arabic_never_crashes(self, text: str) -> None:
         """normalize_arabic should handle any string without raising."""
         result = normalize_arabic(text)
         assert isinstance(result, str)
 
     @given(st.text(min_size=0, max_size=1000))
-    @settings(max_examples=200)
     def test_strip_diacritics_never_crashes(self, text: str) -> None:
         """strip_diacritics should handle any string without raising."""
         result = strip_diacritics(text)
         assert isinstance(result, str)
 
     @given(st.text(min_size=0, max_size=1000))
-    @settings(max_examples=200)
     def test_is_arabic_returns_bool(self, text: str) -> None:
         """is_arabic should always return a bool."""
         result = is_arabic(text)
@@ -60,7 +68,6 @@ class TestArabicFuzz:
             assert end > start
 
     @given(st.text(min_size=0, max_size=1000))
-    @settings(max_examples=200)
     def test_normalize_is_idempotent(self, text: str) -> None:
         """Applying normalize_arabic twice should give the same result."""
         once = normalize_arabic(text)
@@ -68,7 +75,6 @@ class TestArabicFuzz:
         assert once == twice
 
     @given(st.text(min_size=0, max_size=1000))
-    @settings(max_examples=200)
     def test_strip_diacritics_is_idempotent(self, text: str) -> None:
         """Applying strip_diacritics twice should give the same result."""
         once = strip_diacritics(text)
