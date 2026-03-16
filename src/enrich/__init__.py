@@ -67,7 +67,7 @@ def run_all(
     if _should_run("topics", only, skip):
         try:
             log.info("enrich_step_start", step="topics")
-            topics_result = run_topics(client, staging_dir)
+            topics_result = run_topics(client)
             steps_completed.append("topics")
             log.info("enrich_step_done", step="topics")
         except Exception:

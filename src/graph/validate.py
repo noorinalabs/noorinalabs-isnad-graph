@@ -11,7 +11,7 @@ from src.utils.neo4j_client import Neo4jClient
 
 logger = get_logger(__name__)
 
-__all__ = ["run_validation", "ValidationResult"]
+__all__ = ["register_classifier", "run_validation", "ValidationResult"]
 
 _DEFAULT_DEVIATION_THRESHOLD = 10.0
 
@@ -88,6 +88,15 @@ _CLASSIFIER_REGISTRY: dict[str, ClassifierFunc] = {
     "chain_integrity": _classify_chain_integrity,
     "collection_coverage": _classify_collection_coverage,
 }
+
+
+def register_classifier(name: str, func: ClassifierFunc) -> None:
+    """Register a custom classifier for a query name.
+
+    This allows downstream code to add new validation classifiers without
+    modifying this module directly.
+    """
+    _CLASSIFIER_REGISTRY[name] = func
 
 
 def _classify(

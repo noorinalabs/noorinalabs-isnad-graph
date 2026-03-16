@@ -8,7 +8,6 @@ Gracefully skips if the ``transformers`` library is not installed.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any
 
 from src.models.enrich import TopicResult
@@ -85,23 +84,26 @@ def _write_topics(
     )
 
 
-def run_topics(client: Neo4jClient, staging_dir: Path) -> TopicResult:
+def run_topics(client: Neo4jClient, labels: list[str] | None = None) -> TopicResult:
     """Classify hadiths and write top-3 topics to HADITH nodes.
 
     Parameters
     ----------
-    client:
-        Connected Neo4j client.
-    staging_dir:
-        Staging directory (unused for topics, kept for interface consistency).
+    labels:
+        Override topic labels. Defaults to ``settings.topic_labels``.
     """
+    if labels is None:
+        from src.config import get_settings
+
+        labels = list(get_settings().topic_labels)
+
     classifier = _load_pipeline()
     if classifier is None:
         return TopicResult(
             hadiths_classified=0,
             hadiths_skipped=0,
             model_name=MODEL_NAME,
-            labels_used=TOPIC_LABELS,
+            labels_used=labels,
         )
 
     hadiths = _fetch_hadiths(client)
@@ -127,7 +129,7 @@ def run_topics(client: Neo4jClient, staging_dir: Path) -> TopicResult:
             continue
 
         try:
-            results = classifier(texts, candidate_labels=TOPIC_LABELS, multi_label=False)
+            results = classifier(texts, candidate_labels=labels, multi_label=False)
         except Exception as exc:
             log.error(
                 "batch_classification_failed",
@@ -143,16 +145,16 @@ def run_topics(client: Neo4jClient, staging_dir: Path) -> TopicResult:
 
         write_batch: list[dict[str, Any]] = []
         for hadith_id, result in zip(ids, results):
-            labels = result["labels"]
+            result_labels = result["labels"]
             scores = result["scores"]
             write_batch.append(
                 {
                     "id": hadith_id,
-                    "t1": labels[0],
+                    "t1": result_labels[0],
                     "s1": round(scores[0], 4),
-                    "t2": labels[1],
+                    "t2": result_labels[1],
                     "s2": round(scores[1], 4),
-                    "t3": labels[2],
+                    "t3": result_labels[2],
                     "s3": round(scores[2], 4),
                 }
             )
@@ -178,5 +180,5 @@ def run_topics(client: Neo4jClient, staging_dir: Path) -> TopicResult:
         hadiths_classified=classified,
         hadiths_skipped=skipped,
         model_name=MODEL_NAME,
-        labels_used=TOPIC_LABELS,
+        labels_used=labels,
     )
