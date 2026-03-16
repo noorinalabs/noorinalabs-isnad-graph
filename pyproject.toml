@@ -38,6 +38,9 @@ dev = [
     "types-tqdm>=4.66",
     "types-pyyaml>=6.0.12.20250915",
     "testcontainers[neo4j,postgres,redis]>=4.0",
+    "hypothesis>=6.0",
+    "playwright>=1.49",
+    "pytest-playwright>=0.6",
 ]
 ml = [
     "sentence-transformers>=2.5",
@@ -85,6 +88,10 @@ ignore_missing_imports = true
 module = ["testcontainers", "testcontainers.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["playwright", "playwright.*"]
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
@@ -97,4 +104,5 @@ pythonpath = ["."]
 markers = [
     "ml: marks tests requiring ML dependencies (sentence-transformers, faiss)",
     "integration: marks tests requiring Docker containers (Neo4j, PostgreSQL, Redis)",
+    "e2e: marks browser automation tests requiring running frontend and backend",
 ]

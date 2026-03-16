@@ -2,6 +2,7 @@ data/raw/
 !data/raw/.gitkeep
 data/staging/
 !data/staging/.gitkeep
+data/test_samples/
 *.parquet
 .env
 __pycache__/

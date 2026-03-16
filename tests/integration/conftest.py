@@ -39,3 +39,23 @@ def postgres_container():
     """Start a real PostgreSQL container."""
     with PostgresContainer("pgvector/pgvector:pg16") as pg:
         yield pg
+
+
+@pytest.fixture
+def sample_data_dir(tmp_path):
+    """Path to a temporary sample data directory for integration tests."""
+    sample_dir = tmp_path / "test_samples"
+    sample_dir.mkdir()
+    return sample_dir
+
+
+@pytest.fixture
+def clean_staging(tmp_path):
+    """Cleanup fixture that empties staging dir between tests."""
+    staging_dir = tmp_path / "staging"
+    staging_dir.mkdir(exist_ok=True)
+    yield staging_dir
+    # Cleanup after test
+    for f in staging_dir.iterdir():
+        if f.is_file():
+            f.unlink()
