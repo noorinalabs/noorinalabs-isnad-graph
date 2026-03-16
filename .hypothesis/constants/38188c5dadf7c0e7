@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/resolve/ner.py
+# hypothesis_version: 6.151.9
+
+[0.0, 100, 'ar', 'confidence', 'en', 'extraction_complete', 'fawaz', 'full_text_ar', 'full_text_en', 'hadith_id', 'is_arabic', 'isnad_raw_ar', 'isnad_raw_en', 'lk', 'mention_id', 'muhaddithat', 'name_ar', 'name_ar_normalized', 'name_audit_written', 'name_en', 'name_normalized', 'name_raw', 'ner_name_audit.csv', 'ner_no_mentions', 'ner_run_complete', 'ner_run_start', 'ner_skip_source', 'ner_source_summary', 'ner_total_mentions', 'no_hadith_files', 'no_raw_isnads', 'open_hadith', 'position_in_chain', 'run', 'sanadset', 'source_corpus', 'source_hadith_id', 'source_id', 'sunnah', 'thaqalayn', 'transmission_method', 'utf-8', 'w']

@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/graph/validate.py
+# hypothesis_version: 6.151.9
+
+[10.0, '*.cypher', '; ', '?', 'FAIL', 'PASS', 'ValidationResult', 'all within threshold', 'chain_integrity', 'collection_coverage', 'collection_id', 'deviation_pct', 'empty result', 'empty_cypher_file', 'no cycles', 'no orphans', 'orphan_narrators', 'register_classifier', 'run_validation', 'utf-8', 'validation', 'validation_complete', 'validation_running']

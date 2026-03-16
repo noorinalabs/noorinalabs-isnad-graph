@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/resolve/dedup.py
+# hypothesis_version: 6.151.9
+
+[0.7, 0.8, 0.9, 100, 256, '**/hadiths_*.parquet', 'cross_sect', 'dedup_complete', 'dedup_empty_output', 'dedup_encoding', 'dedup_index_built', 'dedup_loaded_hadiths', 'dedup_loading_model', 'dedup_missing_deps', 'dedup_missing_faiss', 'dedup_no_texts', 'fawaz', 'flat', 'hadith_id_a', 'hadith_id_b', 'ivf', 'lk', 'matn_en', 'open_hadith', 'run', 'run_dedup', 'sanadset', 'similarity_score', 'source_corpus', 'source_id', 'sunnah', 'thaqalayn', 'variant_type', 'w']

@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/utils/arabic.py
+# hypothesis_version: 6.151.9
+
+['[\\u0600-\\u06FF]', '[\\u0624\\u0626]', '\\s+', '\\u0629', '\\u0640', 'akhbarana', 'an', 'anba_ana', 'clean_whitespace', 'haddathana', 'is_arabic', 'kataba_ilayya', 'nawalani', 'normalize_alif', 'normalize_arabic', 'normalize_hamza', 'qala', 'samitu', 'strip_diacritics', 'ء', 'أخبرنا', 'أنبأنا', 'ا', 'حدثنا', 'سمعت', 'عن', 'قال', 'كتب\\s+إلي', 'ناولني', 'ه']

@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/acquire/sanadset.py
+# hypothesis_version: 6.151.9
+
+[600, 600000, '*.csv', '--unzip', '-d', '-p', '.kaggle', 'csv_files_exist', 'datasets', 'download', 'download_sanadset', 'download_skipped', 'kaggle', 'kaggle.json', 'key', 'low_row_count', 'narrators', 'replace', 'sanadset', 'username', 'utf-8']

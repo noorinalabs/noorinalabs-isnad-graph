@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/parse/open_hadith.py
+# hypothesis_version: 6.151.9
+
+['*.csv', '-_ ', 'book', 'book_no', 'book_number', 'chapter', 'chapter_name_ar', 'chapter_name_en', 'chapter_no', 'chapter_number', 'collection_name', 'content', 'csv_read_failed', 'full_text_ar', 'full_text_en', 'grade', 'hadith', 'hadith_no', 'hadith_number', 'hadith_text', 'id', 'isnad_raw_ar', 'isnad_raw_en', 'matn', 'matn_ar', 'matn_en', 'number', 'open_hadith', 'open_hadith_parsed', 'sect', 'source_corpus', 'source_id', 'sunni', 'tashkeel|diacritics', 'text', 'باب', 'حديث', 'رقم', 'كتاب', 'متن']

@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/acquire/sunnah_api.py
+# hypothesis_version: 6.151.9
+
+[0.2, 100, 'X-API-Key', 'collection', 'collections.json', 'name', 'sunnah', 'sunnah_acquired', 'sunnah_api_skipped', 'sunnah_hadiths_saved', 'utf-8', 'w']

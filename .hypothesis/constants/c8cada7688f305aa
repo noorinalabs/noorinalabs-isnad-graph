@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/app.py
+# hypothesis_version: 6.151.9
+
+['*', '/api/v1', '0.1.0', 'GET', 'POST', 'collections', 'graph', 'hadiths', 'health', 'isnad-graph API', 'narrators', 'parallels', 'search', 'timeline']

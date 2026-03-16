@@ -1,0 +1,4 @@
+# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/enrich/metrics.py
+# hypothesis_version: 6.151.9
+
+['bc', 'betweenness_computed', 'cnt', 'communityCount', 'exists', 'gds_graph_dropped', 'gds_graph_projected', 'gds_not_available', 'id', 'in_degree_computed', 'louvain_computed', 'name', 'out_degree_computed', 'pagerank_computed', 'run_metrics', 'transmission_graph']
