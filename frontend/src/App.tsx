@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Layout from './components/Layout'
+import AdminLayout from './components/AdminLayout'
 import NarratorsPage from './pages/NarratorsPage'
 import NarratorDetailPage from './pages/NarratorDetailPage'
 import HadithsPage from './pages/HadithsPage'
@@ -11,6 +12,10 @@ import SearchPage from './pages/SearchPage'
 import TimelinePage from './pages/TimelinePage'
 import ComparativePage from './pages/ComparativePage'
 import GraphExplorerPage from './pages/GraphExplorerPage'
+import UserManagementPage from './pages/admin/UserManagementPage'
+import SystemHealthPage from './pages/admin/SystemHealthPage'
+import ContentStatsPage from './pages/admin/ContentStatsPage'
+import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +43,13 @@ export default function App() {
             <Route path="timeline" element={<TimelinePage />} />
             <Route path="compare" element={<ComparativePage />} />
             <Route path="graph" element={<GraphExplorerPage />} />
+          </Route>
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/admin/users" replace />} />
+            <Route path="users" element={<UserManagementPage />} />
+            <Route path="health" element={<SystemHealthPage />} />
+            <Route path="stats" element={<ContentStatsPage />} />
+            <Route path="analytics" element={<UsageAnalyticsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

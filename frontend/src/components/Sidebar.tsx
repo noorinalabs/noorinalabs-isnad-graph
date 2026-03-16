@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
 
 const navItems = [
   { to: '/narrators', label: 'Narrators' },
@@ -11,6 +12,8 @@ const navItems = [
 ]
 
 export default function Sidebar() {
+  const { isAdmin } = useAuth()
+
   return (
     <nav style={{ width: 220, padding: '1rem', borderRight: '1px solid #ddd' }}>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -28,6 +31,20 @@ export default function Sidebar() {
             </NavLink>
           </li>
         ))}
+        {isAdmin && (
+          <li style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #ddd' }}>
+            <NavLink
+              to="/admin"
+              style={({ isActive }) => ({
+                textDecoration: 'none',
+                fontWeight: isActive ? 700 : 400,
+                color: isActive ? '#1a73e8' : '#333',
+              })}
+            >
+              Admin Dashboard
+            </NavLink>
+          </li>
+        )}
       </ul>
     </nav>
   )
