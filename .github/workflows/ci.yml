@@ -36,7 +36,7 @@ jobs:
           version: "latest"
       - run: uv sync --group ml
       - name: Check for known vulnerabilities
-        run: uv run pip-audit --strict --desc --local
+        run: uv run pip-audit --strict --desc --skip-editable
       - name: Secret detection with gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
