@@ -27,6 +27,26 @@ jobs:
       - run: uv sync --group ml
       - run: uv run mypy src/
 
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+      - run: uv sync --group ml
+      - name: Check for known vulnerabilities
+        run: |
+          uv export --no-hashes --frozen --no-emit-project > /tmp/requirements.txt
+          uv run pip-audit --strict --desc -r /tmp/requirements.txt
+      - name: Secret detection with gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
   test:
     runs-on: ubuntu-latest
     steps:

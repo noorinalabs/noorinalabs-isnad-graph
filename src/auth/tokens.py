@@ -24,7 +24,7 @@ def create_access_token(user_id: str, expires_minutes: int | None = None) -> str
         "exp": expire,
         "iat": datetime.now(UTC),
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return str(jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm))
 
 
 def create_refresh_token(user_id: str, expires_days: int | None = None) -> str:
@@ -42,7 +42,7 @@ def create_refresh_token(user_id: str, expires_days: int | None = None) -> str:
         "iat": datetime.now(UTC),
         "jti": secrets.token_hex(16),
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return str(jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm))
 
 
 def verify_token(token: str) -> dict[str, object]:
