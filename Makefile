@@ -1,10 +1,14 @@
-.PHONY: help setup infra infra-down infra-reset acquire parse resolve load enrich test lint typecheck format clean pipeline validate-staging
+.PHONY: help setup setup-hooks infra infra-down infra-reset acquire parse resolve load enrich test lint typecheck format clean pipeline validate-staging
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 setup: ## Install dependencies with uv
 	uv sync
+
+setup-hooks: ## Configure git hooks
+	git config core.hooksPath .githooks
+	@echo "Git hooks configured."
 
 infra: ## Start Docker services
 	docker compose up -d

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Verify branch name matches convention before push
+# Pattern: {F.LastName}/{NNNN}-{description} or deployments/* or main
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# Allow main and deployments branches
+if [[ "$branch" == "main" || "$branch" == deployments/* ]]; then
+    exit 0
+fi
+
+# Check convention: X.Lastname/NNNN-description
+if [[ ! "$branch" =~ ^[A-Z]\.[A-Za-z-]+/[0-9]{4}-[a-z0-9_-]+$ ]]; then
+    echo "ERROR: Branch name '$branch' does not match convention."
+    echo "Expected: {F.LastName}/{NNNN}-{issue-name}"
+    echo "Examples: K.Asante/0090-graph-node-loading"
+    exit 1
+fi
+
+echo "Branch name OK: $branch"
+exit 0
