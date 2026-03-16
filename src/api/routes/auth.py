@@ -8,11 +8,17 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.middleware import require_auth
 from src.auth.models import AuthorizationUrlResponse, RefreshRequest, TokenResponse, User
-from src.auth.providers import PROVIDERS, get_provider
+from src.auth.providers import PROVIDERS, get_provider, retrieve_pkce_verifier, store_pkce_verifier
 from src.auth.tokens import create_access_token, create_refresh_token, revoke_token, verify_token
 from src.config import get_settings
 
 router = APIRouter()
+
+
+def _build_redirect_uri(provider: str) -> str:
+    """Build the OAuth callback redirect URI from settings."""
+    base = get_settings().auth.oauth_redirect_base_url.rstrip("/")
+    return f"{base}/api/v1/auth/callback/{provider}"
 
 
 @router.post(
@@ -26,9 +32,12 @@ def login(provider: str) -> AuthorizationUrlResponse:
 
     oauth_provider = get_provider(provider)
     state = secrets.token_urlsafe(32)
-    # In production, the redirect URI would be configurable
-    redirect_uri = f"http://localhost:3000/api/v1/auth/callback/{provider}"
-    url = oauth_provider.get_authorization_url(redirect_uri=redirect_uri, state=state)
+    redirect_uri = _build_redirect_uri(provider)
+    url, verifier = oauth_provider.get_authorization_url(redirect_uri=redirect_uri, state=state)
+
+    # Persist PKCE verifier so the callback can use it
+    store_pkce_verifier(state, verifier)
+
     return AuthorizationUrlResponse(authorization_url=url)
 
 
@@ -39,10 +48,15 @@ async def callback(provider: str, code: str, state: str) -> TokenResponse:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
     oauth_provider = get_provider(provider)
-    redirect_uri = f"http://localhost:3000/api/v1/auth/callback/{provider}"
+    redirect_uri = _build_redirect_uri(provider)
+
+    # Retrieve PKCE verifier stored during login
+    code_verifier = retrieve_pkce_verifier(state)
 
     try:
-        user_info = await oauth_provider.exchange_code(code=code, redirect_uri=redirect_uri)
+        user_info = await oauth_provider.exchange_code(
+            code=code, redirect_uri=redirect_uri, code_verifier=code_verifier
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {exc}") from exc
 

@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
 
 from src.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -34,16 +39,87 @@ def _generate_pkce() -> tuple[str, str]:
     return verifier, challenge
 
 
+# --- PKCE Verifier Storage (Redis with in-memory fallback) ---
+
+_pkce_store: dict[str, str] = {}
+_PKCE_TTL_SECONDS = 600  # 10 minutes
+
+
+def _get_redis_client() -> Any | None:
+    """Return a Redis client or None if unavailable."""
+    try:
+        import redis
+
+        settings = get_settings().redis
+        client = redis.Redis.from_url(settings.url, decode_responses=True)
+        client.ping()
+        return client
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def store_pkce_verifier(state: str, verifier: str) -> None:
+    """Store PKCE code_verifier keyed by OAuth state parameter."""
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        try:
+            redis_client.setex(f"pkce:{state}", _PKCE_TTL_SECONDS, verifier)
+            return
+        except Exception:  # noqa: BLE001
+            logger.warning("Redis PKCE store failed, using in-memory fallback")
+    _pkce_store[state] = verifier
+
+
+def retrieve_pkce_verifier(state: str) -> str | None:
+    """Retrieve and delete the PKCE code_verifier for the given state."""
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        try:
+            pipe = redis_client.pipeline()
+            pipe.get(f"pkce:{state}")
+            pipe.delete(f"pkce:{state}")
+            results = pipe.execute()
+            value: str | None = results[0]
+            return value
+        except Exception:  # noqa: BLE001
+            logger.warning("Redis PKCE retrieve failed, trying in-memory fallback")
+    return _pkce_store.pop(state, None)
+
+
+# --- Apple JWKS Cache ---
+
+_apple_jwks_cache: dict[str, object] | None = None
+_apple_jwks_fetched_at: float = 0.0
+_APPLE_JWKS_TTL_SECONDS = 86400  # 24 hours
+APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
+
+
+async def _get_apple_jwks() -> dict[str, object]:
+    """Fetch Apple's public JWKS keys, cached for 24 hours."""
+    global _apple_jwks_cache, _apple_jwks_fetched_at  # noqa: PLW0603
+    now = time.monotonic()
+    if _apple_jwks_cache is not None and (now - _apple_jwks_fetched_at) < _APPLE_JWKS_TTL_SECONDS:
+        return _apple_jwks_cache
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(APPLE_JWKS_URL)
+        resp.raise_for_status()
+        _apple_jwks_cache = resp.json()
+        _apple_jwks_fetched_at = now
+        return _apple_jwks_cache
+
+
 class OAuthProvider(ABC):
     """Common interface for all OAuth providers."""
 
     @abstractmethod
-    def get_authorization_url(self, redirect_uri: str, state: str) -> str:
-        """Return the provider's authorization URL."""
+    def get_authorization_url(self, redirect_uri: str, state: str) -> tuple[str, str]:
+        """Return (authorization_url, pkce_code_verifier)."""
         ...
 
     @abstractmethod
-    async def exchange_code(self, code: str, redirect_uri: str) -> OAuthUserInfo:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> OAuthUserInfo:
         """Exchange authorization code for user info."""
         ...
 
@@ -55,9 +131,9 @@ class GoogleProvider(OAuthProvider):
     TOKEN_URL = "https://oauth2.googleapis.com/token"
     USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
-    def get_authorization_url(self, redirect_uri: str, state: str) -> str:
+    def get_authorization_url(self, redirect_uri: str, state: str) -> tuple[str, str]:
         settings = get_settings().auth
-        _verifier, challenge = _generate_pkce()
+        verifier, challenge = _generate_pkce()
         params = {
             "client_id": settings.google_client_id,
             "redirect_uri": redirect_uri,
@@ -67,21 +143,23 @@ class GoogleProvider(OAuthProvider):
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
-        return f"{self.AUTHORIZE_URL}?{urlencode(params)}"
+        return f"{self.AUTHORIZE_URL}?{urlencode(params)}", verifier
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> OAuthUserInfo:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> OAuthUserInfo:
         settings = get_settings().auth
+        token_data: dict[str, str] = {
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        }
+        if code_verifier:
+            token_data["code_verifier"] = code_verifier
         async with httpx.AsyncClient() as client:
-            token_resp = await client.post(
-                self.TOKEN_URL,
-                data={
-                    "client_id": settings.google_client_id,
-                    "client_secret": settings.google_client_secret,
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                    "grant_type": "authorization_code",
-                },
-            )
+            token_resp = await client.post(self.TOKEN_URL, data=token_data)
             token_resp.raise_for_status()
             access_token = token_resp.json()["access_token"]
 
@@ -107,9 +185,9 @@ class AppleProvider(OAuthProvider):
     AUTHORIZE_URL = "https://appleid.apple.com/auth/authorize"
     TOKEN_URL = "https://appleid.apple.com/auth/token"
 
-    def get_authorization_url(self, redirect_uri: str, state: str) -> str:
+    def get_authorization_url(self, redirect_uri: str, state: str) -> tuple[str, str]:
         settings = get_settings().auth
-        _verifier, challenge = _generate_pkce()
+        verifier, challenge = _generate_pkce()
         params = {
             "client_id": settings.apple_client_id,
             "redirect_uri": redirect_uri,
@@ -120,28 +198,37 @@ class AppleProvider(OAuthProvider):
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
-        return f"{self.AUTHORIZE_URL}?{urlencode(params)}"
+        return f"{self.AUTHORIZE_URL}?{urlencode(params)}", verifier
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> OAuthUserInfo:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> OAuthUserInfo:
         settings = get_settings().auth
+        token_data: dict[str, str] = {
+            "client_id": settings.apple_client_id,
+            "client_secret": settings.apple_client_secret,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        }
+        if code_verifier:
+            token_data["code_verifier"] = code_verifier
         async with httpx.AsyncClient() as client:
-            token_resp = await client.post(
-                self.TOKEN_URL,
-                data={
-                    "client_id": settings.apple_client_id,
-                    "client_secret": settings.apple_client_secret,
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                    "grant_type": "authorization_code",
-                },
-            )
+            token_resp = await client.post(self.TOKEN_URL, data=token_data)
             token_resp.raise_for_status()
             id_token = token_resp.json()["id_token"]
 
-            # Decode Apple ID token (unverified for claims extraction)
-            from jose import jwt as jose_jwt
+        # Verify Apple ID token signature against Apple's public JWKS
+        from jose import jwt as jose_jwt
 
-            claims = jose_jwt.get_unverified_claims(id_token)
+        jwks = await _get_apple_jwks()
+        claims = jose_jwt.decode(
+            id_token,
+            jwks,
+            algorithms=["RS256"],
+            audience=settings.apple_client_id,
+            issuer="https://appleid.apple.com",
+        )
 
         return OAuthUserInfo(
             provider="apple",
@@ -158,9 +245,9 @@ class FacebookProvider(OAuthProvider):
     TOKEN_URL = "https://graph.facebook.com/v19.0/oauth/access_token"
     USERINFO_URL = "https://graph.facebook.com/v19.0/me"
 
-    def get_authorization_url(self, redirect_uri: str, state: str) -> str:
+    def get_authorization_url(self, redirect_uri: str, state: str) -> tuple[str, str]:
         settings = get_settings().auth
-        _verifier, challenge = _generate_pkce()
+        verifier, challenge = _generate_pkce()
         params = {
             "client_id": settings.facebook_client_id,
             "redirect_uri": redirect_uri,
@@ -170,20 +257,22 @@ class FacebookProvider(OAuthProvider):
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
-        return f"{self.AUTHORIZE_URL}?{urlencode(params)}"
+        return f"{self.AUTHORIZE_URL}?{urlencode(params)}", verifier
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> OAuthUserInfo:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> OAuthUserInfo:
         settings = get_settings().auth
+        params: dict[str, str] = {
+            "client_id": settings.facebook_client_id,
+            "client_secret": settings.facebook_client_secret,
+            "code": code,
+            "redirect_uri": redirect_uri,
+        }
+        if code_verifier:
+            params["code_verifier"] = code_verifier
         async with httpx.AsyncClient() as client:
-            token_resp = await client.get(
-                self.TOKEN_URL,
-                params={
-                    "client_id": settings.facebook_client_id,
-                    "client_secret": settings.facebook_client_secret,
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                },
-            )
+            token_resp = await client.get(self.TOKEN_URL, params=params)
             token_resp.raise_for_status()
             access_token = token_resp.json()["access_token"]
 
@@ -214,9 +303,9 @@ class GitHubProvider(OAuthProvider):
     USERINFO_URL = "https://api.github.com/user"
     EMAIL_URL = "https://api.github.com/user/emails"
 
-    def get_authorization_url(self, redirect_uri: str, state: str) -> str:
+    def get_authorization_url(self, redirect_uri: str, state: str) -> tuple[str, str]:
         settings = get_settings().auth
-        _verifier, challenge = _generate_pkce()
+        verifier, challenge = _generate_pkce()
         params = {
             "client_id": settings.github_client_id,
             "redirect_uri": redirect_uri,
@@ -225,19 +314,24 @@ class GitHubProvider(OAuthProvider):
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
-        return f"{self.AUTHORIZE_URL}?{urlencode(params)}"
+        return f"{self.AUTHORIZE_URL}?{urlencode(params)}", verifier
 
-    async def exchange_code(self, code: str, redirect_uri: str) -> OAuthUserInfo:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, code_verifier: str | None = None
+    ) -> OAuthUserInfo:
         settings = get_settings().auth
+        token_data: dict[str, str] = {
+            "client_id": settings.github_client_id,
+            "client_secret": settings.github_client_secret,
+            "code": code,
+            "redirect_uri": redirect_uri,
+        }
+        if code_verifier:
+            token_data["code_verifier"] = code_verifier
         async with httpx.AsyncClient() as client:
             token_resp = await client.post(
                 self.TOKEN_URL,
-                data={
-                    "client_id": settings.github_client_id,
-                    "client_secret": settings.github_client_secret,
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                },
+                data=token_data,
                 headers={"Accept": "application/json"},
             )
             token_resp.raise_for_status()
