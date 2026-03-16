@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pyarrow as pa
 import pyarrow.parquet as pq
 
 from src.resolve.disambiguate import (
@@ -17,6 +16,7 @@ from src.resolve.disambiguate import (
     _temporal_filter,
 )
 from src.resolve.ner import run as ner_run
+from tests.factories import build_hadith_table
 
 
 class TestNEREdgeCases:
@@ -34,33 +34,24 @@ class TestNEREdgeCases:
 
     def test_hadith_with_no_isnad(self, tmp_path: Path) -> None:
         """Hadiths with null isnads should be skipped without error."""
-        from src.parse.schemas import HADITH_SCHEMA
-
         staging = tmp_path / "staging"
         staging.mkdir()
         output = tmp_path / "output"
         output.mkdir()
 
-        # Create a hadith file where all isnads are null
-        rows = {
-            "source_id": pa.array(["h-1"], type=pa.string()),
-            "source_corpus": pa.array(["thaqalayn"], type=pa.string()),
-            "collection_name": pa.array(["al-kafi"], type=pa.string()),
-            "book_number": pa.array([1], type=pa.int32()),
-            "chapter_number": pa.array([None], type=pa.int32()),
-            "hadith_number": pa.array([1], type=pa.int32()),
-            "matn_ar": pa.array(["متن"], type=pa.string()),
-            "matn_en": pa.array([None], type=pa.string()),
-            "isnad_raw_ar": pa.array([None], type=pa.string()),
-            "isnad_raw_en": pa.array([None], type=pa.string()),
-            "full_text_ar": pa.array([None], type=pa.string()),
-            "full_text_en": pa.array([None], type=pa.string()),
-            "grade": pa.array([None], type=pa.string()),
-            "chapter_name_ar": pa.array([None], type=pa.string()),
-            "chapter_name_en": pa.array([None], type=pa.string()),
-            "sect": pa.array(["shia"], type=pa.string()),
-        }
-        table = pa.table(rows, schema=HADITH_SCHEMA)
+        table = build_hadith_table(
+            [
+                {
+                    "source_id": "h-1",
+                    "source_corpus": "thaqalayn",
+                    "collection_name": "al-kafi",
+                    "matn_ar": "متن",
+                    "matn_en": None,
+                    "chapter_number": None,
+                    "sect": "shia",
+                },
+            ]
+        )
         pq.write_table(table, staging / "hadiths_thaqalayn.parquet")
 
         result = ner_run(staging, output)
@@ -232,31 +223,20 @@ class TestDedupEdgeCases:
 
     def test_single_hadith(self, tmp_path: Path) -> None:
         """Dedup with a single hadith produces empty parallel links."""
-        from src.parse.schemas import HADITH_SCHEMA
         from src.resolve.dedup import _load_hadith_texts
 
         staging = tmp_path / "staging"
         staging.mkdir()
 
-        rows = {
-            "source_id": pa.array(["h-1"], type=pa.string()),
-            "source_corpus": pa.array(["sunnah"], type=pa.string()),
-            "collection_name": pa.array(["bukhari"], type=pa.string()),
-            "book_number": pa.array([1], type=pa.int32()),
-            "chapter_number": pa.array([1], type=pa.int32()),
-            "hadith_number": pa.array([1], type=pa.int32()),
-            "matn_ar": pa.array(["إنما الأعمال بالنيات"], type=pa.string()),
-            "matn_en": pa.array(["Actions are judged by intentions"], type=pa.string()),
-            "isnad_raw_ar": pa.array([None], type=pa.string()),
-            "isnad_raw_en": pa.array([None], type=pa.string()),
-            "full_text_ar": pa.array([None], type=pa.string()),
-            "full_text_en": pa.array([None], type=pa.string()),
-            "grade": pa.array(["sahih"], type=pa.string()),
-            "chapter_name_ar": pa.array([None], type=pa.string()),
-            "chapter_name_en": pa.array([None], type=pa.string()),
-            "sect": pa.array(["sunni"], type=pa.string()),
-        }
-        table = pa.table(rows, schema=HADITH_SCHEMA)
+        table = build_hadith_table(
+            [
+                {
+                    "matn_ar": "إنما الأعمال بالنيات",
+                    "matn_en": "Actions are judged by intentions",
+                    "grade": "sahih",
+                },
+            ]
+        )
         pq.write_table(table, staging / "hadiths_sunnah.parquet")
 
         ids, texts, corpora = _load_hadith_texts(staging)
@@ -265,32 +245,19 @@ class TestDedupEdgeCases:
 
     def test_all_identical_hadiths(self, tmp_path: Path) -> None:
         """Dedup correctly loads hadiths with identical matn_en texts."""
-        from src.parse.schemas import HADITH_SCHEMA
         from src.resolve.dedup import _load_hadith_texts
 
         staging = tmp_path / "staging"
         staging.mkdir()
 
         same_text = "Actions are judged by intentions"
-        rows = {
-            "source_id": pa.array(["h-1", "h-2", "h-3"], type=pa.string()),
-            "source_corpus": pa.array(["sunnah", "sunnah", "sunnah"], type=pa.string()),
-            "collection_name": pa.array(["bukhari", "muslim", "tirmidhi"], type=pa.string()),
-            "book_number": pa.array([1, 1, 1], type=pa.int32()),
-            "chapter_number": pa.array([1, 1, 1], type=pa.int32()),
-            "hadith_number": pa.array([1, 1, 1], type=pa.int32()),
-            "matn_ar": pa.array(["إنما الأعمال بالنيات"] * 3, type=pa.string()),
-            "matn_en": pa.array([same_text] * 3, type=pa.string()),
-            "isnad_raw_ar": pa.array([None] * 3, type=pa.string()),
-            "isnad_raw_en": pa.array([None] * 3, type=pa.string()),
-            "full_text_ar": pa.array([None] * 3, type=pa.string()),
-            "full_text_en": pa.array([None] * 3, type=pa.string()),
-            "grade": pa.array(["sahih"] * 3, type=pa.string()),
-            "chapter_name_ar": pa.array([None] * 3, type=pa.string()),
-            "chapter_name_en": pa.array([None] * 3, type=pa.string()),
-            "sect": pa.array(["sunni"] * 3, type=pa.string()),
-        }
-        table = pa.table(rows, schema=HADITH_SCHEMA)
+        table = build_hadith_table(
+            [
+                {"source_id": "h-1", "collection_name": "bukhari", "matn_en": same_text},
+                {"source_id": "h-2", "collection_name": "muslim", "matn_en": same_text},
+                {"source_id": "h-3", "collection_name": "tirmidhi", "matn_en": same_text},
+            ]
+        )
         pq.write_table(table, staging / "hadiths_sunnah.parquet")
 
         ids, texts, corpora = _load_hadith_texts(staging)
@@ -311,31 +278,17 @@ class TestDedupEdgeCases:
 
     def test_hadiths_with_null_matn(self, tmp_path: Path) -> None:
         """Hadiths with null/empty matn_en are skipped during loading."""
-        from src.parse.schemas import HADITH_SCHEMA
         from src.resolve.dedup import _load_hadith_texts
 
         staging = tmp_path / "staging"
         staging.mkdir()
 
-        rows = {
-            "source_id": pa.array(["h-1", "h-2"], type=pa.string()),
-            "source_corpus": pa.array(["sunnah", "sunnah"], type=pa.string()),
-            "collection_name": pa.array(["bukhari", "bukhari"], type=pa.string()),
-            "book_number": pa.array([1, 1], type=pa.int32()),
-            "chapter_number": pa.array([1, 2], type=pa.int32()),
-            "hadith_number": pa.array([1, 2], type=pa.int32()),
-            "matn_ar": pa.array(["متن", "متن"], type=pa.string()),
-            "matn_en": pa.array([None, "   "], type=pa.string()),
-            "isnad_raw_ar": pa.array([None, None], type=pa.string()),
-            "isnad_raw_en": pa.array([None, None], type=pa.string()),
-            "full_text_ar": pa.array([None, None], type=pa.string()),
-            "full_text_en": pa.array([None, None], type=pa.string()),
-            "grade": pa.array([None, None], type=pa.string()),
-            "chapter_name_ar": pa.array([None, None], type=pa.string()),
-            "chapter_name_en": pa.array([None, None], type=pa.string()),
-            "sect": pa.array(["sunni", "sunni"], type=pa.string()),
-        }
-        table = pa.table(rows, schema=HADITH_SCHEMA)
+        table = build_hadith_table(
+            [
+                {"source_id": "h-1", "matn_en": None},
+                {"source_id": "h-2", "matn_en": "   "},
+            ]
+        )
         pq.write_table(table, staging / "hadiths_sunnah.parquet")
 
         ids, texts, corpora = _load_hadith_texts(staging)
