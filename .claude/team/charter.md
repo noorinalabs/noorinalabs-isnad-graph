@@ -129,8 +129,8 @@ graph TD
     DA --> DEVOPS["DevOps Engineer<br/><small>Tomasz Wójcik · Senior</small>"]
     DA --> SEC["Security Engineer<br/><small>Yara Hadid · Senior</small>"]
 
-    DE_LEAD --> D1["Data Engineer<br/><small>Tariq Al-Rashidi · Principal</small>"]
-    DE_LEAD --> D2["Data Scientist<br/><small>Mei-Lin Chang · Principal</small>"]
+    DE_LEAD --> D1["Data Engineer<br/><small>(vacant — Tariq archived)</small>"]
+    DE_LEAD --> D2["Data Scientist<br/><small>(vacant — Mei-Lin archived)</small>"]
 
     TL --> E1["Engineer<br/><small>Kwame Asante · Principal</small>"]
     TL --> E2["Engineer<br/><small>Amara Diallo · Senior</small>"]
@@ -399,6 +399,13 @@ Every software engineering branch must be reviewed by **one other software engin
 
 - **Must-fix** — blocks merge; the submitter must resolve before proceeding.
 - **Tech debt** — does not block merge; tracked as a GitHub Issue instead.
+
+### Peer Review Assignments
+
+For each wave, the Tech Lead assigns specific peer reviewers:
+- Each engineer's PR is reviewed by one designated peer (not self-selected)
+- Pairing rotates each wave to spread knowledge
+- The reviewer is responsible for running `make check` on the branch locally
 
 ### Tech Debt Triage (Submitter)
 
