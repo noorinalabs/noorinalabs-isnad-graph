@@ -147,4 +147,4 @@ make enrich      # Phase 4: compute metrics & topics
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.

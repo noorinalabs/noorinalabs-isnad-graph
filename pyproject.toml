@@ -2,7 +2,7 @@
 name = "isnad-graph"
 version = "0.1.0"
 description = "Computational hadith analysis platform with Neo4j graph database for isnad chain analysis"
-license = "MIT"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.14"
 dependencies = [
     "pydantic>=2.6",
@@ -37,6 +37,7 @@ dev = [
     "mypy>=1.8",
     "types-tqdm>=4.66",
     "types-pyyaml>=6.0.12.20250915",
+    "testcontainers[neo4j,postgres,redis]>=4.0",
 ]
 ml = [
     "sentence-transformers>=2.5",
@@ -89,4 +90,7 @@ warn_uninitialized = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-markers = ["ml: marks tests requiring ML dependencies (sentence-transformers, faiss)"]
+markers = [
+    "ml: marks tests requiring ML dependencies (sentence-transformers, faiss)",
+    "integration: marks tests requiring Docker infrastructure (Neo4j, PostgreSQL, Redis)",
+]
