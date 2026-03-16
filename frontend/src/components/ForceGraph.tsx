@@ -46,6 +46,11 @@ export default function ForceGraph({ nodes, edges, onNodeClick, width, height }:
     if (fgRef.current) {
       fgRef.current.d3Force('charge')?.strength(-120)
     }
+    return () => {
+      if (fgRef.current) {
+        fgRef.current.pauseAnimation()
+      }
+    }
   }, [])
 
   const handleNodeClick = useCallback(
