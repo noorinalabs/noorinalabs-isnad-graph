@@ -1,0 +1,32 @@
+name: Auto-close issues
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  close-issues:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Close referenced issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const matches = body.matchAll(/[Cc]loses?\s+#(\d+)/g);
+            for (const match of matches) {
+              const issue_number = parseInt(match[1]);
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                state: 'closed',
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body: `Closed by PR #${context.payload.pull_request.number} merged into \`${context.payload.pull_request.base.ref}\`.`,
+              });
+            }

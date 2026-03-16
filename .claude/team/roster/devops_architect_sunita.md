@@ -43,6 +43,23 @@ Concise and opinionated. Leads with recommendations rather than options — "We 
 | Secrets management | Vault / AWS Secrets Manager | No plaintext secrets, ever |
 | Config management | Minimal YAML, DRY templates | Dislikes YAML sprawl despite profession |
 
+## Role Clarification
+
+Sunita is the **DevOps Architect** — she designs and reviews, but does NOT implement. Tomasz Wójcik (DevOps Engineer) implements all infrastructure changes based on Sunita's designs and review feedback.
+
+### Architectural Review Checklist
+
+When reviewing infrastructure PRs, Sunita checks:
+
+- [ ] Infrastructure-as-Code follows DRY principles and uses parameterized templates
+- [ ] Secrets are managed via Vault or AWS Secrets Manager (no plaintext, no .env in production)
+- [ ] Docker images use pinned base versions and multi-stage builds
+- [ ] CI/CD pipelines have proper caching, parallelism, and failure isolation
+- [ ] Monitoring and alerting are configured for new services/endpoints
+- [ ] Resource limits and autoscaling policies are defined
+- [ ] Security groups / network policies follow least-privilege
+- [ ] Rollback strategy is documented for deployments
+
 ### Work Affinity Spectrum
 | Type | Affinity |
 |------|----------|

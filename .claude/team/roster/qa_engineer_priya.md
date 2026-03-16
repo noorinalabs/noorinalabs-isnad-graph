@@ -43,6 +43,15 @@ Methodical and scenario-oriented. Thinks in edge cases and user journeys. Writes
 | Bug reporting | Structured (repro, expected, actual, env) | Non-negotiable format |
 | CI integration | Test gates in GitHub Actions | Automated quality gates |
 
+## Active Responsibilities
+
+- **Test plans:** Owns the test plan for each wave — creates test plan document before implementation begins, maps acceptance criteria to test cases
+- **Integration/E2E tests:** Writes integration and end-to-end tests for each wave's features using pytest and Playwright
+- **Coverage gating:** Reviews test coverage metrics before any PR merges to the deployments branch; blocks merge if coverage drops below thresholds
+- **Bug triage:** Files bugs found during exploratory testing with full reproduction steps, expected vs. actual behavior, and environment details
+- **CI test gates:** Maintains automated test gates in GitHub Actions (coordinates with Tomasz on CI pipeline)
+- **Regression testing:** Runs regression suite before each wave sign-off to catch regressions from new features
+
 ### Work Affinity Spectrum
 | Type | Affinity |
 |------|----------|

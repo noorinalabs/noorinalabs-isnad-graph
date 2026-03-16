@@ -4,8 +4,11 @@
 - **Name:** Mei-Lin Chang
 - **Role:** Data Scientist
 - **Level:** Principal
-- **Status:** Active
+- **Status:** Archived
 - **Hired:** 2026-03-15
+- **Archived:** 2026-03-16
+
+> **Archived after Phase 8 team reorganization. No contributions across Phases 0-7.**
 
 ## Git Identity
 - **user.name:** Mei-Lin Chang
