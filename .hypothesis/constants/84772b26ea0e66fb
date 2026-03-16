@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/parse/fawaz.py
-# hypothesis_version: 6.151.9
-
-['-', 'author', 'book_number', 'chapter_name_ar', 'chapter_name_en', 'chapter_number', 'collection_id', 'collection_name', 'compilation_year_ah', 'compiler_name', 'edition_file_missing', 'edition_parsed', 'editions.json', 'eng-', 'fawaz', 'fawaz_parse_complete', 'full_text_ar', 'full_text_en', 'grade', 'grades', 'hadith_number', 'hadithnumber', 'hadiths', 'info.json', 'isnad_raw_ar', 'isnad_raw_en', 'istibsar', 'kafi', 'man-la', 'matn_ar', 'matn_en', 'metadata', 'nahj', 'name', 'name_ar', 'name_en', 'sect', 'shia', 'source_corpus', 'source_id', 'sunni', 'tahdhib', 'text', 'total_hadiths']

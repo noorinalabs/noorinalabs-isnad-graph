@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/health.py
-# hypothesis_version: 6.151.9
-
-['/', 'RETURN 1 AS ok', 'ok']

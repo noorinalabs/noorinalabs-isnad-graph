@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/utils/neo4j_client.py
-# hypothesis_version: 6.151.9
-
-[1000, 'Chain', 'Collection', 'Grading', 'Hadith', 'HistoricalEvent', 'Location', 'Narrator', 'Neo4jClient', 'constraint_ensured', 'neo4j_batch_failed', 'neo4j_connect_failed', 'neo4j_connected', 'neo4j_disconnected', 'neo4j_read_failed', 'neo4j_write_failed']

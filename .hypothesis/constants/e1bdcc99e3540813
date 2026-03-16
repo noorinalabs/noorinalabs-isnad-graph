@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/parse/base.py
-# hypothesis_version: 6.151.9
-
-[1024, ':', 'csv_encoding_failed', 'csv_read', 'generate_source_id', 'invalid_enum_values', 'latin-1', 'nan', 'none', 'read_csv_robust', 'safe_int', 'safe_str', 'snappy', 'utf-8', 'utf-8-sig', 'validate_enum_fields', 'write_parquet', 'wrote_parquet']

@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/acquire/base.py
-# hypothesis_version: 6.151.9
-
-[30.0, 60.0, 120, 1000, 8192, '&', '--depth', '1', '?', 'B', 'GET', 'User-Agent', 'already_exists', 'clone', 'clone_complete', 'clone_failed', 'clone_repo', 'clone_skipped', 'clone_timeout', 'content-length', 'data', 'download_complete', 'download_file', 'download_skipped', 'ensure_dir', 'fetch_json', 'fetch_json_paginated', 'git', 'limit', 'manifest.json', 'manifest_written', 'page', 'path', 'rb', 'sha256', 'sha256_file', 'size', 'total', 'w', 'wb', 'write_manifest']

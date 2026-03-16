@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/resolve/schemas.py
-# hypothesis_version: 6.151.9
-
-['aliases', 'birth_year_ah', 'candidate_1_id', 'candidate_1_name', 'candidate_1_score', 'candidate_1_stage', 'candidate_2_id', 'candidate_2_name', 'candidate_2_score', 'candidate_2_stage', 'candidate_3_id', 'candidate_3_name', 'candidate_3_score', 'candidate_3_stage', 'canonical_id', 'confidence', 'cross_sect', 'death_year_ah', 'external_id', 'gender', 'generation', 'hadith_id', 'hadith_id_a', 'hadith_id_b', 'mention_count', 'mention_id', 'mention_text', 'name_ar', 'name_ar_normalized', 'name_en', 'name_normalized', 'name_raw', 'position_in_chain', 'similarity_score', 'source_corpus', 'source_ids', 'transmission_method', 'trustworthiness', 'variant_type']

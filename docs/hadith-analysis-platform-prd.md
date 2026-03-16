@@ -1,5 +1,7 @@
 # Hadith Analysis Platform — Product Requirements Document
 
+> **Implementation status (2026-03-15):** Phases 0 through 6 are fully implemented. See the README for current architecture and usage instructions.
+
 **Codename:** `isnad-graph`
 **Version:** 0.1.0-draft
 **Date:** 2026-03-13

@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/graph.py
-# hypothesis_version: 6.151.9
-
-[100, 200, 404, 'TRANSMITTED_TO', 'center_gen', 'center_name_ar', 'center_name_en', 'chain_id', 'gen', 'grade', 'hadith_id', 'id', 'limit', 'matn_ar', 'matn_en', 'name_ar', 'name_en', 'narrator', 'source', 'source_id', 'target', 'target_id']

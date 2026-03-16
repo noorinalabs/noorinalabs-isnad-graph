@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/enrich/historical.py
-# hypothesis_version: 6.151.9
-
-[120, 'birth_year_ah', 'cnt', 'death_year_ah', 'event_id', 'id', 'narrator_id', 'year_end_ah', 'year_start_ah']

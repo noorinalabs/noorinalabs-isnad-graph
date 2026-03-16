@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/parse/validate.py
-# hypothesis_version: 6.151.9
-
-[0.0, 100.0, '  Hadith checks:', '  Null %: no nulls', '  Schema issues:', '  Schema: OK', '*.parquet', '-', '=', '[\\u0600-\\u06FF]', 'arabic_coverage_pct', 'collections_', 'columns', 'duplicate_source_ids', 'empty_matn_ar', 'empty_matn_en', 'english_coverage_pct', 'file', 'files', 'hadith_checks', 'hadiths_', 'is_hadith', 'matn_ar', 'matn_en', 'narrator_mentions_', 'narrators_bio_', 'network_edges_', 'no_parquet_files', 'null_percentages', 'rows', 'schema_issues', 'source_id', 'total_files', 'total_rows']

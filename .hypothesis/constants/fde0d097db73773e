@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/resolve/disambiguate.py
-# hypothesis_version: 6.151.9
-
-[0.0, 0.7, 1.0, 100.0, 100, 'aliases', 'bio_id', 'birth_location', 'birth_year_ah', 'candidates_loaded', 'canonical_id', 'crossref', 'death_location', 'death_year_ah', 'disambiguate_summary', 'exact', 'external_id', 'fuzzy', 'gender', 'generation', 'hadith_id', 'kunya', 'mention_count', 'mention_id', 'mention_text', 'mentions_loaded', 'merge_log.parquet', 'merge_stage', 'name_ar', 'name_ar_normalized', 'name_en', 'name_normalized', 'name_raw', 'nisba', 'position_in_chain', 'run', 'score', 'source', 'source_corpus', 'source_ids', 'transmission_method', 'trustworthiness', 'unknown', 'utf-8', 'w']

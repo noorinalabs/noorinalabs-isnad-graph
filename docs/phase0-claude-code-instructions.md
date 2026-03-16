@@ -1,5 +1,7 @@
 # Phase 0: Scaffold & Tooling — Claude Code Instruction Set
 
+> **Status (2026-03-15):** Phase 0 is complete. All scaffold, tooling, models, and infrastructure described below have been implemented.
+
 ## PROJECT CONTEXT
 
 You are initializing a Python monorepo called `isnad-graph` — a computational hadith analysis platform that ingests Sunni and Shia hadith collections into a Neo4j graph database for isnad chain analysis, narrator network topology, and cross-sectarian parallel detection.

@@ -1,5 +1,7 @@
 # Phase 1: Data Acquisition & Parsing — Claude Code Instruction Set
 
+> **Status (2026-03-15):** Phase 1 is complete. All 7 data sources are acquired and parsed into staging Parquet files.
+
 ## PROJECT CONTEXT
 
 You are continuing work on `isnad-graph`, a computational hadith analysis platform. Phase 0 is complete: the repository scaffold, Pydantic models, Docker infrastructure, Arabic utilities, and database clients are all in place.

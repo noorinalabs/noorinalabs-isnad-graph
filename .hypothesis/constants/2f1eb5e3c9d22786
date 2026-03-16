@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/parallels.py
-# hypothesis_version: 6.151.9
-
-[100, 404, 'Page number', 'cross_sect', 'grade', 'id', 'limit', 'matn_ar', 'matn_en', 'similarity_score', 'skip', 'source_corpus', 'variant_type']

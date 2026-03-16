@@ -27,7 +27,16 @@ make infra    # Start Neo4j, PostgreSQL, Redis via Docker Compose
 make test     # Run test suite
 ```
 
-Copy `.env.example` to `.env` and configure database credentials and API keys before running the pipeline. See `docs/hadith-analysis-platform-prd.md` for full configuration details.
+Copy `.env.example` to `.env` and configure database credentials and API keys before running the pipeline.
+
+To run the API and frontend:
+
+```bash
+uvicorn src.api.app:create_app --factory --reload  # Start FastAPI backend
+cd frontend && npm install && npm run dev           # Start React frontend
+```
+
+See `docs/hadith-analysis-platform-prd.md` for full configuration details.
 
 ## Phase Overview
 
@@ -39,6 +48,7 @@ Copy `.env.example` to `.env` and configure database credentials and API keys be
 | 3 | Graph Loading | :white_check_mark: |
 | 4 | Enrichment & Metrics | :white_check_mark: |
 | 5 | API & Frontend | :white_check_mark: |
+| 6 | Testing, CI/CD & Hardening | :white_check_mark: |
 
 ## API
 
@@ -124,13 +134,21 @@ isnad-graph/
 └── pyproject.toml          # Project metadata & dependencies (uv)
 ```
 
+## Testing
+
+```bash
+make test              # Run unit tests (pytest)
+make test-integration  # Run integration tests (requires Docker services)
+make test-e2e          # Run Playwright browser tests (requires running app)
+make test-e2e-headed   # Run Playwright tests with visible browser
+```
+
 ## Development
 
 ```bash
 make lint        # Run ruff linter
 make format      # Run ruff formatter
 make typecheck   # Run mypy in strict mode
-make test        # Run pytest suite
 make clean       # Remove staging data and caches
 ```
 

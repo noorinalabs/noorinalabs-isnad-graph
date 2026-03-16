@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/models/__init__.py
-# hypothesis_version: 6.151.9
-
-['ActiveDuring', 'AppearsIn', 'BasedIn', 'Chain', 'ChainClassification', 'ChainPosition', 'Collection', 'Gender', 'Grading', 'Hadith', 'HadithGrade', 'HistoricalEvent', 'HistoricalEventType', 'Location', 'Narrator', 'NarratorGeneration', 'NarratorRole', 'ParallelOf', 'Sect', 'SectAffiliation', 'SourceCorpus', 'StudiedUnder', 'TransmissionMethod', 'TransmittedTo', 'TrustworthinessGrade', 'VariantType']

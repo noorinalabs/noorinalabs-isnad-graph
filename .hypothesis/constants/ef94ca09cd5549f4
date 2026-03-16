@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/hadiths.py
-# hypothesis_version: 6.151.9
-
-[100, 404, '/hadiths', '/hadiths/{hadith_id}', 'id', 'limit', 'props', 'skip', 'total']

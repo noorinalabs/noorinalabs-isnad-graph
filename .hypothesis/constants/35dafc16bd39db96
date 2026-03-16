@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/parse/sunnah_api.py
-# hypothesis_version: 6.151.9
-
-['ar', 'body', 'bookNumber', 'book_number', 'chapterNumber', 'chapterTitle', 'chapter_name_ar', 'chapter_name_en', 'chapter_number', 'collection', 'collection_id', 'collection_name', 'collections.json', 'compilation_year_ah', 'compiler_name', 'en', 'full_text_ar', 'full_text_en', 'grade', 'grades', 'hadith', 'hadithNumber', 'hadith_number', 'hadithsCount', 'isnad_raw_ar', 'isnad_raw_en', 'lang', 'matn_ar', 'matn_en', 'name', 'name_ar', 'name_en', 'sect', 'shortIntro', 'source_corpus', 'source_id', 'sunnah', 'sunnah_parse_skipped', 'sunni', 'title', 'totalHadith', 'total_hadiths', 'utf-8']

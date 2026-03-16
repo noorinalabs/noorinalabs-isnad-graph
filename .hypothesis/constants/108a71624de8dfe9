@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/config.py
-# hypothesis_version: 6.151.9
-
-['./data/curated', './data/raw', './data/staging', '.env', 'INFO', 'NEO4J_', 'PG_', 'REDIS_', 'commerce/trade', 'console', 'dreams/visions', 'end_times', 'eschatology', 'ethics/conduct', 'family_law', 'food/drink', 'history/sira', 'isnad_graph_dev', 'jurisprudence', 'medicine', 'neo4j', 'ritual/worship', 'succession/imamate', 'theology', 'utf-8', 'warfare/jihad']

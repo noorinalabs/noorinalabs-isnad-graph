@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/resolve/__init__.py
-# hypothesis_version: 6.151.9
-
-[0.0, 100, '**/*.parquet', 'ResolveMetrics', 'close_paraphrase', 'complete', 'cross_sect', 'dedup', 'disambiguate', 'ner', 'resolve_step', 'resolve_step_failed', 'resolve_step_skipped', 'run_all', 'running', 'thematic', 'variant_type', 'verbatim']

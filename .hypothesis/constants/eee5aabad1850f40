@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/timeline.py
-# hypothesis_version: 6.151.9
-
-[100, 500, '/timeline', 'Items per page', 'Page number', 'description', 'end_year', 'end_year_ah', 'event_type', 'id', 'limit', 'name', 'name_ar', 'narrator_count', 'skip', 'start_year', 'year_ah']

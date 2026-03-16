@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/search.py
-# hypothesis_version: 6.151.9
-
-[100, 120, 500, 503, '...', '/search', '/search/semantic', 'Search query', 'detail', 'hadith', 'id', 'limit', 'matn_ar', 'matn_en', 'name_ar', 'name_en', 'narrator', 'q', 'query', 'score']

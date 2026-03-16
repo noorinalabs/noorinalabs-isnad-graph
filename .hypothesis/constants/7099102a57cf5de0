@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/parse/schemas.py
-# hypothesis_version: 6.151.9
-
-['COLLECTION_SCHEMA', 'HADITH_SCHEMA', 'NARRATOR_BIO_SCHEMA', 'NETWORK_EDGE_SCHEMA', 'bio_id', 'bio_text', 'birth_location', 'birth_year_ah', 'book_number', 'chapter_name_ar', 'chapter_name_en', 'chapter_number', 'collection_id', 'collection_name', 'compilation_year_ah', 'compiler_name', 'death_location', 'death_year_ah', 'external_id', 'from_external_id', 'from_narrator_name', 'full_text_ar', 'full_text_en', 'gender', 'generation', 'grade', 'hadith_id', 'hadith_number', 'isnad_raw_ar', 'isnad_raw_en', 'kunya', 'laqab', 'matn_ar', 'matn_en', 'mention_id', 'name_ar', 'name_ar_normalized', 'name_en', 'name_en_normalized', 'nisba', 'position_in_chain', 'sect', 'source', 'source_corpus', 'source_hadith_id', 'source_id', 'to_external_id', 'to_narrator_name', 'total_hadiths', 'transmission_method', 'trustworthiness']

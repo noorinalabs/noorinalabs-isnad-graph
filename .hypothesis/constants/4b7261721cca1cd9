@@ -1,4 +1,0 @@
-# file: /home/parameterization/code/isnad-graph/.claude/worktrees/kwame-orchestrators-cli/src/api/routes/collections.py
-# hypothesis_version: 6.151.9
-
-[100, 404, '/collections', 'Items per page', 'Page number', 'id', 'limit', 'props', 'skip', 'total']
