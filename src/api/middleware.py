@@ -17,19 +17,35 @@ DEFAULT_MAX_BODY_SIZE = 1_048_576
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add OWASP-recommended security headers to all responses."""
+    """Add OWASP-recommended security headers to all responses.
+
+    Header values are read from ``SecurityHeaderSettings`` so they can be
+    overridden per environment (e.g. relaxed CSP for development).
+    """
+
+    def __init__(self, app: object, settings: object | None = None) -> None:
+        super().__init__(app)  # type: ignore[arg-type]
+        from src.config import SecurityHeaderSettings, get_settings
+
+        if settings is not None:
+            self._cfg: SecurityHeaderSettings = settings  # type: ignore[assignment]
+        else:
+            self._cfg = get_settings().security_headers
 
     async def dispatch(
         self, request: StarletteRequest, call_next: RequestResponseEndpoint
     ) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Frame-Options"] = self._cfg.x_frame_options
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        hsts = f"max-age={self._cfg.hsts_max_age}"
+        if self._cfg.hsts_include_subdomains:
+            hsts += "; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = hsts
+        response.headers["Content-Security-Policy"] = self._cfg.content_security_policy
+        response.headers["Referrer-Policy"] = self._cfg.referrer_policy
+        response.headers["Permissions-Policy"] = self._cfg.permissions_policy
         return response
 
 

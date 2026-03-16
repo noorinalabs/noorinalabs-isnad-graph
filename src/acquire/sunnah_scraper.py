@@ -29,6 +29,16 @@ RATE_LIMIT_SECONDS = 0.5
 REQUEST_TIMEOUT = 30.0
 USER_AGENT = "isnad-graph/1.0 (hadith-research)"
 
+# CSS selectors with fallbacks, ordered by preference.
+# If sunnah.com redesigns, add new selectors at the front of each list.
+HADITH_NUMBER_SELECTORS = [".hadith_reference .hadith_num", ".hadithNar498"]
+ARABIC_TEXT_SELECTORS = [".arabic_hadith_full", ".text_details .arabic_text_details"]
+ENGLISH_TEXT_SELECTORS = [".english_hadith_full", ".text_details .english_hadith_full"]
+GRADE_SELECTORS = [".hadith_grade", ".hadith-grade"]
+CHAPTER_EN_SELECTORS = [".book_page_english_name", ".englishchapter"]
+CHAPTER_AR_SELECTORS = [".book_page_arabic_name", ".arabicchapter"]
+HADITH_CONTAINER_SELECTORS = [".actualHadithContainer", ".hadith"]
+
 # Collections not in Fawaz dataset that we need to scrape.
 SCRAPE_COLLECTIONS = [
     "musnad-ahmad",
@@ -74,10 +84,19 @@ def _fetch_page(client: httpx.Client, url: str) -> BeautifulSoup | None:
         return None
 
 
+def _select_first(element: Tag, selectors: list[str]) -> Tag | None:
+    """Try each CSS selector in order, returning the first match or None."""
+    for selector in selectors:
+        result = element.select_one(selector)
+        if result is not None:
+            return result
+    return None
+
+
 def _extract_hadith_from_row(row: Tag) -> dict[str, Any] | None:
     """Extract a single hadith record from a hadith container element."""
     # Hadith number
-    num_tag = row.select_one(".hadith_reference .hadith_num, .hadithNar498")
+    num_tag = _select_first(row, HADITH_NUMBER_SELECTORS)
     hadith_number: int | None = None
     if num_tag:
         text = num_tag.get_text(strip=True).replace(":", "").strip()
@@ -87,15 +106,15 @@ def _extract_hadith_from_row(row: Tag) -> dict[str, Any] | None:
             pass
 
     # Arabic text
-    ar_tag = row.select_one(".arabic_hadith_full, .text_details .arabic_text_details")
+    ar_tag = _select_first(row, ARABIC_TEXT_SELECTORS)
     text_ar = ar_tag.get_text(strip=True) if ar_tag else None
 
     # English text
-    en_tag = row.select_one(".english_hadith_full, .text_details .english_hadith_full")
+    en_tag = _select_first(row, ENGLISH_TEXT_SELECTORS)
     text_en = en_tag.get_text(strip=True) if en_tag else None
 
     # Grade
-    grade_tag = row.select_one(".hadith_grade, .hadith-grade")
+    grade_tag = _select_first(row, GRADE_SELECTORS)
     grade = grade_tag.get_text(strip=True) if grade_tag else None
 
     if not text_ar and not text_en:
@@ -123,21 +142,47 @@ def _scrape_book_page(
     # Chapter info
     chapter_name_en: str | None = None
     chapter_name_ar: str | None = None
-    chapter_tag = soup.select_one(".book_page_english_name, .englishchapter")
+    chapter_tag = _select_first(soup, CHAPTER_EN_SELECTORS)
     if chapter_tag:
         chapter_name_en = chapter_tag.get_text(strip=True)
-    chapter_ar_tag = soup.select_one(".book_page_arabic_name, .arabicchapter")
+    chapter_ar_tag = _select_first(soup, CHAPTER_AR_SELECTORS)
     if chapter_ar_tag:
         chapter_name_ar = chapter_ar_tag.get_text(strip=True)
 
+    # Warn if no selectors matched — may indicate a site redesign
+    container_matched = False
     hadiths: list[dict[str, Any]] = []
-    # Each hadith is in a container div
-    rows = soup.select(".actualHadithContainer, .hadith")
+    rows: list[Tag] = []
+    for selector in HADITH_CONTAINER_SELECTORS:
+        rows = soup.select(selector)
+        if rows:
+            container_matched = True
+            break
+
+    if not container_matched and soup.get_text(strip=True):
+        logger.warning(
+            "sunnah_scraper_no_selectors_matched",
+            collection=collection,
+            book_number=book_number,
+            hint="CSS selectors may be outdated — check for site redesign",
+        )
+
+    # Track chapter numbers within a book page. Sunnah.com sometimes has
+    # multiple chapters per book, marked by chapter header elements.
+    current_chapter_number = book_number
+    chapter_counter = 0
     for row in rows:
+        chapter_heading = row.find_previous_sibling(
+            class_=lambda c: c and ("chapter" in c or "achapter" in c)
+        )
+        if chapter_heading:
+            chapter_counter += 1
+            current_chapter_number = book_number * 100 + chapter_counter
+
         record = _extract_hadith_from_row(row)
         if record is not None:
             record["book_number"] = book_number
-            record["chapter_number"] = book_number  # sunnah.com uses book=chapter often
+            record["chapter_number"] = current_chapter_number
             record["chapter_name_ar"] = chapter_name_ar
             record["chapter_name_en"] = chapter_name_en
             hadiths.append(record)

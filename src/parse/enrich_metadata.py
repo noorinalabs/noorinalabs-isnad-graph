@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from src.parse.base import write_parquet
@@ -104,16 +105,24 @@ def run(staging_dir: Path, raw_dir: Path) -> list[Path]:
 
     # Read Fawaz hadiths
     table = pq.read_table(fawaz_path)
-    rows = table.to_pydict()
     num_rows = table.num_rows
+
+    # Build lookup arrays from the index using columnar approach.
+    collections = table.column("collection_name").to_pylist()
+    hadith_numbers = table.column("hadith_number").to_pylist()
+
+    lookup_book: list[int | None] = []
+    lookup_chapter: list[int | None] = []
+    lookup_ch_ar: list[str | None] = []
+    lookup_ch_en: list[str | None] = []
 
     enriched_count = 0
     unmatched_count = 0
     collection_stats: dict[str, dict[str, int]] = {}
 
     for i in range(num_rows):
-        collection = rows["collection_name"][i]
-        hadith_number = rows["hadith_number"][i]
+        collection = collections[i]
+        hadith_number = hadith_numbers[i]
 
         if collection not in collection_stats:
             collection_stats[collection] = {"total": 0, "matched": 0}
@@ -121,6 +130,10 @@ def run(staging_dir: Path, raw_dir: Path) -> list[Path]:
 
         if hadith_number is None:
             unmatched_count += 1
+            lookup_book.append(None)
+            lookup_chapter.append(None)
+            lookup_ch_ar.append(None)
+            lookup_ch_en.append(None)
             continue
 
         slug = _resolve_collection_slug(collection)
@@ -129,17 +142,18 @@ def run(staging_dir: Path, raw_dir: Path) -> list[Path]:
 
         if meta is None:
             unmatched_count += 1
+            lookup_book.append(None)
+            lookup_chapter.append(None)
+            lookup_ch_ar.append(None)
+            lookup_ch_en.append(None)
             continue
 
-        # Only fill in null fields (don't overwrite existing data)
-        if rows["book_number"][i] is None and meta.get("book_number") is not None:
-            rows["book_number"][i] = int(meta["book_number"])
-        if rows["chapter_number"][i] is None and meta.get("chapter_number") is not None:
-            rows["chapter_number"][i] = int(meta["chapter_number"])
-        if rows["chapter_name_ar"][i] is None and meta.get("chapter_name_ar"):
-            rows["chapter_name_ar"][i] = str(meta["chapter_name_ar"])
-        if rows["chapter_name_en"][i] is None and meta.get("chapter_name_en"):
-            rows["chapter_name_en"][i] = str(meta["chapter_name_en"])
+        bk = meta.get("book_number")
+        lookup_book.append(int(bk) if bk is not None else None)
+        ch = meta.get("chapter_number")
+        lookup_chapter.append(int(ch) if ch is not None else None)
+        lookup_ch_ar.append(str(meta["chapter_name_ar"]) if meta.get("chapter_name_ar") else None)
+        lookup_ch_en.append(str(meta["chapter_name_en"]) if meta.get("chapter_name_en") else None)
 
         enriched_count += 1
         collection_stats[collection]["matched"] += 1
@@ -164,8 +178,33 @@ def run(staging_dir: Path, raw_dir: Path) -> list[Path]:
         total=num_rows,
     )
 
-    # Build enriched table
-    enriched_table = pa.table(rows, schema=HADITH_SCHEMA)
+    # Columnar merge: use if_else to fill nulls without row-level mutation
+    orig_book = table.column("book_number")
+    orig_chapter = table.column("chapter_number")
+    orig_ch_ar = table.column("chapter_name_ar")
+    orig_ch_en = table.column("chapter_name_en")
+
+    enriched_book = pa.array(lookup_book, type=orig_book.type)
+    enriched_chapter = pa.array(lookup_chapter, type=orig_chapter.type)
+    enriched_ch_ar = pa.array(lookup_ch_ar, type=orig_ch_ar.type)
+    enriched_ch_en = pa.array(lookup_ch_en, type=orig_ch_en.type)
+
+    # Fill original nulls with enriched values (keep non-null originals)
+    merged_book = pc.if_else(pc.is_null(orig_book), enriched_book, orig_book)
+    merged_chapter = pc.if_else(pc.is_null(orig_chapter), enriched_chapter, orig_chapter)
+    merged_ch_ar = pc.if_else(pc.is_null(orig_ch_ar), enriched_ch_ar, orig_ch_ar)
+    merged_ch_en = pc.if_else(pc.is_null(orig_ch_en), enriched_ch_en, orig_ch_en)
+
+    # Replace columns in the table
+    enriched_table = table
+    for col_name, new_col in [
+        ("book_number", merged_book),
+        ("chapter_number", merged_chapter),
+        ("chapter_name_ar", merged_ch_ar),
+        ("chapter_name_en", merged_ch_en),
+    ]:
+        col_idx = enriched_table.schema.get_field_index(col_name)
+        enriched_table = enriched_table.set_column(col_idx, col_name, new_col)
     output_path = write_parquet(
         enriched_table, staging_dir / "hadiths_fawaz_enriched.parquet", HADITH_SCHEMA
     )

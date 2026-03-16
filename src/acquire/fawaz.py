@@ -88,13 +88,19 @@ def run(raw_dir: Path) -> Path:
             download_file(url, edition_path, client=client, timeout=120.0)
             downloaded.append(edition_path)
 
-    # 5. Validate minimum edition count for English
+    # 5. Validate minimum edition count for English and Arabic
     eng_files = list(dest.glob("eng-*.json"))
     if len(eng_files) < MIN_EXPECTED_EDITIONS:
         msg = f"Expected >={MIN_EXPECTED_EDITIONS} English edition files, found {len(eng_files)}"
         raise AssertionError(msg)
 
     ara_files = list(dest.glob("ara-*.json"))
+    if len(ara_files) < MIN_EXPECTED_EDITIONS:
+        logger.warning(
+            "fawaz_low_arabic_editions",
+            expected=MIN_EXPECTED_EDITIONS,
+            found=len(ara_files),
+        )
     logger.info(
         "fawaz_acquired",
         eng_count=len(eng_files),
