@@ -169,9 +169,7 @@ class TestRegistryPattern:
         assert result.passed is False
 
     def test_register_custom_classifier(self) -> None:
-        def _custom(
-            name: str, rows: list[dict[str, object]], threshold: float
-        ) -> ValidationResult:
+        def _custom(name: str, rows: list[dict[str, object]], threshold: float) -> ValidationResult:
             return ValidationResult(name, passed=True, details="custom", row_count=len(rows))
 
         register_classifier("custom_test", _custom)

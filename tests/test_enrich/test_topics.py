@@ -69,7 +69,8 @@ class TestGracefulSkip:
     """Run_topics should return zeros when transformers unavailable."""
 
     def test_returns_zero_result_without_transformers(
-        self, mock_client: MagicMock,
+        self,
+        mock_client: MagicMock,
     ) -> None:
         with patch("src.enrich.topics._load_pipeline", return_value=None):
             result = run_topics(mock_client)
@@ -86,7 +87,8 @@ class TestClassification:
     """ML-gated tests that require transformers."""
 
     def test_classification_with_mock_pipeline(
-        self, mock_client: MagicMock,
+        self,
+        mock_client: MagicMock,
     ) -> None:
         """Test full classification flow with a mocked classifier."""
         sample_text = "The Prophet performed the prayer at dawn and recited the Quran."

@@ -188,9 +188,7 @@ def get_narrator_network(
                 type="narrator",
                 generation=t.get("gen"),
             )
-        edges.append(
-            GraphEdge(source=t["id"], target=narrator_id, relationship="TRANSMITTED_TO")
-        )
+        edges.append(GraphEdge(source=t["id"], target=narrator_id, relationship="TRANSMITTED_TO"))
 
     for s in row.get("students") or []:
         if s.get("id") is None:
@@ -205,9 +203,7 @@ def get_narrator_network(
                 type="narrator",
                 generation=s.get("gen"),
             )
-        edges.append(
-            GraphEdge(source=narrator_id, target=s["id"], relationship="TRANSMITTED_TO")
-        )
+        edges.append(GraphEdge(source=narrator_id, target=s["id"], relationship="TRANSMITTED_TO"))
 
     return NarratorNetworkResponse(
         narrator_id=narrator_id,
