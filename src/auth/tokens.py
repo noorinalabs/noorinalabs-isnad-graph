@@ -115,6 +115,7 @@ def revoke_token(token: str) -> None:
     if isinstance(exp, int | float):
         ttl_seconds = max(int(exp - datetime.now(UTC).timestamp()), 1)
     else:
+        # Default to refresh token expiry if no exp claim
         ttl_seconds = settings.refresh_token_expire_days * 86400
 
     redis_client = _get_redis_client()
