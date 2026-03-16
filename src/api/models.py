@@ -313,3 +313,73 @@ class TimelineRangeResponse(BaseModel):
 
     min_year_ah: int
     max_year_ah: int
+
+
+# --- Admin models ---
+
+
+class UserAdminResponse(BaseModel):
+    """Admin view of a user."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    email: str
+    name: str
+    provider: str
+    is_admin: bool = False
+    is_suspended: bool = False
+    created_at: str
+    role: str | None = None
+
+
+class UserUpdateRequest(BaseModel):
+    """Request body for updating a user via admin endpoint."""
+
+    model_config = ConfigDict(frozen=True)
+
+    is_admin: bool | None = None
+    is_suspended: bool | None = None
+    role: str | None = None
+
+
+class SystemHealthResponse(BaseModel):
+    """System health response with per-service status."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: str
+    neo4j: bool
+    postgres: bool
+    redis: bool
+
+
+class ContentStatsResponse(BaseModel):
+    """Content statistics for the admin dashboard."""
+
+    model_config = ConfigDict(frozen=True)
+
+    hadith_count: int
+    narrator_count: int
+    collection_count: int
+    coverage_pct: float
+
+
+class PopularNarrator(BaseModel):
+    """A popular narrator entry for analytics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    query_count: int
+
+
+class UsageAnalyticsResponse(BaseModel):
+    """Usage analytics for the admin dashboard."""
+
+    model_config = ConfigDict(frozen=True)
+
+    search_volume: int
+    api_call_count: int
+    popular_narrators: list[PopularNarrator]

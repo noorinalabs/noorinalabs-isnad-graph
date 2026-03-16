@@ -12,6 +12,7 @@ from src.api.middleware import (
     RateLimitMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
+    require_admin,
     require_auth,
 )
 
@@ -72,6 +73,10 @@ OPENAPI_TAGS = [
     {
         "name": "timeline",
         "description": "Historical timeline data for narrator activity and events.",
+    },
+    {
+        "name": "admin",
+        "description": "Admin endpoints: user management, health probes, stats, analytics.",
     },
 ]
 
@@ -191,6 +196,15 @@ def create_app() -> FastAPI:
         prefix="/api/v1",
         tags=["timeline"],
         dependencies=[Depends(require_auth)],
+    )
+
+    from src.api.routes.admin import router as admin_router
+
+    app.include_router(
+        admin_router,
+        prefix="/api/v1/admin",
+        tags=["admin"],
+        dependencies=[Depends(require_admin)],
     )
 
     from src.auth.twofa import router as twofa_router

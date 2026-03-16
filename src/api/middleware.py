@@ -115,6 +115,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+async def require_admin(request: Request) -> User:
+    """Require authenticated user with is_admin=True. Return 403 if not admin."""
+    user = await require_auth(request)
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
 async def require_auth(request: Request) -> User:
     """FastAPI dependency that requires a valid Bearer token.
 
