@@ -40,15 +40,6 @@ class EdgeLoadResult:
 # ---------------------------------------------------------------------------
 
 
-def _transpose_pydict(col_dict: dict[str, list[Any]]) -> list[dict[str, Any]]:
-    """Convert column-oriented dict ``{col: [vals]}`` to ``[{col: val}, ...]``."""
-    if not col_dict:
-        return []
-    keys = list(col_dict.keys())
-    n = len(col_dict[keys[0]])
-    return [{k: col_dict[k][i] for k in keys} for i in range(n)]
-
-
 def _chunked_read(
     client: Neo4jClient,
     query: str,
@@ -66,7 +57,8 @@ def _chunked_read(
 def _read_parquet_rows(path: Path) -> list[dict[str, Any]]:
     """Read a Parquet file and return row dicts."""
     table = pq.read_table(path)
-    return _transpose_pydict(table.to_pydict())
+    rows: list[dict[str, Any]] = table.to_pylist()
+    return rows
 
 
 def _parquet_files(directory: Path, prefix: str) -> list[Path]:

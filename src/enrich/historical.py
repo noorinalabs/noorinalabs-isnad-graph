@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import bisect
 from typing import Any
 
 from src.models.enrich import HistoricalResult
@@ -75,7 +76,12 @@ def run_historical_overlay(client: Neo4jClient) -> HistoricalResult:
         skipped_max_lifetime=narrators_skipped_max_lifetime,
     )
 
-    # Build overlap batch
+    # Build overlap batch — sort events by start year and use binary search
+    # to skip events that start after the narrator's death, reducing O(N*M)
+    # to O(N * log(M) + relevant matches).
+    sorted_events = sorted(events, key=lambda e: e["year_start_ah"])
+    event_starts = [e["year_start_ah"] for e in sorted_events]
+
     batch: list[dict[str, str]] = []
     linked_narrators: set[str] = set()
     linked_events: set[str] = set()
@@ -83,11 +89,13 @@ def run_historical_overlay(client: Neo4jClient) -> HistoricalResult:
     for nar in valid_narrators:
         n_birth = nar["birth_year_ah"]
         n_death = nar["death_year_ah"]
-        for evt in events:
-            e_start = evt["year_start_ah"]
+        # Only consider events whose start year <= narrator's death year
+        upper = bisect.bisect_right(event_starts, n_death)
+        for idx in range(upper):
+            evt = sorted_events[idx]
             e_end = evt["year_end_ah"]
             # Overlap: narrator alive during any part of the event
-            if n_birth <= e_end and n_death >= e_start:
+            if n_death >= evt["year_start_ah"] and n_birth <= e_end:
                 batch.append({"narrator_id": nar["id"], "event_id": evt["id"]})
                 linked_narrators.add(nar["id"])
                 linked_events.add(evt["id"])

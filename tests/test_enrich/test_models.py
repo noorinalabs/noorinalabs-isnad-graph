@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.enrich.topics import TOPIC_LABELS
-from src.models.enrich import HistoricalResult, MetricsResult, TopicResult
+from src.models.enrich import EnrichSummary, HistoricalResult, MetricsResult, TopicResult
 
 
 class TestMetricsResult:
@@ -113,3 +113,72 @@ class TestHistoricalResult:
         data = h.model_dump()
         h2 = HistoricalResult(**data)
         assert h == h2
+
+
+class TestEnrichSummary:
+    def test_construction_all_none(self) -> None:
+        s = EnrichSummary(
+            metrics=None,
+            topics=None,
+            historical=None,
+            steps_completed=[],
+            steps_failed=[],
+        )
+        assert s.metrics is None
+        assert s.steps_completed == []
+
+    def test_construction_with_results(self) -> None:
+        m = MetricsResult(
+            narrators_enriched=10,
+            betweenness_computed=True,
+            pagerank_computed=True,
+            louvain_computed=True,
+            degree_computed=True,
+            communities_found=2,
+        )
+        t = TopicResult(
+            hadiths_classified=5,
+            hadiths_skipped=1,
+            model_name="test",
+            labels_used=["a"],
+        )
+        h = HistoricalResult(
+            edges_created=3,
+            narrators_linked=2,
+            events_linked=1,
+            narrators_skipped_no_dates=0,
+            narrators_skipped_max_lifetime=0,
+        )
+        s = EnrichSummary(
+            metrics=m,
+            topics=t,
+            historical=h,
+            steps_completed=["metrics", "topics", "historical"],
+            steps_failed=[],
+        )
+        assert s.metrics is not None
+        assert s.metrics.narrators_enriched == 10
+        assert len(s.steps_completed) == 3
+
+    def test_frozen(self) -> None:
+        s = EnrichSummary(
+            metrics=None,
+            topics=None,
+            historical=None,
+            steps_completed=[],
+            steps_failed=[],
+        )
+        with pytest.raises(ValidationError):
+            s.metrics = None  # type: ignore[misc]
+
+    def test_model_dump_roundtrip(self) -> None:
+        s = EnrichSummary(
+            metrics=None,
+            topics=None,
+            historical=None,
+            steps_completed=["metrics"],
+            steps_failed=["topics"],
+        )
+        data = s.model_dump()
+        s2 = EnrichSummary(**data)
+        assert s == s2

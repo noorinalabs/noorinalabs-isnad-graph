@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.graph.validate import _classify
+import pytest
+
+from src.graph.validate import (
+    _CLASSIFIER_REGISTRY,
+    ValidationResult,
+    _classify,
+    register_classifier,
+)
 
 # The validation queries live in queries/validation/*.cypher
 QUERIES_DIR = Path(__file__).resolve().parents[2] / "queries" / "validation"
@@ -125,3 +132,52 @@ class TestCypherFileLoading:
         query = path.read_text().strip()
         assert "APPEARS_IN" in query
         assert "Collection" in query
+
+
+class TestRegistryPattern:
+    """Parametrized coverage: every registered classifier is tested for pass and fail."""
+
+    @pytest.mark.parametrize("name", list(_CLASSIFIER_REGISTRY.keys()))
+    def test_registered_classifier_pass_on_empty(self, name: str) -> None:
+        result = _classify(name, [])
+        assert result.passed is True
+        assert result.row_count == 0
+
+    @pytest.mark.parametrize(
+        ("name", "rows"),
+        [
+            ("orphan_narrators", [{"narrator_id": "nar:x"}]),
+            ("chain_integrity", [{"narrator_id": "nar:y", "cycle_length": 2}]),
+            (
+                "collection_coverage",
+                [{"collection_id": "col:z", "expected": 100, "actual": 10, "deviation_pct": 90.0}],
+            ),
+        ],
+    )
+    def test_registered_classifier_fail_on_bad_rows(
+        self, name: str, rows: list[dict[str, object]]
+    ) -> None:
+        result = _classify(name, rows)
+        assert result.passed is False
+
+    def test_unknown_classifier_uses_default(self) -> None:
+        result = _classify("nonexistent_check", [])
+        assert result.passed is True
+
+    def test_unknown_classifier_fails_with_rows(self) -> None:
+        result = _classify("nonexistent_check", [{"x": 1}])
+        assert result.passed is False
+
+    def test_register_custom_classifier(self) -> None:
+        def _custom(
+            name: str, rows: list[dict[str, object]], threshold: float
+        ) -> ValidationResult:
+            return ValidationResult(name, passed=True, details="custom", row_count=len(rows))
+
+        register_classifier("custom_test", _custom)
+        try:
+            result = _classify("custom_test", [{"a": 1}])
+            assert result.passed is True
+            assert result.details == "custom"
+        finally:
+            del _CLASSIFIER_REGISTRY["custom_test"]

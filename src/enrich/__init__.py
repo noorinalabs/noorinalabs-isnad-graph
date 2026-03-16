@@ -21,8 +21,31 @@ __all__ = ["run_all", "run_metrics", "run_topics"]
 log = get_logger(__name__)
 
 
-def run_all(client: Neo4jClient, staging_dir: Path) -> EnrichSummary:
-    """Run full enrichment pipeline: metrics -> topics -> historical."""
+def _should_run(step: str, only: list[str] | None, skip: list[str] | None) -> bool:
+    """Return True if *step* should be executed given --only/--skip filters."""
+    if only is not None:
+        return step in only
+    if skip is not None:
+        return step not in skip
+    return True
+
+
+def run_all(
+    client: Neo4jClient,
+    staging_dir: Path,
+    *,
+    only: list[str] | None = None,
+    skip: list[str] | None = None,
+) -> EnrichSummary:
+    """Run enrichment pipeline: metrics -> topics -> historical.
+
+    Parameters
+    ----------
+    only:
+        If provided, run only these steps.
+    skip:
+        If provided, skip these steps. Ignored if *only* is set.
+    """
     steps_completed: list[str] = []
     steps_failed: list[str] = []
     metrics_result: MetricsResult | None = None
@@ -30,34 +53,37 @@ def run_all(client: Neo4jClient, staging_dir: Path) -> EnrichSummary:
     historical_result: HistoricalResult | None = None
 
     # Metrics
-    try:
-        log.info("enrich_step_start", step="metrics")
-        metrics_result = run_metrics(client)
-        steps_completed.append("metrics")
-        log.info("enrich_step_done", step="metrics")
-    except Exception:
-        steps_failed.append("metrics")
-        log.error("enrich_step_failed", step="metrics", traceback=traceback.format_exc())
+    if _should_run("metrics", only, skip):
+        try:
+            log.info("enrich_step_start", step="metrics")
+            metrics_result = run_metrics(client)
+            steps_completed.append("metrics")
+            log.info("enrich_step_done", step="metrics")
+        except Exception:
+            steps_failed.append("metrics")
+            log.error("enrich_step_failed", step="metrics", traceback=traceback.format_exc())
 
     # Topics
-    try:
-        log.info("enrich_step_start", step="topics")
-        topics_result = run_topics(client, staging_dir)
-        steps_completed.append("topics")
-        log.info("enrich_step_done", step="topics")
-    except Exception:
-        steps_failed.append("topics")
-        log.error("enrich_step_failed", step="topics", traceback=traceback.format_exc())
+    if _should_run("topics", only, skip):
+        try:
+            log.info("enrich_step_start", step="topics")
+            topics_result = run_topics(client)
+            steps_completed.append("topics")
+            log.info("enrich_step_done", step="topics")
+        except Exception:
+            steps_failed.append("topics")
+            log.error("enrich_step_failed", step="topics", traceback=traceback.format_exc())
 
     # Historical overlay
-    try:
-        log.info("enrich_step_start", step="historical")
-        historical_result = run_historical_overlay(client)
-        steps_completed.append("historical")
-        log.info("enrich_step_done", step="historical")
-    except Exception:
-        steps_failed.append("historical")
-        log.error("enrich_step_failed", step="historical", traceback=traceback.format_exc())
+    if _should_run("historical", only, skip):
+        try:
+            log.info("enrich_step_start", step="historical")
+            historical_result = run_historical_overlay(client)
+            steps_completed.append("historical")
+            log.info("enrich_step_done", step="historical")
+        except Exception:
+            steps_failed.append("historical")
+            log.error("enrich_step_failed", step="historical", traceback=traceback.format_exc())
 
     return EnrichSummary(
         metrics=metrics_result,

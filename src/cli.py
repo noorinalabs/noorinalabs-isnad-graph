@@ -206,7 +206,11 @@ def _cmd_validate() -> None:
         print("\nAll validation checks passed.")
 
 
-def _cmd_enrich() -> None:
+def _cmd_enrich(
+    *,
+    only: list[str] | None = None,
+    skip: list[str] | None = None,
+) -> None:
     """Run the Phase 4 enrichment pipeline."""
     from pathlib import Path
 
@@ -220,7 +224,7 @@ def _cmd_enrich() -> None:
     staging_dir = Path(settings.data_staging_dir)
 
     with Neo4jClient() as client:
-        summary = enrich_all(client, staging_dir)
+        summary = enrich_all(client, staging_dir, only=only, skip=skip)
 
     print("\n=== Enrich Summary ===")
     print(f"  Steps completed: {', '.join(summary.steps_completed) or 'none'}")
@@ -267,7 +271,19 @@ def main() -> None:
     load_parser.add_argument(
         "--nodes-only", action="store_true", help="Load only nodes (skip edges and validation)"
     )
-    subparsers.add_parser("enrich", help="Compute metrics and enrichment")
+    enrich_parser = subparsers.add_parser("enrich", help="Compute metrics and enrichment")
+    enrich_parser.add_argument(
+        "--only",
+        nargs="+",
+        choices=["metrics", "topics", "historical"],
+        help="Run only these enrichment steps",
+    )
+    enrich_parser.add_argument(
+        "--skip",
+        nargs="+",
+        choices=["metrics", "topics", "historical"],
+        help="Skip these enrichment steps",
+    )
     subparsers.add_parser("validate", help="Run graph validation queries")
     subparsers.add_parser("validate-staging", help="Validate staging Parquet files")
 
@@ -299,7 +315,7 @@ def main() -> None:
             nodes_only=args.nodes_only,
         )
     elif args.command == "enrich":
-        _cmd_enrich()
+        _cmd_enrich(only=args.only, skip=args.skip)
     elif args.command == "validate":
         _cmd_validate()
     else:

@@ -49,6 +49,23 @@ class Settings(BaseSettings):
     data_staging_dir: Path = Path("./data/staging")
     data_curated_dir: Path = Path("./data/curated")
 
+    topic_labels: list[str] = [
+        "theology",
+        "jurisprudence",
+        "eschatology",
+        "succession/imamate",
+        "ritual/worship",
+        "ethics/conduct",
+        "history/sira",
+        "commerce/trade",
+        "warfare/jihad",
+        "family_law",
+        "food/drink",
+        "medicine",
+        "dreams/visions",
+        "end_times",
+    ]
+
     log_level: str = "INFO"
     log_format: str = "console"
 

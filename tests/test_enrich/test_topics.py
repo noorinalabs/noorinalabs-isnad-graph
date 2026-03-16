@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,7 +34,7 @@ class TestTopicLabels:
 class TestShortTextFiltering:
     """Texts shorter than MIN_TEXT_LENGTH should be skipped."""
 
-    def test_short_texts_skipped(self, mock_client: MagicMock, tmp_path: Path) -> None:
+    def test_short_texts_skipped(self, mock_client: MagicMock) -> None:
         short_text = "x" * (MIN_TEXT_LENGTH - 1)
         mock_client.execute_read.return_value = [
             {"id": "h1", "matn_en": short_text},
@@ -44,7 +43,7 @@ class TestShortTextFiltering:
 
         mock_classifier = MagicMock()
         with patch("src.enrich.topics._load_pipeline", return_value=mock_classifier):
-            result = run_topics(mock_client, tmp_path)
+            result = run_topics(mock_client)
 
         assert result.hadiths_skipped == 2
         assert result.hadiths_classified == 0
@@ -70,10 +69,10 @@ class TestGracefulSkip:
     """Run_topics should return zeros when transformers unavailable."""
 
     def test_returns_zero_result_without_transformers(
-        self, mock_client: MagicMock, tmp_path: Path
+        self, mock_client: MagicMock,
     ) -> None:
         with patch("src.enrich.topics._load_pipeline", return_value=None):
-            result = run_topics(mock_client, tmp_path)
+            result = run_topics(mock_client)
 
         assert isinstance(result, TopicResult)
         assert result.hadiths_classified == 0
@@ -87,7 +86,7 @@ class TestClassification:
     """ML-gated tests that require transformers."""
 
     def test_classification_with_mock_pipeline(
-        self, mock_client: MagicMock, tmp_path: Path
+        self, mock_client: MagicMock,
     ) -> None:
         """Test full classification flow with a mocked classifier."""
         sample_text = "The Prophet performed the prayer at dawn and recited the Quran."
@@ -102,7 +101,7 @@ class TestClassification:
         }
 
         with patch("src.enrich.topics._load_pipeline", return_value=mock_classifier):
-            result = run_topics(mock_client, tmp_path)
+            result = run_topics(mock_client)
 
         assert result.hadiths_classified == 1
         assert result.hadiths_skipped == 0

@@ -42,6 +42,9 @@ def _ensure_graph_projection(client: Neo4jClient) -> None:
         )
         log.info("gds_graph_dropped", graph=GRAPH_NAME)
 
+    # TODO(#127): gds.graph.project is deprecated in GDS 2.5+.
+    # Migrate to gds.graph.project.cypher() or the new map-based syntax
+    # when the cluster is upgraded to GDS >= 2.5.
     client.execute_write(
         "CALL gds.graph.project($name, 'Narrator', 'TRANSMITTED_TO')"
         " YIELD graphName, nodeCount, relationshipCount"
