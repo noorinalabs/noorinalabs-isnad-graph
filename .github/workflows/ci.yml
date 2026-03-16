@@ -37,7 +37,7 @@ jobs:
       - run: uv sync --group ml
       - name: Check for known vulnerabilities
         run: |
-          uv export --no-hashes --frozen > /tmp/requirements.txt
+          uv export --no-hashes --frozen --no-emit-project > /tmp/requirements.txt
           uv run pip-audit --strict --desc -r /tmp/requirements.txt
       - name: Secret detection with gitleaks
         uses: gitleaks/gitleaks-action@v2
