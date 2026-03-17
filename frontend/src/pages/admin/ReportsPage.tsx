@@ -4,17 +4,8 @@ import type { SystemReport } from '../../types/api'
 
 function MetricCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        padding: '1rem',
-        marginBottom: '1rem',
-      }}
-    >
-      <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
-        {title}
-      </h3>
+    <div className="metric-card">
+      <h3>{title}</h3>
       {children}
     </div>
   )
@@ -22,7 +13,7 @@ function MetricCard({ title, children }: { title: string; children: React.ReactN
 
 function StatRow({ label, value }: { label: string; value: string | number }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
+    <div className="stat-row">
       <span>{label}</span>
       <strong>{typeof value === 'number' ? value.toLocaleString() : value}</strong>
     </div>
@@ -36,7 +27,7 @@ export default function ReportsPage() {
   })
 
   if (isLoading) return <p>Loading reports...</p>
-  if (error) return <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>
+  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
   if (!data) return <p>No report data available.</p>
 
   return (
@@ -53,30 +44,22 @@ export default function ReportsPage() {
                 File details ({data.pipeline.files.length})
               </summary>
               <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  marginTop: '0.5rem',
-                  fontSize: '0.85rem',
-                }}
+                className="data-table data-table-compact"
+                style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}
               >
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #ddd', textAlign: 'left' }}>
-                    <th style={{ padding: '0.25rem' }}>File</th>
-                    <th style={{ padding: '0.25rem' }}>Rows</th>
-                    <th style={{ padding: '0.25rem' }}>Columns</th>
+                  <tr>
+                    <th>File</th>
+                    <th>Rows</th>
+                    <th>Columns</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.pipeline.files.map((f: Record<string, unknown>, i: number) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '0.25rem', fontFamily: 'monospace' }}>
-                        {String(f.file ?? '')}
-                      </td>
-                      <td style={{ padding: '0.25rem' }}>
-                        {Number(f.rows ?? 0).toLocaleString()}
-                      </td>
-                      <td style={{ padding: '0.25rem' }}>{String(f.columns ?? '')}</td>
+                    <tr key={i}>
+                      <td className="mono">{String(f.file ?? '')}</td>
+                      <td>{Number(f.rows ?? 0).toLocaleString()}</td>
+                      <td>{String(f.columns ?? '')}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -89,15 +72,9 @@ export default function ReportsPage() {
       {data.disambiguation && (
         <MetricCard title="Disambiguation Rates">
           <StatRow label="NER mentions" value={data.disambiguation.ner_mention_count} />
-          <StatRow
-            label="Canonical narrators"
-            value={data.disambiguation.canonical_narrator_count}
-          />
+          <StatRow label="Canonical narrators" value={data.disambiguation.canonical_narrator_count} />
           <StatRow label="Ambiguous mentions" value={data.disambiguation.ambiguous_count} />
-          <StatRow
-            label="Resolution rate"
-            value={`${data.disambiguation.resolution_rate_pct}%`}
-          />
+          <StatRow label="Resolution rate" value={`${data.disambiguation.resolution_rate_pct}%`} />
           <StatRow label="Ambiguous rate" value={`${data.disambiguation.ambiguous_pct}%`} />
         </MetricCard>
       )}
@@ -116,10 +93,7 @@ export default function ReportsPage() {
         <MetricCard title="Graph Validation">
           <StatRow label="Orphan narrators" value={data.graph_validation.orphan_narrators} />
           <StatRow label="Orphan hadiths" value={data.graph_validation.orphan_hadiths} />
-          <StatRow
-            label="Chain integrity"
-            value={`${data.graph_validation.chain_integrity_pct}%`}
-          />
+          <StatRow label="Chain integrity" value={`${data.graph_validation.chain_integrity_pct}%`} />
           <StatRow
             label="Collection coverage"
             value={`${data.graph_validation.collection_coverage_pct}%`}

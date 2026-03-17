@@ -7,6 +7,12 @@ import {
 } from '../../api/client'
 import type { ModerationItem } from '../../types/api'
 
+function statusBadgeClass(status: string): string {
+  if (status === 'approved') return 'badge-approved'
+  if (status === 'rejected') return 'badge-rejected'
+  return 'badge-pending'
+}
+
 export default function ModerationPage() {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
@@ -41,13 +47,13 @@ export default function ModerationPage() {
     <div>
       <h2>Content Moderation</h2>
 
-      <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #ddd' }}>
-        <h3 style={{ marginTop: 0 }}>Flag Content</h3>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div className="flag-box">
+        <h3>Flag Content</h3>
+        <div className="flex-row" style={{ flexWrap: 'wrap' }}>
           <select
             value={flagForm.entity_type}
             onChange={(e) => setFlagForm({ ...flagForm, entity_type: e.target.value })}
-            style={{ padding: '0.5rem' }}
+            className="form-input"
           >
             <option value="hadith">Hadith</option>
             <option value="narrator">Narrator</option>
@@ -57,14 +63,16 @@ export default function ModerationPage() {
             placeholder="Entity ID"
             value={flagForm.entity_id}
             onChange={(e) => setFlagForm({ ...flagForm, entity_id: e.target.value })}
-            style={{ padding: '0.5rem', flex: 1, minWidth: 200 }}
+            className="form-input"
+            style={{ flex: 1, minWidth: 200 }}
           />
           <input
             type="text"
             placeholder="Reason"
             value={flagForm.reason}
             onChange={(e) => setFlagForm({ ...flagForm, reason: e.target.value })}
-            style={{ padding: '0.5rem', flex: 2, minWidth: 200 }}
+            className="form-input"
+            style={{ flex: 2, minWidth: 200 }}
           />
           <button
             onClick={() => {
@@ -74,14 +82,14 @@ export default function ModerationPage() {
               }
             }}
             disabled={flagMutation.isPending}
-            style={{ padding: '0.5rem 1rem' }}
+            className="btn"
           >
             Flag
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="flex-row" style={{ marginBottom: '1rem' }}>
         <label>Filter by status:</label>
         <select
           value={statusFilter ?? ''}
@@ -89,7 +97,7 @@ export default function ModerationPage() {
             setStatusFilter(e.target.value || undefined)
             setPage(1)
           }}
-          style={{ padding: '0.5rem' }}
+          className="form-input"
         >
           <option value="">All</option>
           <option value="pending">Pending</option>
@@ -99,63 +107,44 @@ export default function ModerationPage() {
       </div>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
         <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Type</th>
-                <th style={{ padding: '0.5rem' }}>Entity ID</th>
-                <th style={{ padding: '0.5rem' }}>Reason</th>
-                <th style={{ padding: '0.5rem' }}>Status</th>
-                <th style={{ padding: '0.5rem' }}>Flagged</th>
-                <th style={{ padding: '0.5rem' }}>Actions</th>
+              <tr>
+                <th>Type</th>
+                <th>Entity ID</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Flagged</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {data.items.map((item: ModerationItem) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '0.5rem' }}>{item.entity_type}</td>
-                  <td style={{ padding: '0.5rem', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                    {item.entity_id}
-                  </td>
-                  <td style={{ padding: '0.5rem' }}>{item.reason}</td>
-                  <td style={{ padding: '0.5rem' }}>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: '4px',
-                        background:
-                          item.status === 'approved'
-                            ? '#d4edda'
-                            : item.status === 'rejected'
-                              ? '#f8d7da'
-                              : '#fff3cd',
-                        color:
-                          item.status === 'approved'
-                            ? '#155724'
-                            : item.status === 'rejected'
-                              ? '#721c24'
-                              : '#856404',
-                      }}
-                    >
+                <tr key={item.id}>
+                  <td>{item.entity_type}</td>
+                  <td className="mono">{item.entity_id}</td>
+                  <td>{item.reason}</td>
+                  <td>
+                    <span className={statusBadgeClass(item.status)}>
                       {item.status}
                     </span>
                   </td>
-                  <td style={{ padding: '0.5rem', fontSize: '0.85rem' }}>
+                  <td style={{ fontSize: '0.85rem' }}>
                     {new Date(item.flagged_at).toLocaleDateString()}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td>
                     {item.status === 'pending' && (
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <div className="flex-row" style={{ gap: '0.25rem' }}>
                         <button
                           onClick={() =>
                             updateMutation.mutate({ id: item.id, status: 'approved' })
                           }
                           disabled={updateMutation.isPending}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+                          className="btn-sm"
                         >
                           Approve
                         </button>
@@ -164,7 +153,7 @@ export default function ModerationPage() {
                             updateMutation.mutate({ id: item.id, status: 'rejected' })
                           }
                           disabled={updateMutation.isPending}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+                          className="btn-sm"
                         >
                           Reject
                         </button>
@@ -177,7 +166,7 @@ export default function ModerationPage() {
           </table>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+            <div className="pagination">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                 Previous
               </button>

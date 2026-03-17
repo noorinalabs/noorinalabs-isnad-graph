@@ -25,33 +25,34 @@ export default function NarratorsPage() {
     <div>
       <h2>Narrators</h2>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="flex-row" style={{ marginBottom: '1rem' }}>
         <input
           type="text"
           placeholder="Search narrators..."
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          style={{ padding: '0.5rem', flex: 1, maxWidth: 400 }}
+          className="form-input"
+          style={{ flex: 1, maxWidth: 400 }}
         />
-        <button onClick={handleSearch} style={{ padding: '0.5rem 1rem' }}>
+        <button onClick={handleSearch} className="btn">
           Search
         </button>
       </div>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
         <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Name (Arabic)</th>
-                <th style={{ padding: '0.5rem' }}>Name (English)</th>
-                <th style={{ padding: '0.5rem' }}>Generation</th>
-                <th style={{ padding: '0.5rem' }}>Trustworthiness</th>
-                <th style={{ padding: '0.5rem' }}>Community</th>
+              <tr>
+                <th>Name (Arabic)</th>
+                <th>Name (English)</th>
+                <th>Generation</th>
+                <th>Trustworthiness</th>
+                <th>Community</th>
               </tr>
             </thead>
             <tbody>
@@ -59,21 +60,19 @@ export default function NarratorsPage() {
                 <tr
                   key={n.id}
                   onClick={() => navigate(`/narrators/${n.id}`)}
-                  style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
+                  className="clickable-row"
                 >
-                  <td style={{ padding: '0.5rem', direction: 'rtl' }}>{n.name_ar}</td>
-                  <td style={{ padding: '0.5rem' }}>{n.name_en ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>{n.generation ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>{n.trustworthiness_consensus ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>
-                    {n.community_id != null ? `#${n.community_id}` : '-'}
-                  </td>
+                  <td className="text-rtl">{n.name_ar}</td>
+                  <td>{n.name_en ?? '-'}</td>
+                  <td>{n.generation ?? '-'}</td>
+                  <td>{n.trustworthiness_consensus ?? '-'}</td>
+                  <td>{n.community_id != null ? `#${n.community_id}` : '-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="pagination">
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>

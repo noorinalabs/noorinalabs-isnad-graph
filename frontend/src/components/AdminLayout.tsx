@@ -22,35 +22,19 @@ export default function AdminLayout() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <header
-        style={{
-          padding: '0.75rem 1.5rem',
-          borderBottom: '1px solid #ddd',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          background: '#f8f9fa',
-        }}
+        className="flex-row"
+        style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #ddd', background: '#f8f9fa' }}
       >
         <NavLink to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
           <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Isnad Graph</h1>
         </NavLink>
-        <span style={{ color: '#666', fontSize: '0.875rem' }}>Admin Dashboard</span>
+        <span className="small-muted">Admin Dashboard</span>
       </header>
       <div style={{ display: 'flex', flex: 1 }}>
-        <nav
-          style={{
-            width: 220,
-            padding: '1rem',
-            borderRight: '1px solid #ddd',
-            background: '#fafafa',
-          }}
-        >
+        <nav style={{ width: 220, padding: '1rem', borderRight: '1px solid #ddd', background: '#fafafa' }}>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             <li style={{ marginBottom: '1rem' }}>
-              <NavLink
-                to="/"
-                style={{ textDecoration: 'none', color: '#666', fontSize: '0.875rem' }}
-              >
+              <NavLink to="/" className="small-muted" style={{ textDecoration: 'none' }}>
                 Back to main site
               </NavLink>
             </li>

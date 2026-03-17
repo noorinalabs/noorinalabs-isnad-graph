@@ -43,14 +43,20 @@ export default function TimelinePage() {
   }, [])
 
   useEffect(() => {
-    if (!events?.length || !svgRef.current) return
+    if (!svgRef.current) return
 
     const svg = d3.select(svgRef.current)
     const width = svgRef.current.clientWidth || 800
-    const height = Math.max(400, events.length * 30 + MARGIN.top + MARGIN.bottom)
 
+    if (!events?.length) {
+      svg.attr('height', 400)
+      svg.selectAll('.x-axis').remove()
+      svg.selectAll('.event-bar').remove()
+      return
+    }
+
+    const height = Math.max(400, events.length * 30 + MARGIN.top + MARGIN.bottom)
     svg.attr('height', height)
-    svg.selectAll('*').remove()
 
     const allYears = events.flatMap((e) => [e.year_ah, e.end_year_ah ?? e.year_ah])
     const xMin = d3.min(allYears) ?? 0
@@ -67,60 +73,78 @@ export default function TimelinePage() {
       .range([MARGIN.top, height - MARGIN.bottom])
       .padding(0.3)
 
-    svg
+    // --- X Axis: enter/update ---
+    let axisG = svg.selectAll<SVGGElement, null>('.x-axis').data([null])
+    axisG = axisG
+      .enter()
       .append('g')
+      .attr('class', 'x-axis')
+      .merge(axisG)
+
+    axisG
       .attr('transform', `translate(0,${height - MARGIN.bottom})`)
       .call(d3.axisBottom(xScale).tickFormat((d) => `${d} AH`))
       .selectAll('text')
       .style('font-size', '11px')
 
-    const bars = svg
-      .selectAll('.event-bar')
-      .data(events)
-      .join('g')
+    // --- Event bars: enter/update/exit ---
+    const barGroups = svg
+      .selectAll<SVGGElement, TimelineEntry>('.event-bar')
+      .data(events, (d) => d.id)
+
+    // Exit: remove bars no longer in data
+    barGroups.exit().remove()
+
+    // Enter: create new bar groups
+    const barEnter = barGroups
+      .enter()
+      .append('g')
       .attr('class', 'event-bar')
       .style('cursor', 'pointer')
 
-    bars
-      .append('rect')
+    barEnter.append('rect').attr('rx', 3).attr('fill', '#1a73e8').attr('opacity', 0.75)
+    barEnter.append('text')
+      .attr('text-anchor', 'end')
+      .attr('dominant-baseline', 'central')
+      .style('font-size', '11px')
+      .style('fill', '#333')
+
+    // Merge: update all (enter + existing)
+    const barMerged = barEnter.merge(barGroups)
+
+    barMerged
+      .select('rect')
       .attr('x', (d) => xScale(d.year_ah))
       .attr('y', (_d, i) => yScale(i) ?? 0)
       .attr('width', (d) =>
         Math.max(4, xScale(d.end_year_ah ?? d.year_ah) - xScale(d.year_ah)),
       )
       .attr('height', yScale.bandwidth())
-      .attr('rx', 3)
-      .attr('fill', '#1a73e8')
-      .attr('opacity', 0.75)
 
-    bars
-      .append('text')
+    barMerged
+      .select('text')
       .attr('x', (d) => xScale(d.year_ah) - 4)
       .attr('y', (_d, i) => (yScale(i) ?? 0) + yScale.bandwidth() / 2)
-      .attr('text-anchor', 'end')
-      .attr('dominant-baseline', 'central')
-      .style('font-size', '11px')
-      .style('fill', '#333')
       .text((d) => d.name)
 
-    bars.on('click', (_event, d) => handleEventClick(d))
+    barMerged.on('click', (_event, d) => handleEventClick(d))
   }, [events, handleEventClick])
 
   return (
     <div>
       <h2>Timeline</h2>
-      <p style={{ color: '#666', marginBottom: '1rem' }}>
+      <p className="muted-text" style={{ marginBottom: '1rem' }}>
         Historical events and narrator activity periods (Anno Hegirae).
       </p>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center' }}>
+      <div className="timeline-controls">
         <label>
           From (AH):{' '}
           <input
             type="number"
             value={effectiveRange[0]}
             onChange={(e) => setYearRange([Number(e.target.value), effectiveRange[1]])}
-            style={{ width: 80, padding: '0.25rem' }}
+            className="form-input-sm"
           />
         </label>
         <label>
@@ -129,37 +153,29 @@ export default function TimelinePage() {
             type="number"
             value={effectiveRange[1]}
             onChange={(e) => setYearRange([effectiveRange[0], Number(e.target.value)])}
-            style={{ width: 80, padding: '0.25rem' }}
+            className="form-input-sm"
           />
         </label>
       </div>
 
       {isLoading && <p>Loading timeline...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
-      <div style={{ display: 'flex', gap: '1.5rem' }}>
-        <div style={{ flex: 1, overflowX: 'auto' }}>
+      <div className="timeline-body">
+        <div className="timeline-chart">
           <svg ref={svgRef} width="100%" height={400} />
         </div>
 
         {selectedEvent && (
-          <div
-            style={{
-              width: 300,
-              padding: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: 6,
-              background: '#fafafa',
-            }}
-          >
-            <h3 style={{ margin: '0 0 0.5rem' }}>{selectedEvent.name}</h3>
-            <p style={{ color: '#666', fontSize: '0.875rem' }}>
+          <div className="timeline-detail">
+            <h3>{selectedEvent.name}</h3>
+            <p className="small-muted">
               {selectedEvent.year_ah}
               {selectedEvent.end_year_ah ? ` - ${selectedEvent.end_year_ah}` : ''} AH
             </p>
             {selectedEvent.description && <p>{selectedEvent.description}</p>}
             {selectedEvent.narrator_count > 0 && (
-              <p style={{ color: '#666', fontSize: '0.875rem' }}>
+              <p className="small-muted">
                 {selectedEvent.narrator_count} active narrators
               </p>
             )}

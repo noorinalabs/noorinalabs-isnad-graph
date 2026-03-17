@@ -10,34 +10,22 @@ export default function CollectionsPage() {
     queryFn: () => fetchCollections(),
   })
 
-  const sectBadge = (sect: string) => {
-    const isSunni = sect.toLowerCase() === 'sunni'
-    return {
-      background: isSunni ? '#e8f5e9' : '#e3f2fd',
-      color: isSunni ? '#2e7d32' : '#1565c0',
-      padding: '0.15rem 0.5rem',
-      borderRadius: 4,
-      fontSize: '0.85rem',
-      fontWeight: 600 as const,
-    }
-  }
-
   return (
     <div>
       <h2>Collections</h2>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="data-table">
           <thead>
-            <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-              <th style={{ padding: '0.5rem' }}>Name (Arabic)</th>
-              <th style={{ padding: '0.5rem' }}>Name (English)</th>
-              <th style={{ padding: '0.5rem' }}>Compiler</th>
-              <th style={{ padding: '0.5rem' }}>Sect</th>
-              <th style={{ padding: '0.5rem', textAlign: 'right' }}>Hadiths</th>
+            <tr>
+              <th>Name (Arabic)</th>
+              <th>Name (English)</th>
+              <th>Compiler</th>
+              <th>Sect</th>
+              <th style={{ textAlign: 'right' }}>Hadiths</th>
             </tr>
           </thead>
           <tbody>
@@ -45,15 +33,17 @@ export default function CollectionsPage() {
               <tr
                 key={c.id}
                 onClick={() => navigate(`/collections/${c.id}`)}
-                style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
+                className="clickable-row"
               >
-                <td style={{ padding: '0.5rem', direction: 'rtl' }}>{c.name_ar}</td>
-                <td style={{ padding: '0.5rem' }}>{c.name_en}</td>
-                <td style={{ padding: '0.5rem' }}>{c.compiler_name ?? '-'}</td>
-                <td style={{ padding: '0.5rem' }}>
-                  <span style={sectBadge(c.sect)}>{c.sect}</span>
+                <td className="text-rtl">{c.name_ar}</td>
+                <td>{c.name_en}</td>
+                <td>{c.compiler_name ?? '-'}</td>
+                <td>
+                  <span className={`badge ${c.sect.toLowerCase() === 'sunni' ? 'badge-sunni' : 'badge-shia'}`}>
+                    {c.sect}
+                  </span>
                 </td>
-                <td style={{ padding: '0.5rem', textAlign: 'right' }}>
+                <td style={{ textAlign: 'right' }}>
                   {c.total_hadiths != null ? c.total_hadiths.toLocaleString() : '-'}
                 </td>
               </tr>

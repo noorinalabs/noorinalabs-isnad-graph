@@ -1,0 +1,538 @@
+/* Shared styles for the Isnad Graph frontend */
+
+/* --- Error / status text --- */
+.error-text {
+  color: red;
+}
+
+.muted-text {
+  color: #666;
+}
+
+.small-muted {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+/* --- Flex utilities --- */
+.flex-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.flex-row-wrap {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* --- Tables --- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table thead tr {
+  border-bottom: 2px solid #ddd;
+  text-align: left;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.5rem;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid #eee;
+}
+
+.data-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+/* Compact variant for nested tables */
+.data-table-compact th,
+.data-table-compact td {
+  padding: 0.25rem;
+}
+
+/* --- Stat / status cards --- */
+.stat-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-width: 180px;
+  text-align: center;
+}
+
+.stat-card-label {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.stat-card-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-card-value-lg {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* --- Metric card (bordered section) --- */
+.metric-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.metric-card h3 {
+  margin-top: 0;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+}
+
+/* --- Badges --- */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.badge-sm {
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.badge-admin {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  background: #e8f0fe;
+  color: #1a73e8;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.badge-sunni {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-shia {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.badge-sahih {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.badge-other-grade {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.badge-topic {
+  display: inline-block;
+  margin-right: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  background: #e8eaf6;
+  color: #283593;
+}
+
+.badge-topic-lg {
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  background: #e8eaf6;
+  color: #283593;
+  font-size: 0.9rem;
+}
+
+/* Moderation status badges */
+.badge-approved {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-rejected {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badge-pending {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #fff3cd;
+  color: #856404;
+}
+
+/* Search result type badges */
+.badge-narrator {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-hadith {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.badge-collection {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+/* Similarity score badges */
+.badge-similarity-high {
+  background: #e6f4ea;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.badge-similarity-low {
+  background: #fef7e0;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+/* --- Forms --- */
+.form-input {
+  padding: 0.5rem;
+}
+
+.form-input-block {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+}
+
+.form-input-sm {
+  width: 80px;
+  padding: 0.25rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.btn-action {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.btn-action-suspend {
+  background: #fce8e6;
+}
+
+.btn-action-unsuspend {
+  background: #e6f4ea;
+}
+
+.btn-action-promote {
+  background: #e8f0fe;
+}
+
+.btn-action-demote {
+  background: #fce8e6;
+}
+
+.btn-primary {
+  padding: 8px 24px;
+  font-weight: bold;
+}
+
+.btn-danger {
+  color: red;
+}
+
+/* --- Pagination --- */
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: center;
+}
+
+/* --- Links --- */
+.link-primary {
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+/* --- Section spacing --- */
+.section {
+  margin-top: 1.5rem;
+}
+
+.section-mb {
+  margin-bottom: 32px;
+}
+
+/* --- Grid layouts --- */
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* --- Arabic text --- */
+.text-rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+.text-arabic-block {
+  direction: rtl;
+  text-align: right;
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 4px;
+  line-height: 1.8;
+  font-size: 1.1rem;
+}
+
+.text-english-block {
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 4px;
+  line-height: 1.6;
+}
+
+/* --- Monospace --- */
+.mono {
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+/* --- Status colors --- */
+.text-success {
+  color: #188038;
+}
+
+.text-danger {
+  color: #d93025;
+}
+
+.text-warning {
+  color: #e37400;
+}
+
+.text-active {
+  color: #188038;
+  font-weight: 600;
+}
+
+.text-suspended {
+  color: #d93025;
+  font-weight: 600;
+}
+
+/* --- Flag content box --- */
+.flag-box {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+}
+
+.flag-box h3 {
+  margin-top: 0;
+}
+
+/* --- Save message --- */
+.save-success {
+  margin-left: 12px;
+  color: green;
+}
+
+.save-error {
+  margin-left: 12px;
+  color: red;
+}
+
+/* --- Audit table cell overflow --- */
+.cell-truncate {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Config audit table --- */
+.audit-th {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #ccc;
+}
+
+.audit-td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+/* --- Feature flag row --- */
+.flag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* --- Graph explorer --- */
+.graph-container {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafafa;
+  min-height: 400px;
+}
+
+.graph-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+}
+
+.search-dropdown {
+  margin-top: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  position: relative;
+  z-index: 10;
+  max-width: 400px;
+}
+
+.search-dropdown-item {
+  padding: 0.5rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+/* --- Search result row --- */
+.search-result {
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+/* --- Timeline --- */
+.timeline-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.timeline-body {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.timeline-chart {
+  flex: 1;
+  overflow-x: auto;
+}
+
+.timeline-detail {
+  width: 300px;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.timeline-detail h3 {
+  margin: 0 0 0.5rem;
+}
+
+/* --- Collection detail meta --- */
+.collection-meta {
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.collection-meta .separator {
+  margin: 0 0.5rem;
+}
+
+/* --- Narrator detail bio table --- */
+.bio-table {
+  border-collapse: collapse;
+}
+
+.bio-table td:first-child {
+  padding: 0.4rem 1rem 0.4rem 0;
+  font-weight: 600;
+}
+
+.bio-table td:last-child {
+  padding: 0.4rem 0;
+}
+
+.bio-table tr {
+  border-bottom: 1px solid #eee;
+}
+
+/* --- Network stat mini-cards --- */
+.network-stat {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.network-stat-label {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.network-stat-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* --- Admin page container --- */
+.admin-page {
+  padding: 24px;
+  max-width: 800px;
+}

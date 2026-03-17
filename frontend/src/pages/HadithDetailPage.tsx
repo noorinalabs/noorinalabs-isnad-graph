@@ -22,12 +22,12 @@ export default function HadithDetailPage() {
   })
 
   if (isLoading) return <p>Loading...</p>
-  if (error) return <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>
+  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
   if (!hadith) return <p>Hadith not found.</p>
 
   return (
     <div>
-      <Link to="/hadiths" style={{ color: '#1a73e8' }}>
+      <Link to="/hadiths" className="link-primary">
         &larr; Back to Hadiths
       </Link>
 
@@ -37,69 +37,31 @@ export default function HadithDetailPage() {
 
       {hadith.grade_composite && (
         <span
-          style={{
-            display: 'inline-block',
-            padding: '0.2rem 0.6rem',
-            borderRadius: 4,
-            fontSize: '0.9rem',
-            background:
-              hadith.grade_composite.toLowerCase() === 'sahih' ? '#e6f4ea' : '#fef7e0',
-            color: hadith.grade_composite.toLowerCase() === 'sahih' ? '#137333' : '#b06000',
-            marginBottom: '1rem',
-          }}
+          className={`badge ${hadith.grade_composite.toLowerCase() === 'sahih' ? 'badge-sahih' : 'badge-other-grade'}`}
+          style={{ display: 'inline-block', padding: '0.2rem 0.6rem', fontSize: '0.9rem', marginBottom: '1rem' }}
         >
           {hadith.grade_composite}
         </span>
       )}
 
-      <section style={{ marginTop: '1.5rem' }}>
+      <section className="section">
         <h3>Matn (Arabic)</h3>
-        <div
-          style={{
-            direction: 'rtl',
-            textAlign: 'right',
-            padding: '1rem',
-            background: '#fafafa',
-            borderRadius: 4,
-            lineHeight: 1.8,
-            fontSize: '1.1rem',
-          }}
-        >
-          {hadith.matn_ar}
-        </div>
+        <div className="text-arabic-block">{hadith.matn_ar}</div>
       </section>
 
       {hadith.matn_en && (
-        <section style={{ marginTop: '1.5rem' }}>
+        <section className="section">
           <h3>English Translation</h3>
-          <div
-            style={{
-              padding: '1rem',
-              background: '#fafafa',
-              borderRadius: 4,
-              lineHeight: 1.6,
-            }}
-          >
-            {hadith.matn_en}
-          </div>
+          <div className="text-english-block">{hadith.matn_en}</div>
         </section>
       )}
 
       {hadith.topic_tags && hadith.topic_tags.length > 0 && (
-        <section style={{ marginTop: '1.5rem' }}>
+        <section className="section">
           <h3>Topics</h3>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="flex-row-wrap" style={{ gap: '0.5rem' }}>
             {hadith.topic_tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  borderRadius: 4,
-                  background: '#e8eaf6',
-                  color: '#283593',
-                  fontSize: '0.9rem',
-                }}
-              >
+              <span key={tag} className="badge-topic-lg">
                 {tag}
               </span>
             ))}
@@ -108,30 +70,30 @@ export default function HadithDetailPage() {
       )}
 
       {parallelsData && parallelsData.parallels.length > 0 && (
-        <section style={{ marginTop: '1.5rem' }}>
+        <section className="section">
           <h3>Parallel Hadiths ({parallelsData.total})</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Source Corpus</th>
-                <th style={{ padding: '0.5rem' }}>Grade</th>
-                <th style={{ padding: '0.5rem' }}>Similarity</th>
-                <th style={{ padding: '0.5rem' }}>Cross-sect</th>
+              <tr>
+                <th>Source Corpus</th>
+                <th>Grade</th>
+                <th>Similarity</th>
+                <th>Cross-sect</th>
               </tr>
             </thead>
             <tbody>
               {parallelsData.parallels.map((p) => (
-                <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '0.5rem' }}>
-                    <Link to={`/hadiths/${p.id}`} style={{ color: '#1a73e8' }}>
+                <tr key={p.id}>
+                  <td>
+                    <Link to={`/hadiths/${p.id}`} className="link-primary">
                       {p.source_corpus}
                     </Link>
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{p.grade ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td>{p.grade ?? '-'}</td>
+                  <td>
                     {p.similarity_score != null ? `${(p.similarity_score * 100).toFixed(0)}%` : '-'}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{p.cross_sect ? 'Yes' : 'No'}</td>
+                  <td>{p.cross_sect ? 'Yes' : 'No'}</td>
                 </tr>
               ))}
             </tbody>

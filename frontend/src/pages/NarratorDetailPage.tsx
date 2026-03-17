@@ -22,38 +22,32 @@ export default function NarratorDetailPage() {
   })
 
   if (isLoading) return <p>Loading...</p>
-  if (error) return <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>
+  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
   if (!narrator) return <p>Narrator not found.</p>
 
   return (
     <div>
-      <Link to="/narrators" style={{ color: '#1a73e8' }}>
+      <Link to="/narrators" className="link-primary">
         &larr; Back to Narrators
       </Link>
 
-      <h2 style={{ direction: 'rtl', textAlign: 'right', marginTop: '1rem' }}>
+      <h2 className="text-rtl" style={{ marginTop: '1rem' }}>
         {narrator.name_ar}
       </h2>
       {narrator.name_en && (
         <h3 style={{ color: '#555', fontWeight: 400 }}>{narrator.name_en}</h3>
       )}
 
-      <section style={{ marginTop: '1.5rem' }}>
+      <section className="section">
         <h3>Biography</h3>
-        <table style={{ borderCollapse: 'collapse' }}>
+        <table className="bio-table">
           <tbody>
             {[
               ['Kunya', narrator.kunya],
               ['Nisba', narrator.nisba],
               ['Laqab', narrator.laqab],
-              [
-                'Birth Year',
-                narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : null,
-              ],
-              [
-                'Death Year',
-                narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : null,
-              ],
+              ['Birth Year', narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : null],
+              ['Death Year', narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : null],
               ['Generation', narrator.generation],
               ['Gender', narrator.gender],
               ['Sect Affiliation', narrator.sect_affiliation],
@@ -61,11 +55,9 @@ export default function NarratorDetailPage() {
             ].map(
               ([label, value]) =>
                 value && (
-                  <tr key={label as string} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '0.4rem 1rem 0.4rem 0', fontWeight: 600 }}>
-                      {label}
-                    </td>
-                    <td style={{ padding: '0.4rem 0' }}>{value}</td>
+                  <tr key={label as string}>
+                    <td>{label}</td>
+                    <td>{value}</td>
                   </tr>
                 ),
             )}
@@ -73,9 +65,9 @@ export default function NarratorDetailPage() {
         </table>
       </section>
 
-      <section style={{ marginTop: '1.5rem' }}>
+      <section className="section">
         <h3>Network Statistics</h3>
-        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+        <div className="flex-row-wrap" style={{ gap: '2rem' }}>
           {[
             ['In-Degree', narrator.in_degree],
             ['Out-Degree', narrator.out_degree],
@@ -85,18 +77,9 @@ export default function NarratorDetailPage() {
           ].map(
             ([label, value]) =>
               value != null && (
-                <div
-                  key={label as string}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    border: '1px solid #ddd',
-                    borderRadius: 4,
-                    minWidth: 100,
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: '0.75rem', color: '#666' }}>{label}</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{value}</div>
+                <div key={label as string} className="network-stat">
+                  <div className="network-stat-label">{label}</div>
+                  <div className="network-stat-value">{value}</div>
                 </div>
               ),
           )}
@@ -104,12 +87,12 @@ export default function NarratorDetailPage() {
       </section>
 
       {chainsData && chainsData.chains.length > 0 && (
-        <section style={{ marginTop: '1.5rem' }}>
+        <section className="section">
           <h3>Chains ({chainsData.total})</h3>
           <ul style={{ paddingLeft: '1.25rem' }}>
             {chainsData.chains.map((chain) => (
               <li key={chain.chain_id} style={{ marginBottom: '0.5rem' }}>
-                <Link to={`/hadiths/${chain.hadith_id}`} style={{ color: '#1a73e8' }}>
+                <Link to={`/hadiths/${chain.hadith_id}`} className="link-primary">
                   Hadith {chain.hadith_id}
                 </Link>
                 {chain.grade && (

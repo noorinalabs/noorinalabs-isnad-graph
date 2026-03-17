@@ -37,95 +37,64 @@ export default function UserManagementPage() {
     <div>
       <h2>User Management</h2>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="flex-row" style={{ marginBottom: '1rem' }}>
         <input
           type="text"
           placeholder="Search users by name or email..."
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          style={{ padding: '0.5rem', flex: 1, maxWidth: 400 }}
+          className="form-input"
+          style={{ flex: 1, maxWidth: 400 }}
         />
-        <button onClick={handleSearch} style={{ padding: '0.5rem 1rem' }}>
+        <button onClick={handleSearch} className="btn">
           Search
         </button>
       </div>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
         <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Name</th>
-                <th style={{ padding: '0.5rem' }}>Email</th>
-                <th style={{ padding: '0.5rem' }}>Provider</th>
-                <th style={{ padding: '0.5rem' }}>Role</th>
-                <th style={{ padding: '0.5rem' }}>Status</th>
-                <th style={{ padding: '0.5rem' }}>Actions</th>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Provider</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {data.items.map((u) => (
-                <tr key={u.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '0.5rem' }}>
+                <tr key={u.id}>
+                  <td>
                     {u.name}
-                    {u.is_admin && (
-                      <span
-                        style={{
-                          marginLeft: '0.5rem',
-                          fontSize: '0.75rem',
-                          background: '#e8f0fe',
-                          color: '#1a73e8',
-                          padding: '0.125rem 0.375rem',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        Admin
-                      </span>
-                    )}
+                    {u.is_admin && <span className="badge-admin">Admin</span>}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{u.email}</td>
-                  <td style={{ padding: '0.5rem' }}>{u.provider}</td>
-                  <td style={{ padding: '0.5rem' }}>{u.role ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>
-                    <span
-                      style={{
-                        color: u.is_suspended ? '#d93025' : '#188038',
-                        fontWeight: 600,
-                      }}
-                    >
+                  <td>{u.email}</td>
+                  <td>{u.provider}</td>
+                  <td>{u.role ?? '-'}</td>
+                  <td>
+                    <span className={u.is_suspended ? 'text-suspended' : 'text-active'}>
                       {u.is_suspended ? 'Suspended' : 'Active'}
                     </span>
                   </td>
-                  <td style={{ padding: '0.5rem', display: 'flex', gap: '0.25rem' }}>
+                  <td className="flex-row" style={{ gap: '0.25rem' }}>
                     <button
                       onClick={() => suspendMutation.mutate(u)}
                       disabled={suspendMutation.isPending}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        background: u.is_suspended ? '#e6f4ea' : '#fce8e6',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                      }}
+                      className={`btn-action ${u.is_suspended ? 'btn-action-unsuspend' : 'btn-action-suspend'}`}
                     >
                       {u.is_suspended ? 'Unsuspend' : 'Suspend'}
                     </button>
                     <button
                       onClick={() => promoteMutation.mutate(u)}
                       disabled={promoteMutation.isPending}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        background: u.is_admin ? '#fce8e6' : '#e8f0fe',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                      }}
+                      className={`btn-action ${u.is_admin ? 'btn-action-demote' : 'btn-action-promote'}`}
                     >
                       {u.is_admin ? 'Demote' : 'Promote'}
                     </button>
@@ -135,9 +104,7 @@ export default function UserManagementPage() {
             </tbody>
           </table>
 
-          <div
-            style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}
-          >
+          <div className="pagination">
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>

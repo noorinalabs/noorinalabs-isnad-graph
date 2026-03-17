@@ -69,20 +69,21 @@ export default function GraphExplorerPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
       <div style={{ marginBottom: '1rem' }}>
         <h2 style={{ margin: '0 0 0.5rem' }}>Graph Explorer</h2>
-        <p style={{ color: '#666', margin: '0 0 1rem' }}>
+        <p className="muted-text" style={{ margin: '0 0 1rem' }}>
           Interactive force-directed graph. Search for a narrator to start, then click nodes to
           expand.
         </p>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="flex-row" style={{ flexWrap: 'wrap' }}>
           <input
             type="text"
             placeholder="Search for a narrator to start..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            style={{ padding: '0.5rem', width: 300 }}
+            className="form-input"
+            style={{ width: 300 }}
           />
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <label className="flex-row" style={{ gap: '0.25rem' }}>
             Depth:
             <select
               value={depth}
@@ -94,26 +95,14 @@ export default function GraphExplorerPage() {
               <option value={3}>3</option>
             </select>
           </label>
-          <button onClick={handleReset} style={{ padding: '0.5rem 1rem' }}>
+          <button onClick={handleReset} className="btn">
             Reset
           </button>
-          {isLoading && <span style={{ color: '#666' }}>Loading...</span>}
+          {isLoading && <span className="muted-text">Loading...</span>}
         </div>
 
         {searchInput && searchResults && (
-          <div
-            style={{
-              marginTop: '0.5rem',
-              border: '1px solid #ddd',
-              borderRadius: 4,
-              maxHeight: 200,
-              overflowY: 'auto',
-              background: '#fff',
-              position: 'relative',
-              zIndex: 10,
-              maxWidth: 400,
-            }}
-          >
+          <div className="search-dropdown">
             {searchResults.items.map((n) => (
               <div
                 key={n.id}
@@ -121,11 +110,7 @@ export default function GraphExplorerPage() {
                   setSelectedNarratorId(n.id)
                   setSearchInput('')
                 }}
-                style={{
-                  padding: '0.5rem',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #eee',
-                }}
+                className="search-dropdown-item"
               >
                 <span style={{ direction: 'rtl' }}>{n.name_ar}</span>
                 {n.name_en && (
@@ -139,17 +124,7 @@ export default function GraphExplorerPage() {
         )}
       </div>
 
-      <div
-        ref={containerRef}
-        style={{
-          flex: 1,
-          border: '1px solid #ddd',
-          borderRadius: 6,
-          overflow: 'hidden',
-          background: '#fafafa',
-          minHeight: 400,
-        }}
-      >
+      <div ref={containerRef} className="graph-container">
         {allNodes.length > 0 ? (
           <ForceGraph
             nodes={allNodes}
@@ -159,22 +134,14 @@ export default function GraphExplorerPage() {
             height={dimensions.height}
           />
         ) : (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: '#999',
-            }}
-          >
+          <div className="graph-placeholder">
             Search for a narrator above to begin exploring the graph.
           </div>
         )}
       </div>
 
       {allNodes.length > 0 && (
-        <div style={{ marginTop: '0.5rem', color: '#666', fontSize: '0.85rem' }}>
+        <div style={{ marginTop: '0.5rem' }} className="small-muted">
           {allNodes.length} nodes, {allEdges.length} edges loaded
         </div>
       )}

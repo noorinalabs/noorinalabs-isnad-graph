@@ -19,16 +19,16 @@ export default function HadithsPage() {
       <h2>Hadiths</h2>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
         <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Source</th>
-                <th style={{ padding: '0.5rem' }}>Grade</th>
-                <th style={{ padding: '0.5rem' }}>Topics</th>
+              <tr>
+                <th>Source</th>
+                <th>Grade</th>
+                <th>Topics</th>
               </tr>
             </thead>
             <tbody>
@@ -36,40 +36,21 @@ export default function HadithsPage() {
                 <tr
                   key={h.id}
                   onClick={() => navigate(`/hadiths/${h.id}`)}
-                  style={{ borderBottom: '1px solid #eee', cursor: 'pointer' }}
+                  className="clickable-row"
                 >
-                  <td style={{ padding: '0.5rem' }}>{h.source_corpus}</td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td>{h.source_corpus}</td>
+                  <td>
                     {h.grade_composite && (
                       <span
-                        style={{
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: 4,
-                          fontSize: '0.85rem',
-                          background:
-                            h.grade_composite.toLowerCase() === 'sahih' ? '#e6f4ea' : '#fef7e0',
-                          color:
-                            h.grade_composite.toLowerCase() === 'sahih' ? '#137333' : '#b06000',
-                        }}
+                        className={`badge ${h.grade_composite.toLowerCase() === 'sahih' ? 'badge-sahih' : 'badge-other-grade'}`}
                       >
                         {h.grade_composite}
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td>
                     {h.topic_tags?.map((tag) => (
-                      <span
-                        key={tag}
-                        style={{
-                          display: 'inline-block',
-                          marginRight: '0.25rem',
-                          padding: '0.1rem 0.4rem',
-                          borderRadius: 3,
-                          fontSize: '0.8rem',
-                          background: '#e8eaf6',
-                          color: '#283593',
-                        }}
-                      >
+                      <span key={tag} className="badge-topic">
                         {tag}
                       </span>
                     ))}
@@ -79,7 +60,7 @@ export default function HadithsPage() {
             </tbody>
           </table>
 
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="pagination">
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>

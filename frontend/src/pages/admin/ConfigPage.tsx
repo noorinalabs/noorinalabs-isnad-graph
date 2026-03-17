@@ -148,16 +148,16 @@ export default function ConfigPage() {
     })
   }
 
-  if (isLoading) return <div style={{ padding: 24 }}>Loading configuration...</div>
-  if (error) return <div style={{ padding: 24, color: 'red' }}>Error loading config: {String(error)}</div>
+  if (isLoading) return <div className="admin-page">Loading configuration...</div>
+  if (error) return <div className="admin-page error-text">Error loading config: {String(error)}</div>
 
   return (
-    <div style={{ padding: 24, maxWidth: 800 }}>
+    <div className="admin-page">
       <h1>System Configuration</h1>
 
-      <section style={{ marginBottom: 32 }}>
+      <section className="section-mb">
         <h2>Rate Limiting &amp; Pagination</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="grid-2col">
           <label>
             Rate limit (req/min)
             <input
@@ -167,7 +167,7 @@ export default function ConfigPage() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, rate_limit_per_minute: Number(e.target.value) }))
               }
-              style={{ display: 'block', width: '100%', marginTop: 4, padding: 8 }}
+              className="form-input-block"
             />
           </label>
           <label>
@@ -179,7 +179,7 @@ export default function ConfigPage() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, max_search_results: Number(e.target.value) }))
               }
-              style={{ display: 'block', width: '100%', marginTop: 4, padding: 8 }}
+              className="form-input-block"
             />
           </label>
           <label>
@@ -191,13 +191,13 @@ export default function ConfigPage() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, max_pagination_limit: Number(e.target.value) }))
               }
-              style={{ display: 'block', width: '100%', marginTop: 4, padding: 8 }}
+              className="form-input-block"
             />
           </label>
         </div>
       </section>
 
-      <section style={{ marginBottom: 32 }}>
+      <section className="section-mb">
         <h2>CORS Origins</h2>
         <label>
           Comma-separated origins
@@ -205,27 +205,28 @@ export default function ConfigPage() {
             type="text"
             value={corsInput}
             onChange={(e) => setCorsInput(e.target.value)}
-            style={{ display: 'block', width: '100%', marginTop: 4, padding: 8 }}
+            className="form-input-block"
           />
         </label>
       </section>
 
-      <section style={{ marginBottom: 32 }}>
+      <section className="section-mb">
         <h2>Feature Flags</h2>
         {Object.entries(formData.feature_flags ?? {}).map(([key, val]) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div key={key} className="flag-row">
             <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} />
             <span style={{ flex: 1 }}>{key}</span>
-            <button onClick={() => removeFlag(key)} style={{ color: 'red' }}>Remove</button>
+            <button onClick={() => removeFlag(key)} className="btn-danger">Remove</button>
           </div>
         ))}
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <div className="flex-row" style={{ marginTop: 8 }}>
           <input
             type="text"
             placeholder="New flag name"
             value={newFlagKey}
             onChange={(e) => setNewFlagKey(e.target.value)}
-            style={{ flex: 1, padding: 8 }}
+            className="form-input"
+            style={{ flex: 1 }}
           />
           <button onClick={addFlag}>Add Flag</button>
         </div>
@@ -235,12 +236,12 @@ export default function ConfigPage() {
         <button
           onClick={handleSave}
           disabled={mutation.isPending}
-          style={{ padding: '8px 24px', fontWeight: 'bold' }}
+          className="btn-primary"
         >
           {mutation.isPending ? 'Saving...' : 'Save Configuration'}
         </button>
         {saveMessage && (
-          <span style={{ marginLeft: 12, color: saveMessage.startsWith('Error') ? 'red' : 'green' }}>
+          <span className={saveMessage.startsWith('Error') ? 'save-error' : 'save-success'}>
             {saveMessage}
           </span>
         )}
@@ -251,30 +252,30 @@ export default function ConfigPage() {
       <section>
         <h2>Audit Log</h2>
         {auditData?.entries.length === 0 && <p>No config changes recorded yet.</p>}
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="data-table">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ccc' }}>Key</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ccc' }}>Old Value</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ccc' }}>New Value</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ccc' }}>Changed By</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ccc' }}>Changed At</th>
+              <th className="audit-th">Key</th>
+              <th className="audit-th">Old Value</th>
+              <th className="audit-th">New Value</th>
+              <th className="audit-th">Changed By</th>
+              <th className="audit-th">Changed At</th>
             </tr>
           </thead>
           <tbody>
             {auditData?.entries.map((entry, i) => (
               <tr key={i}>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{entry.key}</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.old_value}</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.new_value}</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{entry.changed_by}</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{entry.changed_at}</td>
+                <td className="audit-td">{entry.key}</td>
+                <td className="cell-truncate">{entry.old_value}</td>
+                <td className="cell-truncate">{entry.new_value}</td>
+                <td className="audit-td">{entry.changed_by}</td>
+                <td className="audit-td">{entry.changed_at}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {auditData && auditData.total > 20 && (
-          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+          <div className="pagination" style={{ marginTop: 12 }}>
             <button disabled={auditPage <= 1} onClick={() => setAuditPage((p) => p - 1)}>
               Previous
             </button>

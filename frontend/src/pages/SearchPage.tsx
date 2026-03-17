@@ -3,6 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { searchAll, searchSemantic } from '../api/client'
 
+const typeBadgeClass: Record<string, string> = {
+  narrator: 'badge-narrator',
+  hadith: 'badge-hadith',
+  collection: 'badge-collection',
+}
+
 export default function SearchPage() {
   const [inputValue, setInputValue] = useState('')
   const [query, setQuery] = useState('')
@@ -34,25 +40,20 @@ export default function SearchPage() {
     else if (result.type === 'collection') navigate(`/collections/${result.id}`)
   }
 
-  const typeBadgeColor: Record<string, { bg: string; fg: string }> = {
-    narrator: { bg: '#e8f5e9', fg: '#2e7d32' },
-    hadith: { bg: '#e3f2fd', fg: '#1565c0' },
-    collection: { bg: '#fce4ec', fg: '#c62828' },
-  }
-
   return (
     <div>
       <h2>Search</h2>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
+      <div className="flex-row" style={{ marginBottom: '1rem' }}>
         <input
           type="text"
           placeholder="Search narrators, hadiths, collections..."
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          style={{ padding: '0.5rem', flex: 1, maxWidth: 500 }}
+          className="form-input"
+          style={{ flex: 1, maxWidth: 500 }}
         />
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <label className="flex-row" style={{ gap: '0.25rem' }}>
           <input
             type="radio"
             checked={mode === 'fulltext'}
@@ -60,7 +61,7 @@ export default function SearchPage() {
           />
           Full-text
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <label className="flex-row" style={{ gap: '0.25rem' }}>
           <input
             type="radio"
             checked={mode === 'semantic'}
@@ -73,54 +74,33 @@ export default function SearchPage() {
       {isLoading && <p>Searching...</p>}
 
       {results && results.length === 0 && query.length >= 2 && (
-        <p style={{ color: '#666' }}>No results found for &quot;{query}&quot;</p>
+        <p className="muted-text">No results found for &quot;{query}&quot;</p>
       )}
 
       {results && results.length > 0 && (
         <div>
-          {results.map((r) => {
-            const badge = typeBadgeColor[r.type] ?? { bg: '#eee', fg: '#333' }
-            return (
-              <div
-                key={`${r.type}-${r.id}`}
-                onClick={() => handleResultClick(r)}
-                style={{
-                  padding: '0.75rem',
-                  borderBottom: '1px solid #eee',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span
-                    style={{
-                      padding: '0.1rem 0.4rem',
-                      borderRadius: 3,
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      background: badge.bg,
-                      color: badge.fg,
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {r.type}
-                  </span>
-                  <span style={{ fontWeight: 500 }}>{r.title}</span>
-                </div>
-                {r.title_ar && (
-                  <p
-                    style={{
-                      margin: '0.25rem 0 0',
-                      color: '#666',
-                      fontSize: '0.9rem',
-                      direction: 'rtl',
-                    }}
-                  >
-                    {r.title_ar}
-                  </p>
-                )}
+          {results.map((r) => (
+            <div
+              key={`${r.type}-${r.id}`}
+              onClick={() => handleResultClick(r)}
+              className="search-result"
+            >
+              <div className="flex-row">
+                <span
+                  className={`badge-sm ${typeBadgeClass[r.type] ?? ''}`}
+                  style={{ fontWeight: 600, textTransform: 'capitalize' }}
+                >
+                  {r.type}
+                </span>
+                <span style={{ fontWeight: 500 }}>{r.title}</span>
               </div>
-            )
-          })}
+              {r.title_ar && (
+                <p className="text-rtl" style={{ margin: '0.25rem 0 0', color: '#666', fontSize: '0.9rem' }}>
+                  {r.title_ar}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

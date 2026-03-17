@@ -16,51 +16,39 @@ export default function CollectionDetailPage() {
   })
 
   if (isLoading) return <p>Loading...</p>
-  if (error) return <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>
+  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
   if (!collection) return <p>Collection not found.</p>
 
   const isSunni = collection.sect.toLowerCase() === 'sunni'
 
   return (
     <div>
-      <Link to="/collections" style={{ color: '#1a73e8' }}>
+      <Link to="/collections" className="link-primary">
         &larr; Back to Collections
       </Link>
 
       <h2 style={{ marginTop: '1rem' }}>
         {collection.name_en}
-        <span
-          style={{
-            marginLeft: '0.75rem',
-            padding: '0.15rem 0.5rem',
-            borderRadius: 4,
-            fontSize: '0.9rem',
-            fontWeight: 600,
-            background: isSunni ? '#e8f5e9' : '#e3f2fd',
-            color: isSunni ? '#2e7d32' : '#1565c0',
-          }}
-        >
+        <span className={`badge ${isSunni ? 'badge-sunni' : 'badge-shia'}`} style={{ marginLeft: '0.75rem', fontSize: '0.9rem' }}>
           {collection.sect}
         </span>
       </h2>
 
-      <p style={{ direction: 'rtl', textAlign: 'right', fontSize: '1.1rem', color: '#555' }}>
+      <p className="text-rtl" style={{ fontSize: '1.1rem', color: '#555' }}>
         {collection.name_ar}
       </p>
 
-      <div style={{ color: '#666', marginBottom: '1.5rem' }}>
+      <div className="collection-meta">
         {collection.compiler_name && <span>Compiler: {collection.compiler_name}</span>}
-        {collection.compiler_name && <span style={{ margin: '0 0.5rem' }}>|</span>}
+        {collection.compiler_name && <span className="separator">|</span>}
         {collection.compilation_year_ah != null && (
           <span>Compiled: {collection.compilation_year_ah} AH</span>
         )}
-        {collection.compilation_year_ah != null && (
-          <span style={{ margin: '0 0.5rem' }}>|</span>
-        )}
+        {collection.compilation_year_ah != null && <span className="separator">|</span>}
         <span>{collection.total_hadiths != null ? collection.total_hadiths.toLocaleString() : '?'} hadiths</span>
         {collection.book_count != null && (
           <>
-            <span style={{ margin: '0 0.5rem' }}>|</span>
+            <span className="separator">|</span>
             <span>{collection.book_count} books</span>
           </>
         )}

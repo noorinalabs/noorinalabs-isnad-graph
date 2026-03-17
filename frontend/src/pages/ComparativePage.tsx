@@ -17,33 +17,30 @@ export default function ComparativePage() {
   return (
     <div>
       <h2>Comparative Analysis</h2>
-      <p style={{ color: '#666', marginBottom: '1rem' }}>
+      <p className="muted-text" style={{ marginBottom: '1rem' }}>
         Browse cross-sectarian parallel hadith pairs (PARALLEL_OF relationships).
       </p>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
         <>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #ddd', textAlign: 'left' }}>
-                <th style={{ padding: '0.5rem' }}>Sunni Hadith</th>
-                <th style={{ padding: '0.5rem' }}>Shia Hadith</th>
-                <th style={{ padding: '0.5rem' }}>Similarity</th>
-                <th style={{ padding: '0.5rem' }}>Variant Type</th>
-                <th style={{ padding: '0.5rem' }}>Cross-Sect</th>
+              <tr>
+                <th>Sunni Hadith</th>
+                <th>Shia Hadith</th>
+                <th>Similarity</th>
+                <th>Variant Type</th>
+                <th>Cross-Sect</th>
               </tr>
             </thead>
             <tbody>
               {data.items.map((pair, idx) => (
-                <tr
-                  key={`${pair.hadith_a_id}-${pair.hadith_b_id}-${idx}`}
-                  style={{ borderBottom: '1px solid #eee' }}
-                >
+                <tr key={`${pair.hadith_a_id}-${pair.hadith_b_id}-${idx}`}>
                   <td
-                    style={{ padding: '0.5rem', cursor: 'pointer', color: '#1a73e8' }}
+                    style={{ cursor: 'pointer', color: '#1a73e8' }}
                     onClick={() => navigate(`/hadiths/${pair.hadith_a_id}`)}
                   >
                     {pair.hadith_a_id}
@@ -51,39 +48,30 @@ export default function ComparativePage() {
                     <small style={{ color: '#888' }}>{pair.hadith_a_corpus}</small>
                   </td>
                   <td
-                    style={{ padding: '0.5rem', cursor: 'pointer', color: '#1a73e8' }}
+                    style={{ cursor: 'pointer', color: '#1a73e8' }}
                     onClick={() => navigate(`/hadiths/${pair.hadith_b_id}`)}
                   >
                     {pair.hadith_b_id}
                     <br />
                     <small style={{ color: '#888' }}>{pair.hadith_b_corpus}</small>
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td>
                     {pair.similarity_score != null ? (
-                      <span
-                        style={{
-                          background: pair.similarity_score > 0.8 ? '#e6f4ea' : '#fef7e0',
-                          padding: '0.15rem 0.4rem',
-                          borderRadius: 4,
-                          fontSize: '0.875rem',
-                        }}
-                      >
+                      <span className={pair.similarity_score > 0.8 ? 'badge-similarity-high' : 'badge-similarity-low'}>
                         {(pair.similarity_score * 100).toFixed(1)}%
                       </span>
                     ) : (
                       '-'
                     )}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{pair.variant_type ?? '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>{pair.cross_sect ? 'Yes' : 'No'}</td>
+                  <td>{pair.variant_type ?? '-'}</td>
+                  <td>{pair.cross_sect ? 'Yes' : 'No'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <div
-            style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}
-          >
+          <div className="pagination" style={{ marginTop: '1.5rem' }}>
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>
