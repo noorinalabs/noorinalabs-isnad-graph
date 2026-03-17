@@ -383,3 +383,112 @@ class UsageAnalyticsResponse(BaseModel):
     search_volume: int
     api_call_count: int
     popular_narrators: list[PopularNarrator]
+
+
+# --- Moderation models ---
+
+
+class ModerationItemResponse(BaseModel):
+    """A flagged content item awaiting moderation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    entity_type: str
+    entity_id: str
+    reason: str
+    status: str
+    flagged_by: str | None = None
+    flagged_at: str
+    resolved_by: str | None = None
+    resolved_at: str | None = None
+    notes: str | None = None
+
+
+class ModerationFlagRequest(BaseModel):
+    """Request body for flagging content."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entity_type: str
+    entity_id: str
+    reason: str
+
+
+class ModerationUpdateRequest(BaseModel):
+    """Request body for approving/rejecting flagged content."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: str
+    notes: str | None = None
+
+
+# --- System report models ---
+
+
+class PipelineMetrics(BaseModel):
+    """Pipeline parse/staging metrics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    total_files: int
+    total_rows: int
+    files: list[dict[str, object]]
+
+
+class DisambiguationMetrics(BaseModel):
+    """Disambiguation rate metrics per source."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ner_mention_count: int
+    canonical_narrator_count: int
+    ambiguous_count: int
+    resolution_rate_pct: float
+    ambiguous_pct: float
+
+
+class DedupMetrics(BaseModel):
+    """Dedup/parallel coverage metrics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    parallel_links_count: int
+    parallel_verbatim: int
+    parallel_close_paraphrase: int
+    parallel_thematic: int
+    parallel_cross_sect: int
+
+
+class GraphValidationMetrics(BaseModel):
+    """Graph validation results."""
+
+    model_config = ConfigDict(frozen=True)
+
+    orphan_narrators: int
+    orphan_hadiths: int
+    chain_integrity_pct: float
+    collection_coverage_pct: float
+
+
+class TopicCoverageMetrics(BaseModel):
+    """Topic classification coverage."""
+
+    model_config = ConfigDict(frozen=True)
+
+    total_hadiths: int
+    classified_count: int
+    coverage_pct: float
+
+
+class SystemReportResponse(BaseModel):
+    """Aggregated system output report."""
+
+    model_config = ConfigDict(frozen=True)
+
+    pipeline: PipelineMetrics | None = None
+    disambiguation: DisambiguationMetrics | None = None
+    dedup: DedupMetrics | None = None
+    graph_validation: GraphValidationMetrics | None = None
+    topic_coverage: TopicCoverageMetrics | None = None

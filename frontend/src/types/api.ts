@@ -163,3 +163,63 @@ export interface NarratorNetworkResponse {
   teachers: number
   students: number
 }
+
+// --- Moderation types ---
+
+export interface ModerationItem {
+  id: string
+  entity_type: string
+  entity_id: string
+  reason: string
+  status: string
+  flagged_by: string | null
+  flagged_at: string
+  resolved_by: string | null
+  resolved_at: string | null
+  notes: string | null
+}
+
+// --- System report types ---
+
+export interface PipelineMetrics {
+  total_files: number
+  total_rows: number
+  files: Record<string, unknown>[]
+}
+
+export interface DisambiguationMetrics {
+  ner_mention_count: number
+  canonical_narrator_count: number
+  ambiguous_count: number
+  resolution_rate_pct: number
+  ambiguous_pct: number
+}
+
+export interface DedupMetrics {
+  parallel_links_count: number
+  parallel_verbatim: number
+  parallel_close_paraphrase: number
+  parallel_thematic: number
+  parallel_cross_sect: number
+}
+
+export interface GraphValidationMetrics {
+  orphan_narrators: number
+  orphan_hadiths: number
+  chain_integrity_pct: number
+  collection_coverage_pct: number
+}
+
+export interface TopicCoverageMetrics {
+  total_hadiths: number
+  classified_count: number
+  coverage_pct: number
+}
+
+export interface SystemReport {
+  pipeline: PipelineMetrics | null
+  disambiguation: DisambiguationMetrics | null
+  dedup: DedupMetrics | null
+  graph_validation: GraphValidationMetrics | null
+  topic_coverage: TopicCoverageMetrics | null
+}
