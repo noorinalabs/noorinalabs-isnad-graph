@@ -18,6 +18,7 @@ import ContentStatsPage from './pages/admin/ContentStatsPage'
 import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
 import ModerationPage from './pages/admin/ModerationPage'
 import ReportsPage from './pages/admin/ReportsPage'
+import ConfigPage from './pages/admin/ConfigPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="graph" element={<GraphExplorerPage />} />
             <Route path="admin/moderation" element={<ModerationPage />} />
             <Route path="admin/reports" element={<ReportsPage />} />
+            <Route path="admin/config" element={<ConfigPage />} />
           </Route>
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/users" replace />} />

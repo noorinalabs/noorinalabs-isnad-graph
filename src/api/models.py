@@ -492,3 +492,63 @@ class SystemReportResponse(BaseModel):
     dedup: DedupMetrics | None = None
     graph_validation: GraphValidationMetrics | None = None
     topic_coverage: TopicCoverageMetrics | None = None
+
+
+# --- System config models ---
+
+FORBIDDEN_CONFIG_KEYS = frozenset(
+    {
+        "jwt_secret",
+        "neo4j_password",
+        "pg_dsn",
+        "sunnah_api_key",
+        "kaggle_key",
+        "google_client_secret",
+        "apple_client_secret",
+        "facebook_client_secret",
+        "github_client_secret",
+    }
+)
+
+
+class SystemConfig(BaseModel):
+    """Runtime system configuration (no secrets)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rate_limit_per_minute: int = 60
+    cors_origins: list[str] = ["http://localhost:3000"]
+    feature_flags: dict[str, bool] = {}
+    max_search_results: int = 100
+    max_pagination_limit: int = 100
+
+
+class SystemConfigUpdate(BaseModel):
+    """Partial update for system configuration."""
+
+    rate_limit_per_minute: int | None = None
+    cors_origins: list[str] | None = None
+    feature_flags: dict[str, bool] | None = None
+    max_search_results: int | None = None
+    max_pagination_limit: int | None = None
+
+
+class ConfigAuditEntry(BaseModel):
+    """A single config audit log entry."""
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    old_value: str
+    new_value: str
+    changed_by: str
+    changed_at: str
+
+
+class ConfigAuditResponse(BaseModel):
+    """Paginated config audit log."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entries: list[ConfigAuditEntry]
+    total: int
