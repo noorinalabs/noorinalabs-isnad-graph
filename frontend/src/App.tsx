@@ -16,6 +16,8 @@ import UserManagementPage from './pages/admin/UserManagementPage'
 import SystemHealthPage from './pages/admin/SystemHealthPage'
 import ContentStatsPage from './pages/admin/ContentStatsPage'
 import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
+import ModerationPage from './pages/admin/ModerationPage'
+import ReportsPage from './pages/admin/ReportsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +45,8 @@ export default function App() {
             <Route path="timeline" element={<TimelinePage />} />
             <Route path="compare" element={<ComparativePage />} />
             <Route path="graph" element={<GraphExplorerPage />} />
+            <Route path="admin/moderation" element={<ModerationPage />} />
+            <Route path="admin/reports" element={<ReportsPage />} />
           </Route>
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/users" replace />} />

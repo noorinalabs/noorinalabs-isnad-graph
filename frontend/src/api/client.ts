@@ -10,6 +10,8 @@ import type {
   ParallelsResponse,
   ParallelPairsResponse,
   NarratorNetworkResponse,
+  ModerationItem,
+  SystemReport,
 } from '../types/api'
 
 const API_BASE = '/api/v1'
@@ -120,4 +122,52 @@ export async function searchSemantic(
     limit: String(limit),
   })
   return fetchJson(`${API_BASE}/search/semantic?${params}`)
+}
+
+// --- Admin: Moderation ---
+
+export async function fetchModerationItems(
+  page = 1,
+  limit = 20,
+  status?: string,
+): Promise<PaginatedResponse<ModerationItem>> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (status) params.set('status', status)
+  return fetchJson(`${API_BASE}/admin/moderation?${params}`)
+}
+
+export async function updateModerationItem(
+  id: string,
+  status: string,
+  notes?: string,
+): Promise<ModerationItem> {
+  const body: Record<string, string> = { status }
+  if (notes) body.notes = notes
+  const res = await fetch(`${API_BASE}/admin/moderation/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  return res.json() as Promise<ModerationItem>
+}
+
+export async function flagContent(
+  entityType: string,
+  entityId: string,
+  reason: string,
+): Promise<ModerationItem> {
+  const res = await fetch(`${API_BASE}/admin/moderation/flag`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entity_type: entityType, entity_id: entityId, reason }),
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  return res.json() as Promise<ModerationItem>
+}
+
+// --- Admin: Reports ---
+
+export async function fetchSystemReports(): Promise<SystemReport> {
+  return fetchJson(`${API_BASE}/admin/reports`)
 }
