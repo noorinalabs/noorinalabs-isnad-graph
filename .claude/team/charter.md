@@ -515,7 +515,9 @@ When a new team member is hired (fire-and-replace), their roster card MUST inclu
 When starting any work session, the orchestrating Claude instance should:
 
 1. Read this charter and all roster files in `.claude/team/roster/`
-2. Spawn the Manager agent first (with their personality from roster)
-3. The Manager then spawns required team members based on the task
+2. Spawn the Manager agent first (with their personality from roster), using `team_name: "isnad-graph"`
+3. The Manager then spawns required team members based on the task — **all agents MUST use `team_name: "isnad-graph"`**
 4. All code-writing agents use `isolation: "worktree"`
 5. Coordinate via named agents and SendMessage
+
+> **Team name:** Every Agent tool call in this repo MUST include `team_name: "isnad-graph"`. This registers agents in Claude Code's team system, enabling the tree-view status line and inter-agent coordination.
