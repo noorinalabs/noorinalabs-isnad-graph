@@ -204,6 +204,7 @@ services:
     image: prom/prometheus:v3.4.0
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -224,6 +225,37 @@ services:
         limits:
           memory: 1G
           cpus: "0.5"
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   grafana:
     image: grafana/grafana:11.6.0
