@@ -14,7 +14,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<'fulltext' | 'semantic'>('fulltext')
   const navigate = useNavigate()
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)

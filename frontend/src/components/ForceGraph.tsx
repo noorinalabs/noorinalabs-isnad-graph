@@ -8,7 +8,7 @@ const COMMUNITY_COLORS = [
   '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
 ]
 
-function communityColor(id: number | null): string {
+function communityColor(id: number | null | undefined): string {
   if (id == null) return '#999'
   return COMMUNITY_COLORS[id % COMMUNITY_COLORS.length] ?? '#999'
 }
@@ -24,10 +24,11 @@ interface ForceGraphProps {
 interface InternalNode {
   id: string
   label: string
-  community_id: number | null
+  community_id?: number | null
   type: string
   x?: number
   y?: number
+  [key: string]: unknown
 }
 
 export default function ForceGraph({ nodes, edges, onNodeClick, width, height }: ForceGraphProps) {
@@ -63,7 +64,8 @@ export default function ForceGraph({ nodes, edges, onNodeClick, width, height }:
   )
 
   const nodeCanvasObject = useCallback(
-    (node: InternalNode, ctx: CanvasRenderingContext2D) => {
+    (obj: object, ctx: CanvasRenderingContext2D) => {
+      const node = obj as InternalNode
       const x = node.x ?? 0
       const y = node.y ?? 0
       const radius = 6
