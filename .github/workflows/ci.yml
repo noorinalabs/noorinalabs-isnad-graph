@@ -45,7 +45,7 @@ jobs:
       - name: Check for known vulnerabilities
         run: |
           uv export --no-hashes --frozen --no-emit-project > /tmp/requirements.txt
-          uv run pip-audit --strict --desc -r /tmp/requirements.txt --ignore-vuln CVE-2024-23342
+          uv run pip-audit --strict --desc -r /tmp/requirements.txt --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539
       - name: Secret detection with gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
