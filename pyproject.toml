@@ -106,6 +106,10 @@ ignore_missing_imports = true
 module = ["playwright", "playwright.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["prometheus_fastapi_instrumentator", "prometheus_fastapi_instrumentator.*"]
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true

@@ -58,8 +58,8 @@ def _check_redis() -> ServiceStatus:
         settings = get_settings()
         r = redis_lib.from_url(str(settings.redis.url))
         r.ping()
-        info = r.info("server")
-        version = info.get("redis_version")
+        info: dict[str, object] = r.info("server")  # type: ignore[assignment]
+        version = str(info.get("redis_version", "")) or None
         r.close()
         latency = (time.monotonic() - start) * 1000
         return ServiceStatus(status="up", latency_ms=round(latency, 1), version=version)
