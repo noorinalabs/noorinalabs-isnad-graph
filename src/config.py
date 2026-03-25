@@ -106,9 +106,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "console"
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 @lru_cache
