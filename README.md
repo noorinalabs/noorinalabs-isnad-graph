@@ -28,6 +28,11 @@ A computational hadith analysis platform that ingests Sunni and Shia hadith coll
 | Docker | 24+ | `docker --version` |
 | Docker Compose | 2.0+ | `docker compose version` |
 | Git | 2.0+ | `git --version` |
+| direnv | 2.30+ | `direnv --version` |
+
+> **direnv setup:** Install [direnv](https://direnv.net/) and hook it into your shell.
+> When you `cd` into the project, run `direnv allow` to auto-load `.env` variables
+> and their `TF_VAR_` mappings for Terraform.
 
 ## Quick Start
 
