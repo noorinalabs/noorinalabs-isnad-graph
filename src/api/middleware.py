@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import time
+import uuid
 from datetime import UTC, datetime
 
+import structlog
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -14,6 +17,8 @@ from src.auth.models import User
 
 # Default maximum request body size: 1 MB.
 DEFAULT_MAX_BODY_SIZE = 1_048_576
+
+log = structlog.get_logger(logger_name=__name__)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -92,8 +97,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: StarletteRequest, call_next: RequestResponseEndpoint
     ) -> Response:
-        import time
-
         client_ip = request.client.host if request.client else "unknown"
         now = time.monotonic()
         window_start = now - 60.0
@@ -113,6 +116,49 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         timestamps.append(now)
         self._window[client_ip] = timestamps
         return await call_next(request)
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Assign a unique request ID to every request and log request lifecycle.
+
+    The request ID is:
+    - stored in structlog contextvars so all logs within the request include it
+    - returned in the ``X-Request-ID`` response header for client-side tracing
+
+    If the caller supplies an ``X-Request-ID`` header it is respected (truncated
+    to 64 chars); otherwise a new UUID4 is generated.
+    """
+
+    async def dispatch(
+        self, request: StarletteRequest, call_next: RequestResponseEndpoint
+    ) -> Response:
+        request_id = (request.headers.get("X-Request-ID") or uuid.uuid4().hex)[:64]
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=request_id,
+            method=request.method,
+            path=str(request.url.path),
+        )
+
+        start = time.monotonic()
+        log.info("request_started")
+
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = round((time.monotonic() - start) * 1000, 1)
+            log.exception("request_failed", duration_ms=duration_ms)
+            raise
+
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
+        log.info(
+            "request_completed",
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+        )
+        response.headers["X-Request-ID"] = request_id
+        structlog.contextvars.clear_contextvars()
+        return response
 
 
 async def require_admin(request: Request) -> User:

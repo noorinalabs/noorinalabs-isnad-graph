@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware import (
     RateLimitMiddleware,
+    RequestLoggingMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
     require_admin,
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestSizeLimitMiddleware, max_body_size=1_048_576)
     app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
