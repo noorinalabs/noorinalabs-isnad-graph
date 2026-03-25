@@ -1,0 +1,107 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Hetzner VPS
+        uses: appleboy/ssh-action@v1
+        env:
+          NEO4J_USER: ${{ secrets.NEO4J_USER }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          envs: NEO4J_USER,NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD
+          script: |
+            set -euo pipefail
+            cd /opt/isnad-graph
+
+            echo "==> Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Building and starting services..."
+            export NEO4J_USER="$NEO4J_USER"
+            export NEO4J_PASSWORD="$NEO4J_PASSWORD"
+            export POSTGRES_USER="$POSTGRES_USER"
+            export POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
+            export POSTGRES_DB="$POSTGRES_DB"
+            export REDIS_PASSWORD="$REDIS_PASSWORD"
+
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            echo "==> Waiting for services to stabilize..."
+            sleep 10
+
+      - name: Verify health check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+
+            echo "==> Checking API health..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+                echo "API health check passed"
+                break
+              fi
+              if [ "$i" -eq 12 ]; then
+                echo "ERROR: API health check failed after 60 seconds"
+                docker compose -f /opt/isnad-graph/docker-compose.prod.yml logs --tail=50 api
+                exit 1
+              fi
+              echo "Waiting for API (attempt $i/12)..."
+              sleep 5
+            done
+
+            echo "==> Checking frontend health..."
+            for i in $(seq 1 6); do
+              if curl -sf http://localhost:80/ > /dev/null 2>&1; then
+                echo "Frontend health check passed"
+                break
+              fi
+              if [ "$i" -eq 6 ]; then
+                echo "ERROR: Frontend health check failed after 30 seconds"
+                docker compose -f /opt/isnad-graph/docker-compose.prod.yml logs --tail=50 frontend
+                exit 1
+              fi
+              echo "Waiting for frontend (attempt $i/6)..."
+              sleep 5
+            done
+
+            echo "==> Deployment verified successfully"
+
+      - name: Report deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "::notice::Deployment to production succeeded"
+          else
+            echo "::error::Deployment to production failed"
+          fi
+          echo "## Deployment Status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Branch:** ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
