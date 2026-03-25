@@ -27,3 +27,9 @@ variable "datacenter" {
   type        = string
   default     = "ash-dc1"
 }
+
+variable "ssh_source_ips" {
+  description = "CIDR ranges allowed to SSH. Restrict to operator IPs or VPN in production."
+  type        = list(string)
+  default     = ["0.0.0.0/0", "::/0"]
+}

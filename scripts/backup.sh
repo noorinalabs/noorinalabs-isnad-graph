@@ -24,13 +24,16 @@
 # =============================================================================
 set -euo pipefail
 
+# Restrict file permissions — backups contain sensitive database dumps
+umask 077
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 POSTGRES_USER="${POSTGRES_USER:-isnad}"
 POSTGRES_DB="${POSTGRES_DB:-isnad_graph}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-BACKUP_DIR="${BACKUP_DIR:-/tmp/isnad-backups}"
+BACKUP_DIR="${BACKUP_DIR:-$(mktemp -d /tmp/isnad-backups.XXXXXXXXXX)}"
 DAILY_RETAIN="${DAILY_RETAIN:-7}"
 WEEKLY_RETAIN="${WEEKLY_RETAIN:-4}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -83,10 +86,10 @@ cleanup() {
     if [[ $exit_code -ne 0 ]]; then
         log "ERROR" "Backup script exited with code ${exit_code}"
     fi
-    # Clean up local backup files to avoid filling disk
-    if [[ -d "$LOCAL_BACKUP_PATH" ]]; then
-        rm -rf "$LOCAL_BACKUP_PATH"
-        log "INFO" "Cleaned up local backup staging directory"
+    # Clean up entire staging directory to avoid leaving sensitive dumps on disk
+    if [[ -d "$BACKUP_DIR" ]]; then
+        rm -rf "$BACKUP_DIR"
+        log "INFO" "Cleaned up backup staging directory: ${BACKUP_DIR}"
     fi
 }
 trap cleanup EXIT

@@ -10,12 +10,14 @@ resource "hcloud_ssh_key" "deploy" {
 resource "hcloud_firewall" "web" {
   name = "${var.server_name}-firewall"
 
+  # PRODUCTION: restrict ssh_source_ips to your operator IPs or VPN CIDR.
+  # The default (0.0.0.0/0) is intentionally open for initial setup only.
   rule {
     description = "Allow SSH"
     direction   = "in"
     protocol    = "tcp"
     port        = "22"
-    source_ips  = ["0.0.0.0/0", "::/0"]
+    source_ips  = var.ssh_source_ips
   }
 
   rule {
