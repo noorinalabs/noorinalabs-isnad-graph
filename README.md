@@ -17,26 +17,134 @@ A computational hadith analysis platform that ingests Sunni and Shia hadith coll
 
 **Key relationships:** `TRANSMITTED_TO`, `NARRATED`, `APPEARS_IN`, `STUDIED_UNDER`, `PARALLEL_OF`
 
+## Prerequisites
+
+| Tool | Version | Check |
+|------|---------|-------|
+| Python | 3.14+ | `python --version` |
+| uv | latest | `uv --version` |
+| Node.js | 18+ | `node --version` |
+| npm | 9+ | `npm --version` |
+| Docker | 24+ | `docker --version` |
+| Docker Compose | 2.0+ | `docker compose version` |
+| Git | 2.0+ | `git --version` |
+
 ## Quick Start
+
+### 1. Clone and install
 
 ```bash
 git clone git@github.com:parametrization/isnad-graph.git
 cd isnad-graph
-make setup    # Install dependencies with uv
-make infra    # Start Neo4j, PostgreSQL, Redis via Docker Compose
-make test     # Run test suite
+make setup          # Install Python deps with uv
+make setup-hooks    # Configure git hooks
 ```
 
-Copy `.env.example` to `.env` and configure database credentials and API keys before running the pipeline.
-
-To run the API and frontend:
+### 2. Configure environment
 
 ```bash
-uvicorn src.api.app:create_app --factory --reload  # Start FastAPI backend
-cd frontend && npm install && npm run dev           # Start React frontend
+cp .env.example .env
+# Edit .env -- see Environment Configuration below
 ```
 
-See `docs/hadith-analysis-platform-prd.md` for full configuration details.
+For local development, the defaults in `.env.example` work out of the box with Docker Compose.
+
+### 3. Start infrastructure
+
+```bash
+make infra          # Starts Neo4j, PostgreSQL, Redis via Docker Compose
+```
+
+### 4. Run the backend API
+
+```bash
+uvicorn src.api.app:create_app --factory --reload --port 8000
+```
+
+### 5. Run the frontend (separate terminal)
+
+```bash
+cd frontend
+npm install
+npm run dev         # Starts on http://localhost:3000
+```
+
+### 6. Verify setup
+
+```bash
+curl http://localhost:8000/          # API health check
+open http://localhost:3000           # Frontend
+open http://localhost:7474           # Neo4j Browser
+```
+
+See the [Verify Your Setup](#verify-your-setup) section below for a full checklist.
+
+## Environment Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+### Required (infrastructure -- defaults work for local dev)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEO4J_URI` | `bolt://localhost:7687` | Neo4j Bolt protocol URI |
+| `NEO4J_USER` | `neo4j` | Neo4j username |
+| `NEO4J_PASSWORD` | `isnad_graph_dev` | Neo4j password |
+| `PG_DSN` | `postgresql://isnad:isnad_dev@localhost:5432/isnad_graph` | PostgreSQL connection string |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis URL |
+
+### Optional (data sources)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SUNNAH_API_KEY` | *(empty)* | Sunnah.com API key -- skip if unavailable |
+| `KAGGLE_USERNAME` | *(empty)* | Kaggle credentials for Sanadset download |
+| `KAGGLE_KEY` | *(empty)* | Kaggle API key |
+
+### Optional (paths)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATA_RAW_DIR` | `./data/raw` | Downloaded source files |
+| `DATA_STAGING_DIR` | `./data/staging` | Normalized Parquet intermediates |
+| `DATA_CURATED_DIR` | `./data/curated` | Final enriched datasets |
+
+### Optional (auth -- needed for OAuth login)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_JWT_SECRET` | `dev-secret-change-in-production` | JWT signing secret |
+| `AUTH_GOOGLE_CLIENT_ID` | *(empty)* | Google OAuth client ID |
+| `AUTH_GOOGLE_CLIENT_SECRET` | *(empty)* | Google OAuth secret |
+| `AUTH_GITHUB_CLIENT_ID` | *(empty)* | GitHub OAuth client ID |
+| `AUTH_GITHUB_CLIENT_SECRET` | *(empty)* | GitHub OAuth secret |
+| `AUTH_APPLE_CLIENT_ID` | *(empty)* | Apple OAuth client ID |
+| `AUTH_APPLE_CLIENT_SECRET` | *(empty)* | Apple OAuth secret |
+| `AUTH_FACEBOOK_CLIENT_ID` | *(empty)* | Facebook OAuth client ID |
+| `AUTH_FACEBOOK_CLIENT_SECRET` | *(empty)* | Facebook OAuth secret |
+
+### Optional (application)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CORS_ORIGINS` | `["http://localhost:3000"]` | JSON list of allowed CORS origins |
+| `LOG_LEVEL` | `INFO` | Logging level |
+| `LOG_FORMAT` | `console` | Log format (`console` or `json`) |
+
+For local development, the infrastructure defaults work out of the box. OAuth keys are only needed if testing login flows.
+
+## Port Reference
+
+| Service | Port | URL |
+|---------|------|-----|
+| Frontend (Vite) | 3000 | http://localhost:3000 |
+| Backend API | 8000 | http://localhost:8000 |
+| API Docs (Swagger) | 8000 | http://localhost:8000/docs |
+| API Docs (ReDoc) | 8000 | http://localhost:8000/redoc |
+| Neo4j Browser | 7474 | http://localhost:7474 |
+| Neo4j Bolt | 7687 | bolt://localhost:7687 |
+| PostgreSQL | 5432 | -- |
+| Redis | 6379 | -- |
 
 ## Phase Overview
 
@@ -89,6 +197,42 @@ The frontend is a React + TypeScript application with interactive narrator netwo
 cd frontend && npm install && npm run dev
 ```
 
+## Docker Services
+
+Start all infrastructure (Neo4j, PostgreSQL, Redis):
+
+```bash
+make infra
+```
+
+Stop services:
+
+```bash
+make infra-down
+```
+
+Reset (stop services and destroy volumes):
+
+```bash
+make infra-reset
+```
+
+Full stack via Docker Compose (API + frontend + infrastructure):
+
+```bash
+docker compose up -d
+```
+
+## Verify Your Setup
+
+After following Quick Start, confirm everything is working:
+
+1. `curl http://localhost:8000/` -- should return `{"status": "ok", ...}`
+2. Open http://localhost:3000 -- should see the isnad-graph frontend
+3. Open http://localhost:7474 -- Neo4j Browser (login: `neo4j` / `isnad_graph_dev`)
+4. `make test` -- should pass all unit tests
+5. `make check` -- should pass lint + typecheck + test
+
 ## Data Sources
 
 | Source | Format | Coverage |
@@ -106,8 +250,8 @@ cd frontend && npm install && npm run dev
 ```
 isnad-graph/
 ├── src/                    # Application source code
-│   ├── acquire/            # Phase 1: data downloaders → data/raw/
-│   ├── parse/              # Phase 1: parsers → data/staging/ (Parquet)
+│   ├── acquire/            # Phase 1: data downloaders -> data/raw/
+│   ├── parse/              # Phase 1: parsers -> data/staging/ (Parquet)
 │   ├── resolve/            # Phase 2: narrator NER/disambiguation, hadith dedup
 │   ├── graph/              # Phase 3: Neo4j node/edge loaders
 │   ├── enrich/             # Phase 4: graph metrics, topic classification
@@ -133,6 +277,37 @@ isnad-graph/
 ├── Makefile                # Build, test, pipeline commands
 └── pyproject.toml          # Project metadata & dependencies (uv)
 ```
+
+## Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `help` | Show all targets with descriptions |
+| `setup` | Install dependencies with uv |
+| `setup-hooks` | Configure git hooks |
+| `infra` | Start Docker services (Neo4j, PostgreSQL, Redis) |
+| `infra-down` | Stop Docker services |
+| `infra-reset` | Stop services and destroy volumes |
+| `test` | Run pytest suite |
+| `test-integration` | Run integration tests (requires Docker) |
+| `test-e2e` | Run Playwright browser tests (requires running app) |
+| `test-e2e-headed` | Run Playwright tests with visible browser |
+| `sample-data` | Download sample data for integration testing |
+| `lint` | Run ruff linter |
+| `format` | Run ruff formatter |
+| `typecheck` | Run mypy type checker |
+| `check` | Run all CI checks locally (lint + typecheck + test) |
+| `acquire` | Phase 1: Download all data sources |
+| `parse` | Phase 1: Parse raw data into staging Parquet files |
+| `resolve` | Phase 2: Entity resolution (NER + disambiguation + dedup) |
+| `load` | Phase 3: Load graph into Neo4j |
+| `enrich` | Phase 4: Compute metrics, topics, historical overlay |
+| `pipeline` | Run full end-to-end pipeline (acquire through enrich) |
+| `validate-staging` | Validate staging Parquet files |
+| `validate-pipeline` | Run full pipeline validation against real data |
+| `profile-data` | Profile staging Parquet files |
+| `clean` | Remove staging data and caches |
+| `clean-worktrees` | Remove stale git worktrees |
 
 ## Testing
 
