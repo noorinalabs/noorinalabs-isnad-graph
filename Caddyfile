@@ -1,0 +1,25 @@
+isnad-graph.how-a-steve-do.com {
+    # API routes
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+
+    # Grafana
+    handle /grafana/* {
+        reverse_proxy grafana:3000
+    }
+
+    # Frontend (default)
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}

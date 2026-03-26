@@ -116,8 +116,8 @@ services:
 
   api:
     build: .
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     read_only: true
     tmpfs:
       - /tmp:size=256M
@@ -164,9 +164,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "443:443"
+    expose:
+      - "80"
     read_only: true
     tmpfs:
       - /tmp:size=64M
@@ -195,6 +194,49 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
+      - frontend
+    restart: unless-stopped
+
+  # --- Reverse Proxy ---
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - backend
       - frontend
     restart: unless-stopped
 
@@ -266,10 +308,10 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD required}
-      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+      GF_SERVER_ROOT_URL: https://isnad-graph.how-a-steve-do.com/grafana
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
-    ports:
-      - "3001:3000"
+    expose:
+      - "3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
@@ -418,4 +460,6 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+  caddy_data:
+  caddy_config:
   loki_data:
