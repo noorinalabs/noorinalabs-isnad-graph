@@ -1,25 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchSystemHealth } from '../../api/admin-client'
+import styles from './SystemHealthPage.module.css'
 
 function StatusCard({ label, ok }: { label: string; ok: boolean }) {
   return (
-    <div
-      style={{
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        padding: '1.5rem',
-        minWidth: 180,
-        textAlign: 'center',
-      }}
-    >
-      <div style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.5rem' }}>{label}</div>
-      <div
-        style={{
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          color: ok ? '#188038' : '#d93025',
-        }}
-      >
+    <div className={styles.card}>
+      <div className={styles.cardLabel}>{label}</div>
+      <div className={ok ? styles.cardValueOk : styles.cardValueDown}>
         {ok ? 'Connected' : 'Down'}
       </div>
     </div>
@@ -38,37 +25,14 @@ export default function SystemHealthPage() {
       <h2>System Health</h2>
 
       {isLoading && <p>Loading...</p>}
-      {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+      {error && <p className={styles.errorText}>Error: {(error as Error).message}</p>}
 
       {data && (
         <>
-          <div
-            style={{
-              display: 'flex',
-              gap: '1rem',
-              marginBottom: '2rem',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                padding: '1.5rem',
-                minWidth: 180,
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: '0.875rem', color: '#666', marginBottom: '0.5rem' }}>
-                Overall Status
-              </div>
-              <div
-                style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 700,
-                  color: data.status === 'ok' ? '#188038' : '#e37400',
-                }}
-              >
+          <div className={styles.cardGrid}>
+            <div className={styles.card}>
+              <div className={styles.cardLabel}>Overall Status</div>
+              <div className={data.status === 'ok' ? styles.cardValueOk : styles.cardValueWarning}>
                 {data.status.toUpperCase()}
               </div>
             </div>
@@ -77,7 +41,7 @@ export default function SystemHealthPage() {
             <StatusCard label="Redis" ok={data.redis} />
           </div>
 
-          <p style={{ color: '#666', fontSize: '0.875rem' }}>Auto-refreshes every 30 seconds.</p>
+          <p className={styles.refreshNote}>Auto-refreshes every 30 seconds.</p>
         </>
       )}
     </div>

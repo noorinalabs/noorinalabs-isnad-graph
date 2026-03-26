@@ -121,7 +121,7 @@ class TestListFlaggedContent:
 
 class TestUpdateModerationItem:
     def test_approve(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = [
+        mock_neo4j.execute_write.return_value = [
             {
                 "props": {
                     "id": "mod:hadith:h1:2026-03-16",
@@ -143,7 +143,7 @@ class TestUpdateModerationItem:
         assert resp.json()["status"] == "approved"
 
     def test_reject(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = [
+        mock_neo4j.execute_write.return_value = [
             {
                 "props": {
                     "id": "mod:hadith:h1:2026-03-16",
@@ -169,10 +169,10 @@ class TestUpdateModerationItem:
             "/api/v1/admin/moderation/some-id",
             json={"status": "invalid_status"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 422
 
     def test_not_found(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = []
+        mock_neo4j.execute_write.return_value = []
         resp = admin_client.patch(
             "/api/v1/admin/moderation/nonexistent",
             json={"status": "approved"},
@@ -182,7 +182,7 @@ class TestUpdateModerationItem:
 
 class TestFlagContent:
     def test_flag_hadith(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = [
+        mock_neo4j.execute_write.return_value = [
             {
                 "props": {
                     "id": "mod:hadith:h1:2026-03-16T00:00:00",
@@ -204,7 +204,7 @@ class TestFlagContent:
         assert data["status"] == "pending"
 
     def test_flag_narrator(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = [
+        mock_neo4j.execute_write.return_value = [
             {
                 "props": {
                     "id": "mod:narrator:n1:2026-03-16T00:00:00",

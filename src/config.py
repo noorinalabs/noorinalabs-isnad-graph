@@ -26,6 +26,15 @@ class PostgresSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PG_")
 
 
+class RateLimitSettings(BaseSettings):
+    """Rate limiting configuration."""
+
+    requests_per_minute: int = 120
+    window_seconds: int = 60
+
+    model_config = SettingsConfigDict(env_prefix="RATE_LIMIT_")
+
+
 class RedisSettings(BaseSettings):
     """Redis cache connection settings."""
 
@@ -73,6 +82,7 @@ class Settings(BaseSettings):
     neo4j: Neo4jSettings = Neo4jSettings()
     postgres: PostgresSettings = PostgresSettings()
     redis: RedisSettings = RedisSettings()
+    rate_limit: RateLimitSettings = RateLimitSettings()
     auth: AuthSettings = AuthSettings()
     security_headers: SecurityHeaderSettings = SecurityHeaderSettings()
 

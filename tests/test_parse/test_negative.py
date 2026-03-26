@@ -77,7 +77,7 @@ class TestMalformedInputs:
             table, enc = read_csv_robust(csv_path)
             # If it parses, it should have at least the header row logic
             assert table.num_rows >= 0
-        except ValueError, Exception:
+        except (ValueError, Exception):  # fmt: skip
             # Acceptable: the CSV parser may reject it
             pass
 

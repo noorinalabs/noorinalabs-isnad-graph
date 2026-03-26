@@ -475,6 +475,24 @@ EOF
 - The body must reference the related GitHub Issue(s) with `Closes #N`.
 - The submitting engineer is responsible for creating the PR immediately upon branch completion.
 
+### CI Enforcement After PR Creation
+
+After creating a PR, **every team member** must follow this process:
+
+1. **Wait for all CI jobs to complete.** Do not merge or request review until CI has finished.
+2. **If all CI jobs pass:** The PR is ready for review. Proceed with the normal review workflow.
+3. **If any CI job fails:**
+   - Investigate the failure and attempt to fix the root cause.
+   - Push the fix to the **same branch** (the PR will update automatically).
+   - Alert the project owner (user) with the following information:
+     - Which CI job failed
+     - Root cause of the failure
+     - What was done to fix it
+     - Whether project owner assistance is required
+4. **If the failure cannot be resolved:** Do **NOT** merge the PR. Notify the project owner immediately and pause all dependent work until the issue is resolved.
+
+Violating this process (e.g., merging with red CI, ignoring failures, or failing to escalate) is treated as a **moderate feedback event** per § Feedback System.
+
 ## Commit Identity
 
 Every team member MUST use their personal git identity (from their roster card's `## Git Identity` section) when committing. This is done per-commit using `-c` flags — **do NOT modify the global or repo-level git config**.

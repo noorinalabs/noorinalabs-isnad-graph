@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createElement } from 'react'
 
 interface AuthUser {
   id: string
@@ -7,9 +8,17 @@ interface AuthUser {
   is_admin: boolean
 }
 
+interface AuthContextValue {
+  user: AuthUser | null
+  loading: boolean
+  isAdmin: boolean
+}
+
 const API_BASE = '/api/v1'
 
-export function useAuth() {
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -32,5 +41,19 @@ export function useAuth() {
       .finally(() => setLoading(false))
   }, [])
 
-  return { user, loading, isAdmin: user?.is_admin ?? false }
+  const value: AuthContextValue = {
+    user,
+    loading,
+    isAdmin: user?.is_admin ?? false,
+  }
+
+  return createElement(AuthContext.Provider, { value }, children)
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext)
+  if (ctx === null) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return ctx
 }

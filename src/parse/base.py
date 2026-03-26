@@ -77,7 +77,7 @@ def safe_int(value: Any) -> int | None:
         return None
     try:
         return int(float(str(value).strip()))
-    except ValueError, TypeError:
+    except (ValueError, TypeError):  # fmt: skip
         return None
 
 

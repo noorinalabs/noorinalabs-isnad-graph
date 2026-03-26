@@ -19,7 +19,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 from bs4 import BeautifulSoup, Tag
 
-from src.acquire.base import ensure_dir, write_manifest
+from src.acquire.base import ensure_dir, select_first, write_manifest
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -84,19 +84,10 @@ def _fetch_page(client: httpx.Client, url: str) -> BeautifulSoup | None:
         return None
 
 
-def _select_first(element: Tag, selectors: list[str]) -> Tag | None:
-    """Try each CSS selector in order, returning the first match or None."""
-    for selector in selectors:
-        result = element.select_one(selector)
-        if result is not None:
-            return result
-    return None
-
-
 def _extract_hadith_from_row(row: Tag) -> dict[str, Any] | None:
     """Extract a single hadith record from a hadith container element."""
     # Hadith number
-    num_tag = _select_first(row, HADITH_NUMBER_SELECTORS)
+    num_tag = select_first(row, HADITH_NUMBER_SELECTORS)
     hadith_number: int | None = None
     if num_tag:
         text = num_tag.get_text(strip=True).replace(":", "").strip()
@@ -106,15 +97,15 @@ def _extract_hadith_from_row(row: Tag) -> dict[str, Any] | None:
             pass
 
     # Arabic text
-    ar_tag = _select_first(row, ARABIC_TEXT_SELECTORS)
+    ar_tag = select_first(row, ARABIC_TEXT_SELECTORS)
     text_ar = ar_tag.get_text(strip=True) if ar_tag else None
 
     # English text
-    en_tag = _select_first(row, ENGLISH_TEXT_SELECTORS)
+    en_tag = select_first(row, ENGLISH_TEXT_SELECTORS)
     text_en = en_tag.get_text(strip=True) if en_tag else None
 
     # Grade
-    grade_tag = _select_first(row, GRADE_SELECTORS)
+    grade_tag = select_first(row, GRADE_SELECTORS)
     grade = grade_tag.get_text(strip=True) if grade_tag else None
 
     if not text_ar and not text_en:
@@ -142,10 +133,10 @@ def _scrape_book_page(
     # Chapter info
     chapter_name_en: str | None = None
     chapter_name_ar: str | None = None
-    chapter_tag = _select_first(soup, CHAPTER_EN_SELECTORS)
+    chapter_tag = select_first(soup, CHAPTER_EN_SELECTORS)
     if chapter_tag:
         chapter_name_en = chapter_tag.get_text(strip=True)
-    chapter_ar_tag = _select_first(soup, CHAPTER_AR_SELECTORS)
+    chapter_ar_tag = select_first(soup, CHAPTER_AR_SELECTORS)
     if chapter_ar_tag:
         chapter_name_ar = chapter_ar_tag.get_text(strip=True)
 

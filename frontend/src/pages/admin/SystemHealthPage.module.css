@@ -1,0 +1,47 @@
+.cardGrid {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-width: 180px;
+  text-align: center;
+}
+
+.cardLabel {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.cardValueOk {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #188038;
+}
+
+.cardValueDown {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #d93025;
+}
+
+.cardValueWarning {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e37400;
+}
+
+.errorText {
+  color: red;
+}
+
+.refreshNote {
+  color: #666;
+  font-size: 0.875rem;
+}

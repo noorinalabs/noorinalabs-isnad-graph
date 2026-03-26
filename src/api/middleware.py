@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import time
+import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
+import structlog
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -12,8 +16,13 @@ from starlette.responses import Response
 
 from src.auth.models import User
 
+if TYPE_CHECKING:
+    from src.config import SecurityHeaderSettings
+
 # Default maximum request body size: 1 MB.
 DEFAULT_MAX_BODY_SIZE = 1_048_576
+
+log = structlog.get_logger(logger_name=__name__)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -23,13 +32,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     overridden per environment (e.g. relaxed CSP for development).
     """
 
-    def __init__(self, app: object, settings: object | None = None) -> None:
+    def __init__(self, app: object, settings: SecurityHeaderSettings | None = None) -> None:
         super().__init__(app)  # type: ignore[arg-type]
-        from src.config import SecurityHeaderSettings, get_settings
-
         if settings is not None:
-            self._cfg: SecurityHeaderSettings = settings  # type: ignore[assignment]
+            self._cfg = settings
         else:
+            from src.config import get_settings
+
             self._cfg = get_settings().security_headers
 
     async def dispatch(
@@ -74,45 +83,154 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple in-memory rate limiter using a sliding window per client IP.
+    """Sliding-window rate limiter with Redis backend and in-memory fallback.
 
-    This is suitable for single-process deployments. For multi-process or
-    distributed deployments, use Redis-backed rate limiting instead.
+    In production (multi-worker), uses a Redis sorted set per client IP so
+    that rate limit state is shared across all uvicorn workers. Falls back
+    to a per-process in-memory window when Redis is unavailable.
     """
 
     def __init__(
         self,
         app: object,
         requests_per_minute: int = 60,
+        window_seconds: int = 60,
+        redis_url: str | None = None,
     ) -> None:
         super().__init__(app)  # type: ignore[arg-type]
         self.requests_per_minute = requests_per_minute
+        self.window_seconds = window_seconds
+        self._redis_url = redis_url
+        self._redis: object | None = None
+        self._redis_checked = False
+        # In-memory fallback
         self._window: dict[str, list[float]] = {}
+
+    def _get_redis(self) -> object | None:
+        """Lazily connect to Redis. Returns None if unavailable."""
+        if self._redis_checked:
+            return self._redis
+        self._redis_checked = True
+        url = self._redis_url
+        if url is None:
+            try:
+                from src.config import get_settings
+
+                url = get_settings().redis.url
+            except Exception:  # noqa: BLE001
+                return None
+        try:
+            import redis as redis_lib
+
+            client = redis_lib.Redis.from_url(url, decode_responses=True)
+            client.ping()
+            self._redis = client
+        except Exception:  # noqa: BLE001
+            self._redis = None
+        return self._redis
+
+    def _check_redis(self, client_ip: str, now: float) -> bool | None:
+        """Check rate limit via Redis. Returns True if allowed, False if
+        exceeded, or None if Redis is unavailable."""
+        redis_client = self._get_redis()
+        if redis_client is None:
+            return None
+        try:
+            import redis as redis_lib
+
+            client: redis_lib.Redis = redis_client  # type: ignore[assignment]
+            key = f"ratelimit:{client_ip}"
+            window_start = now - self.window_seconds
+            pipe = client.pipeline()
+            # Remove entries outside the sliding window
+            pipe.zremrangebyscore(key, "-inf", window_start)
+            # Count remaining entries in the window
+            pipe.zcard(key)
+            # Add the current request timestamp
+            pipe.zadd(key, {str(now): now})
+            # Set expiry so keys don't linger forever
+            pipe.expire(key, self.window_seconds + 1)
+            results = pipe.execute()
+            count: int = results[1]
+            return count < self.requests_per_minute
+        except (redis_lib.RedisError, OSError):  # fmt: skip
+            # Redis went away mid-request — fall back to in-memory
+            self._redis = None
+            self._redis_checked = False
+            return None
+
+    def _check_memory(self, client_ip: str, now: float) -> bool:
+        """Check rate limit using in-memory sliding window."""
+        window_start = now - float(self.window_seconds)
+        timestamps = self._window.get(client_ip, [])
+        timestamps = [t for t in timestamps if t > window_start]
+        if len(timestamps) >= self.requests_per_minute:
+            self._window[client_ip] = timestamps
+            return False
+        timestamps.append(now)
+        self._window[client_ip] = timestamps
+        return True
 
     async def dispatch(
         self, request: StarletteRequest, call_next: RequestResponseEndpoint
     ) -> Response:
-        import time
-
         client_ip = request.client.host if request.client else "unknown"
-        now = time.monotonic()
-        window_start = now - 60.0
+        now = time.time()
 
-        # Get or create the request log for this IP
-        timestamps = self._window.get(client_ip, [])
-        # Prune old entries outside the window
-        timestamps = [t for t in timestamps if t > window_start]
+        allowed = self._check_redis(client_ip, now)
+        if allowed is None:
+            allowed = self._check_memory(client_ip, now)
 
-        if len(timestamps) >= self.requests_per_minute:
+        if not allowed:
             return Response(
                 status_code=429,
                 content="Rate limit exceeded. Try again later.",
-                headers={"Retry-After": "60"},
+                headers={"Retry-After": str(self.window_seconds)},
             )
-
-        timestamps.append(now)
-        self._window[client_ip] = timestamps
         return await call_next(request)
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Assign a unique request ID to every request and log request lifecycle.
+
+    The request ID is:
+    - stored in structlog contextvars so all logs within the request include it
+    - returned in the ``X-Request-ID`` response header for client-side tracing
+
+    If the caller supplies an ``X-Request-ID`` header it is respected (truncated
+    to 64 chars); otherwise a new UUID4 is generated.
+    """
+
+    async def dispatch(
+        self, request: StarletteRequest, call_next: RequestResponseEndpoint
+    ) -> Response:
+        request_id = (request.headers.get("X-Request-ID") or uuid.uuid4().hex)[:64]
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=request_id,
+            method=request.method,
+            path=str(request.url.path),
+        )
+
+        start = time.monotonic()
+        log.info("request_started")
+
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = round((time.monotonic() - start) * 1000, 1)
+            log.exception("request_failed", duration_ms=duration_ms)
+            raise
+
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
+        log.info(
+            "request_completed",
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+        )
+        response.headers["X-Request-ID"] = request_id
+        structlog.contextvars.clear_contextvars()
+        return response
 
 
 async def require_admin(request: Request) -> User:

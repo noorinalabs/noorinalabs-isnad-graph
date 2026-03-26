@@ -39,7 +39,7 @@ def _kaggle_credentials_available() -> bool:
         try:
             creds = json.loads(kaggle_json.read_text())
             return bool(creds.get("username") and creds.get("key"))
-        except json.JSONDecodeError, OSError:
+        except (json.JSONDecodeError, OSError):  # fmt: skip
             return False
 
     return False

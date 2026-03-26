@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from bs4 import Tag
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
@@ -23,6 +24,7 @@ __all__ = [
     "fetch_json",
     "fetch_json_paginated",
     "clone_repo",
+    "select_first",
     "sha256_file",
     "write_manifest",
 ]
@@ -216,6 +218,19 @@ def clone_repo(
         raise
 
     return dest
+
+
+def select_first(element: Tag, selectors: list[str]) -> Tag | None:
+    """Try each CSS selector in order, returning the first match or ``None``.
+
+    Useful for scraping sites that may change their markup — callers provide
+    an ordered list of selectors and the first one that matches wins.
+    """
+    for selector in selectors:
+        result = element.select_one(selector)
+        if result is not None:
+            return result
+    return None
 
 
 def sha256_file(path: Path) -> str:

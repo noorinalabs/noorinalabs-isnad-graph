@@ -5,29 +5,17 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
+import redis as redis_lib
 from jose import JWTError, jwt
 
 from src.config import get_settings
+from src.utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
 # In-memory fallback for when Redis is unavailable
 _revoked_tokens: set[str] = set()
-
-
-def _get_redis_client() -> Any | None:
-    """Return a Redis client or None if unavailable."""
-    try:
-        import redis
-
-        settings = get_settings().redis
-        client = redis.Redis.from_url(settings.url, decode_responses=True)
-        client.ping()
-        return client
-    except Exception:  # noqa: BLE001
-        return None
 
 
 def create_access_token(user_id: str, expires_minutes: int | None = None) -> str:
@@ -64,11 +52,11 @@ def create_refresh_token(user_id: str, expires_days: int | None = None) -> str:
 
 def _is_token_revoked(jti: str) -> bool:
     """Check if a token JTI has been revoked (Redis first, fallback to in-memory)."""
-    redis_client = _get_redis_client()
+    redis_client = get_redis_client()
     if redis_client is not None:
         try:
             return bool(redis_client.exists(f"revoked_token:{jti}") > 0)
-        except Exception:  # noqa: BLE001
+        except (redis_lib.ConnectionError, redis_lib.TimeoutError, OSError):  # fmt: skip
             logger.warning("Redis check failed, falling back to in-memory blacklist")
     return jti in _revoked_tokens
 
@@ -118,12 +106,12 @@ def revoke_token(token: str) -> None:
         # Default to refresh token expiry if no exp claim
         ttl_seconds = settings.refresh_token_expire_days * 86400
 
-    redis_client = _get_redis_client()
+    redis_client = get_redis_client()
     if redis_client is not None:
         try:
             redis_client.setex(f"revoked_token:{jti}", ttl_seconds, "1")
             return
-        except Exception:  # noqa: BLE001
+        except (redis_lib.ConnectionError, redis_lib.TimeoutError, OSError):  # fmt: skip
             logger.warning("Redis revoke failed, falling back to in-memory blacklist")
 
     _revoked_tokens.add(jti)
