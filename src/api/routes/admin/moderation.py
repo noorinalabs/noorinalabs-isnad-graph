@@ -65,7 +65,7 @@ def update_moderation_item(
             m.notes = $notes
         RETURN properties(m) AS props
     """
-    rows = neo4j.execute_read(
+    rows = neo4j.execute_write(
         query,
         {
             "id": item_id,
@@ -101,7 +101,7 @@ def flag_content(
         })
         RETURN properties(m) AS props
     """
-    rows = neo4j.execute_read(
+    rows = neo4j.execute_write(
         query,
         {
             "id": flag_id,
