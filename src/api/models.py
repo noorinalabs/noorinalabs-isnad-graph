@@ -119,16 +119,47 @@ class CollectionResponse(BaseModel):
     book_count: int | None = None
 
 
+class ServiceStatus(BaseModel):
+    """Status of an individual service dependency."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: str
+    latency_ms: float | None = None
+    version: str | None = None
+    error: str | None = None
+
+
 class HealthResponse(BaseModel):
-    """Health check response."""
+    """Comprehensive health check response."""
 
     model_config = ConfigDict(
         frozen=True,
-        json_schema_extra={"examples": [{"status": "ok", "neo4j_connected": True}]},
+        json_schema_extra={
+            "examples": [
+                {
+                    "status": "healthy",
+                    "services": {
+                        "neo4j": {"status": "up", "latency_ms": 12.3, "version": "5.x"},
+                        "postgres": {"status": "up", "latency_ms": 5.1, "version": "16.x"},
+                        "redis": {"status": "up", "latency_ms": 1.2},
+                    },
+                }
+            ]
+        },
     )
 
     status: str
-    neo4j_connected: bool
+    services: dict[str, ServiceStatus]
+
+
+class StatusResponse(BaseModel):
+    """Public-facing status summary."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: str
+    message: str
 
 
 # --- Graph visualization models ---

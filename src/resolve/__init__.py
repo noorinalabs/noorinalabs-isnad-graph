@@ -144,7 +144,7 @@ def run_all(raw_dir: Path, staging_dir: Path, output_dir: Path) -> dict[str, lis
             staging_dir=str(staging_dir),
             msg="No Parquet files found in staging directory",
         )
-        print("Resolution skipped: no staging Parquet files found.")
+        logger.warning("resolution_skipped", reason="no staging Parquet files found")
         return results
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -216,6 +216,6 @@ def run_all(raw_dir: Path, staging_dir: Path, output_dir: Path) -> dict[str, lis
         parallel_links=metrics.parallel_links_count,
     )
 
-    print(metrics.summary())
+    logger.info("resolve_metrics_summary", summary=metrics.summary())
 
     return results

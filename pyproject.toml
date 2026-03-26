@@ -26,6 +26,7 @@ dependencies = [
     "authlib>=1.3",
     "python-jose[cryptography]>=3.3",
     "redis>=5.0",
+    "prometheus-fastapi-instrumentator>=7.0",
 ]
 
 [project.scripts]
@@ -104,6 +105,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["playwright", "playwright.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["prometheus_fastapi_instrumentator", "prometheus_fastapi_instrumentator.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

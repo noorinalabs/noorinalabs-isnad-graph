@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware import (
     RateLimitMiddleware,
+    RequestLoggingMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
     require_admin,
@@ -136,6 +137,7 @@ def create_app() -> FastAPI:
         window_seconds=settings.rate_limit.window_seconds,
         redis_url=settings.redis.url,
     )
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -215,4 +217,13 @@ def create_app() -> FastAPI:
     from src.auth.twofa import router as twofa_router
 
     app.include_router(twofa_router, tags=["2fa"])
+
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        excluded_handlers=["/metrics"],
+    ).instrument(app).expose(app, include_in_schema=False)
+
     return app
