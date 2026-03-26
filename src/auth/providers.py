@@ -8,12 +8,13 @@ import secrets
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+import redis as redis_lib
 
 from src.config import get_settings
+from src.utils.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -41,38 +42,39 @@ def _generate_pkce() -> tuple[str, str]:
 
 # --- PKCE Verifier Storage (Redis with in-memory fallback) ---
 
-_pkce_store: dict[str, str] = {}
+_pkce_store: dict[str, tuple[str, float]] = {}
 _PKCE_TTL_SECONDS = 600  # 10 minutes
+_PKCE_MAX_ENTRIES = 10000
 
 
-def _get_redis_client() -> Any | None:
-    """Return a Redis client or None if unavailable."""
-    try:
-        import redis
-
-        settings = get_settings().redis
-        client = redis.Redis.from_url(settings.url, decode_responses=True)
-        client.ping()
-        return client
-    except Exception:  # noqa: BLE001
-        return None
+def _evict_expired_pkce() -> None:
+    """Remove expired entries from the in-memory PKCE store."""
+    now = time.monotonic()
+    expired = [k for k, (_, ts) in _pkce_store.items() if now - ts > _PKCE_TTL_SECONDS]
+    for k in expired:
+        del _pkce_store[k]
 
 
 def store_pkce_verifier(state: str, verifier: str) -> None:
     """Store PKCE code_verifier keyed by OAuth state parameter."""
-    redis_client = _get_redis_client()
+    redis_client = get_redis_client()
     if redis_client is not None:
         try:
             redis_client.setex(f"pkce:{state}", _PKCE_TTL_SECONDS, verifier)
             return
-        except Exception:  # noqa: BLE001
+        except redis_lib.ConnectionError, redis_lib.TimeoutError, OSError:
             logger.warning("Redis PKCE store failed, using in-memory fallback")
-    _pkce_store[state] = verifier
+    _evict_expired_pkce()
+    if len(_pkce_store) >= _PKCE_MAX_ENTRIES:
+        logger.warning("PKCE in-memory store at capacity (%d), evicting oldest", _PKCE_MAX_ENTRIES)
+        oldest = min(_pkce_store, key=lambda k: _pkce_store[k][1])
+        del _pkce_store[oldest]
+    _pkce_store[state] = (verifier, time.monotonic())
 
 
 def retrieve_pkce_verifier(state: str) -> str | None:
     """Retrieve and delete the PKCE code_verifier for the given state."""
-    redis_client = _get_redis_client()
+    redis_client = get_redis_client()
     if redis_client is not None:
         try:
             pipe = redis_client.pipeline()
@@ -81,9 +83,15 @@ def retrieve_pkce_verifier(state: str) -> str | None:
             results = pipe.execute()
             value: str | None = results[0]
             return value
-        except Exception:  # noqa: BLE001
+        except redis_lib.ConnectionError, redis_lib.TimeoutError, OSError:
             logger.warning("Redis PKCE retrieve failed, trying in-memory fallback")
-    return _pkce_store.pop(state, None)
+    entry = _pkce_store.pop(state, None)
+    if entry is None:
+        return None
+    verifier, ts = entry
+    if time.monotonic() - ts > _PKCE_TTL_SECONDS:
+        return None
+    return verifier
 
 
 # --- Apple JWKS Cache ---

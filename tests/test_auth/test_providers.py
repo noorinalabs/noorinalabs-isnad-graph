@@ -97,20 +97,20 @@ class TestPKCEVerifierStorage:
     """Test PKCE verifier persistence (#236)."""
 
     def test_store_and_retrieve_in_memory(self) -> None:
-        with patch("src.auth.providers._get_redis_client", return_value=None):
+        with patch("src.auth.providers.get_redis_client", return_value=None):
             store_pkce_verifier("state-abc", "verifier-xyz")
             result = retrieve_pkce_verifier("state-abc")
             assert result == "verifier-xyz"
 
     def test_retrieve_deletes_verifier(self) -> None:
-        with patch("src.auth.providers._get_redis_client", return_value=None):
+        with patch("src.auth.providers.get_redis_client", return_value=None):
             store_pkce_verifier("state-del", "verifier-del")
             retrieve_pkce_verifier("state-del")
             result = retrieve_pkce_verifier("state-del")
             assert result is None
 
     def test_retrieve_missing_returns_none(self) -> None:
-        with patch("src.auth.providers._get_redis_client", return_value=None):
+        with patch("src.auth.providers.get_redis_client", return_value=None):
             result = retrieve_pkce_verifier("nonexistent")
             assert result is None
 
@@ -118,7 +118,7 @@ class TestPKCEVerifierStorage:
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
 
-        with patch("src.auth.providers._get_redis_client", return_value=mock_redis):
+        with patch("src.auth.providers.get_redis_client", return_value=mock_redis):
             store_pkce_verifier("state-redis", "verifier-redis")
 
         mock_redis.setex.assert_called_once_with("pkce:state-redis", 600, "verifier-redis")
@@ -130,7 +130,7 @@ class TestPKCEVerifierStorage:
         mock_redis.pipeline.return_value = mock_pipe
         mock_pipe.execute.return_value = ["verifier-redis", 1]
 
-        with patch("src.auth.providers._get_redis_client", return_value=mock_redis):
+        with patch("src.auth.providers.get_redis_client", return_value=mock_redis):
             result = retrieve_pkce_verifier("state-redis")
 
         assert result == "verifier-redis"
@@ -140,12 +140,14 @@ class TestPKCEVerifierStorage:
     def test_falls_back_to_memory_on_redis_failure(self) -> None:
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
-        mock_redis.setex.side_effect = Exception("Connection lost")
+        mock_redis.setex.side_effect = OSError("Connection lost")
 
-        with patch("src.auth.providers._get_redis_client", return_value=mock_redis):
+        with patch("src.auth.providers.get_redis_client", return_value=mock_redis):
             store_pkce_verifier("state-fallback", "verifier-fallback")
 
-        assert _pkce_store.get("state-fallback") == "verifier-fallback"
+        entry = _pkce_store.get("state-fallback")
+        assert entry is not None
+        assert entry[0] == "verifier-fallback"
 
 
 class TestOAuthRedirectURI:

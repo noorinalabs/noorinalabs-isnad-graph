@@ -48,9 +48,6 @@ export default function App() {
               <Route path="timeline" element={<TimelinePage />} />
               <Route path="compare" element={<ComparativePage />} />
               <Route path="graph" element={<GraphExplorerPage />} />
-              <Route path="admin/moderation" element={<ModerationPage />} />
-              <Route path="admin/reports" element={<ReportsPage />} />
-              <Route path="admin/config" element={<ConfigPage />} />
             </Route>
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/users" replace />} />
@@ -58,6 +55,9 @@ export default function App() {
               <Route path="health" element={<SystemHealthPage />} />
               <Route path="stats" element={<ContentStatsPage />} />
               <Route path="analytics" element={<UsageAnalyticsPage />} />
+              <Route path="moderation" element={<ModerationPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="config" element={<ConfigPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

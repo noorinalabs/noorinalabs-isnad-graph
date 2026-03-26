@@ -1,0 +1,18 @@
+[Unit]
+Description=isnad-graph automated database backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/isnad-graph/scripts/backup.sh
+WorkingDirectory=/opt/isnad-graph
+EnvironmentFile=/opt/isnad-graph/.env
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/tmp/isnad-backups /opt/isnad-graph
+PrivateTmp=yes

@@ -92,7 +92,7 @@ class TestRedisBackedRevocation:
 
         token = create_refresh_token("user-redis")
 
-        with patch("src.auth.tokens._get_redis_client", return_value=mock_redis):
+        with patch("src.auth.tokens.get_redis_client", return_value=mock_redis):
             revoke_token(token)
 
         mock_redis.setex.assert_called_once()
@@ -107,12 +107,12 @@ class TestRedisBackedRevocation:
 
         token = create_refresh_token("user-redis-check")
 
-        with patch("src.auth.tokens._get_redis_client", return_value=mock_redis):
+        with patch("src.auth.tokens.get_redis_client", return_value=mock_redis):
             with pytest.raises(ValueError, match="revoked"):
                 verify_token(token)
 
     def test_falls_back_to_memory_when_redis_unavailable(self) -> None:
-        with patch("src.auth.tokens._get_redis_client", return_value=None):
+        with patch("src.auth.tokens.get_redis_client", return_value=None):
             token = create_refresh_token("user-fallback")
             revoke_token(token)
             with pytest.raises(ValueError, match="revoked"):
@@ -124,7 +124,7 @@ class TestRedisBackedRevocation:
 
         token = create_refresh_token("user-ttl", expires_days=1)
 
-        with patch("src.auth.tokens._get_redis_client", return_value=mock_redis):
+        with patch("src.auth.tokens.get_redis_client", return_value=mock_redis):
             revoke_token(token)
 
         call_args = mock_redis.setex.call_args

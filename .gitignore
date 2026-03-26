@@ -16,3 +16,10 @@ build/
 node_modules/
 .coverage
 .hypothesis/
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
