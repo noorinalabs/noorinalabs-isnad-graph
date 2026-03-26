@@ -169,7 +169,7 @@ class TestUpdateModerationItem:
             "/api/v1/admin/moderation/some-id",
             json={"status": "invalid_status"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 422
 
     def test_not_found(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
         mock_neo4j.execute_write.return_value = []

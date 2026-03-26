@@ -1,6 +1,6 @@
 services:
   neo4j:
-    image: neo4j:5-community
+    image: neo4j:5.26.23-community
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.2-pg16
     ports:
       - "5432:5432"
     environment:
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     ports:
       - "6379:6379"
     networks:

@@ -54,9 +54,6 @@ def update_moderation_item(
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> ModerationItemResponse:
     """Approve, reject, or update a flagged content item."""
-    if body.status not in ("approved", "rejected", "pending"):
-        raise HTTPException(status_code=400, detail="Status must be approved, rejected, or pending")
-
     now = datetime.now(UTC).isoformat()
     query = """
         MATCH (m:MODERATION_FLAG {id: $id})

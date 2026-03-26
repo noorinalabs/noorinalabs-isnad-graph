@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import Request
@@ -14,6 +15,9 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response
 
 from src.auth.models import User
+
+if TYPE_CHECKING:
+    from src.config import SecurityHeaderSettings
 
 # Default maximum request body size: 1 MB.
 DEFAULT_MAX_BODY_SIZE = 1_048_576
@@ -28,13 +32,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     overridden per environment (e.g. relaxed CSP for development).
     """
 
-    def __init__(self, app: object, settings: object | None = None) -> None:
+    def __init__(self, app: object, settings: SecurityHeaderSettings | None = None) -> None:
         super().__init__(app)  # type: ignore[arg-type]
-        from src.config import SecurityHeaderSettings, get_settings
-
         if settings is not None:
-            self._cfg: SecurityHeaderSettings = settings  # type: ignore[assignment]
+            self._cfg = settings
         else:
+            from src.config import get_settings
+
             self._cfg = get_settings().security_headers
 
     async def dispatch(
