@@ -48,6 +48,7 @@ dev = [
     "pytest-rerunfailures>=14.0",
     "pip-audit>=2.7",
     "types-psycopg2>=2.9.21.20260223",
+    "pre-commit>=4.0",
 ]
 ml = [
     "sentence-transformers>=2.5",

@@ -3,7 +3,7 @@
 # bootstrap-vps.sh — First-time VPS setup for isnad-graph
 #
 # Run as root on a fresh Hetzner VPS:
-#   ssh -i ~/.ssh/isnad_deploy root@isnad-graph.how-a-steve-do.com
+#   ssh -i ~/.ssh/isnad_deploy root@isnad-graph.noorinalabs.com
 #   curl -sL https://raw.githubusercontent.com/parametrization/isnad-graph/main/scripts/bootstrap-vps.sh | bash
 #
 # Or copy this script to the VPS and run:
@@ -29,7 +29,7 @@ fi
 # ── Step 1: System packages ─────────────────────────────────────────────────
 echo "==> [1/7] Installing system packages..."
 apt-get update -qq
-apt-get install -y -qq docker.io docker-compose-v2 git curl > /dev/null
+apt-get install -y -qq docker.io docker-compose-v2 docker-buildx git curl > /dev/null
 systemctl enable docker
 systemctl start docker
 echo "    Docker version: $(docker --version)"
@@ -100,10 +100,10 @@ REDIS_PASSWORD=CHANGE-ME
 # Grafana [REQUIRED]
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=CHANGE-ME
-GRAFANA_ROOT_URL=https://isnad-graph.how-a-steve-do.com/grafana
+GRAFANA_ROOT_URL=https://isnad-graph.noorinalabs.com/grafana
 
 # CORS
-CORS_ORIGINS=["https://isnad-graph.how-a-steve-do.com"]
+CORS_ORIGINS=["https://isnad-graph.noorinalabs.com"]
 
 # Logging
 LOG_LEVEL=INFO
@@ -171,7 +171,7 @@ echo "  3. Verify:"
 echo "     curl http://localhost:8000/health"
 echo ""
 echo "  4. Add VPS_HOST variable in GitHub repo settings:"
-echo "     Settings → Variables → New: VPS_HOST = isnad-graph.how-a-steve-do.com"
+echo "     Settings → Variables → New: VPS_HOST = isnad-graph.noorinalabs.com"
 echo ""
 echo "  5. Start the backup timer:"
 echo "     systemctl start isnad-backup.timer"

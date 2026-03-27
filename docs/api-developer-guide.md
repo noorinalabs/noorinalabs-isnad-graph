@@ -6,7 +6,7 @@ Internal reference for consuming the isnad-graph API.
 
 ```
 http://localhost:8000          # local dev
-https://api.isnad-graph.example.com  # production (TBD)
+https://isnad-graph.noorinalabs.com/api  # production
 ```
 
 All versioned endpoints are prefixed with `/api/v1`.

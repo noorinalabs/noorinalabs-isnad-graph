@@ -1,4 +1,4 @@
-.PHONY: help setup setup-hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean clean-worktrees pipeline validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check backup restore
+.PHONY: help setup setup-hooks hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean clean-worktrees pipeline validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check backup restore
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -6,9 +6,14 @@ help: ## Show this help
 setup: ## Install dependencies with uv
 	uv sync
 
-setup-hooks: ## Configure git hooks
+setup-hooks: ## Configure git hooks (legacy .githooks + pre-commit)
 	git config core.hooksPath .githooks
-	@echo "Git hooks configured."
+	uv run pre-commit install
+	@echo "Git hooks configured (branch-name via .githooks, pre-commit via pre-commit framework)."
+
+hooks: ## Install pre-commit hooks (one-time setup after clone)
+	uv run pre-commit install
+	@echo "Pre-commit hooks installed. They will run on every commit."
 
 infra: ## Start Docker services
 	docker compose up -d

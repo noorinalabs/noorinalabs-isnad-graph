@@ -1,0 +1,67 @@
+# Pre-commit hooks for isnad-graph
+# Install: make hooks
+# Docs: https://pre-commit.com/
+#
+# Hook execution order (fail-fast, cheapest first):
+#   1. Ruff format check
+#   2. Ruff lint
+#   3. gitleaks (secret detection)
+#   4. pip-audit (CVE scan)
+#   5. mypy type checking
+#   6. Unit tests
+#   7. Integration tests
+#
+# Prerequisites:
+#   - Python 3.14+ with uv
+#   - gitleaks CLI: https://github.com/gitleaks/gitleaks#installing
+
+repos:
+  # --- Ruff formatter & linter ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.6
+    hooks:
+      - id: ruff-format
+        args: [--check]
+        name: ruff-format
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        name: ruff-lint
+
+  # --- Secret detection ---
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.3
+    hooks:
+      - id: gitleaks
+        name: gitleaks
+
+  # --- Local hooks (pip-audit, mypy, tests) ---
+  - repo: local
+    hooks:
+      - id: pip-audit
+        name: pip-audit
+        entry: bash -c 'uv export --no-hashes --frozen --no-emit-project > /tmp/requirements.txt && uv run pip-audit --strict --desc -r /tmp/requirements.txt --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-25645'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: mypy
+        name: mypy
+        entry: uv run mypy src/
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]
+
+      - id: pytest-unit
+        name: pytest-unit
+        entry: uv run pytest tests/ -x --tb=short -q -m "not integration and not e2e"
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: pytest-integration
+        name: pytest-integration
+        entry: uv run pytest tests/integration/ -x --tb=short -q -m integration
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
