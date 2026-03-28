@@ -19,7 +19,6 @@ jobs:
       - name: Deploy to Hetzner VPS
         uses: appleboy/ssh-action@v1
         env:
-          NEO4J_USER: ${{ secrets.NEO4J_USER }}
           NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
@@ -29,7 +28,7 @@ jobs:
           host: ${{ vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          envs: NEO4J_USER,NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD
+          envs: NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD
           script: |
             set -euo pipefail
             cd /opt/isnad-graph
@@ -39,7 +38,6 @@ jobs:
             git reset --hard origin/main
 
             echo "==> Building and starting services..."
-            export NEO4J_USER="$NEO4J_USER"
             export NEO4J_PASSWORD="$NEO4J_PASSWORD"
             export POSTGRES_USER="$POSTGRES_USER"
             export POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
