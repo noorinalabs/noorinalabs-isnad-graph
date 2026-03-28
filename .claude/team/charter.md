@@ -520,6 +520,23 @@ After creating a PR, **every team member** must follow this process:
 
 Violating this process (e.g., merging with red CI, ignoring failures, or failing to escalate) is treated as a **moderate feedback event** per § Feedback System.
 
+## Shell Command Safety
+
+**Never combine `cd` with `git` (or other commands) in a single compound shell statement.** Compound commands like `cd /some/path && git checkout ...` trigger a Claude Code security prompt ("Compound commands with cd and git require approval to prevent bare repository attacks") that blocks automated agent workflows.
+
+Instead, always run them as **separate sequential commands**:
+```bash
+# WRONG — triggers security prompt, blocks agents
+cd /some/path && git checkout main && git pull
+
+# CORRECT — separate calls
+cd /some/path
+git checkout main
+git pull
+```
+
+This applies to all agents, including worktree-based agents that need to navigate to their worktree directory.
+
 ## Commit Identity
 
 Every team member MUST use their personal git identity (from their roster card's `## Git Identity` section) when committing. This is done per-commit using `-c` flags — **do NOT modify the global or repo-level git config**.
