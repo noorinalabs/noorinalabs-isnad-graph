@@ -26,10 +26,10 @@ Rows = the team member rating. Columns = the team member being rated.
 
 | Rater ↓ \ Rated → | Fatima | Renaud | Sunita | Tomasz | Dmitri | Kwame | Amara | Hiro | Carolina | Yara | Priya | Elena | Tariq | Mei-Lin |
 |--------------------|--------|--------|--------|--------|--------|-------|-------|------|----------|------|-------|-------|-------|---------|
-| **Fatima**         | —      | 3      | 3      | 3      | 3      | 3     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
+| **Fatima**         | —      | 3      | 3      | 4      | 3      | 3     | 3     | 4    | 3        | 3    | 3     | 3     | 3     | 3       |
 | **Renaud**         | 3      | —      | 3      | 3      | 3      | 3     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
 | **Sunita**         | 3      | 3      | —      | 3      | 3      | 3     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
-| **Tomasz**         | 3      | 3      | 3      | —      | 3      | 3     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
+| **Tomasz**         | 4      | 3      | 3      | —      | 3      | 2     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
 | **Dmitri**         | 3      | 3      | 3      | 3      | —      | 3     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
 | **Kwame**          | 3      | 3      | 3      | 3      | 3      | —     | 3     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
 | **Amara**          | 3      | 3      | 3      | 3      | 3      | 3     | —     | 3    | 3        | 3    | 3     | 3     | 3     | 3       |
@@ -45,4 +45,7 @@ Rows = the team member rating. Columns = the team member being rated.
 
 | Date | Rater | Rated | Old | New | Reason |
 |------|-------|-------|-----|-----|--------|
-| *(no changes yet)* | | | | | |
+| 2026-03-27 | Fatima | Tomasz | 3 | 4 | Carried 6/8 wave-3 issues, all clean. Proactive CVE identification. Excellent output. |
+| 2026-03-27 | Fatima | Hiro | 3 | 4 | Delivered complex pre-commit framework (158 LOC) cleanly and on time. |
+| 2026-03-27 | Tomasz | Fatima | 3 | 4 | Good coordination, fast CVE fix rollout, clear rebase instructions to all engineers. |
+| 2026-03-27 | Tomasz | Kwame | 3 | 2 | Committed to Tomasz's branch by mistake, requiring manual cleanup. Worktree discipline issue. |
