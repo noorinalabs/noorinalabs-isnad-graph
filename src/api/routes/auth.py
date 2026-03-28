@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
+from starlette.responses import RedirectResponse, Response
 
 from src.api.middleware import require_auth
 from src.auth.models import AuthorizationUrlResponse, RefreshRequest, TokenResponse, User
@@ -19,6 +20,31 @@ def _build_redirect_uri(provider: str) -> str:
     """Build the OAuth callback redirect URI from settings."""
     base = get_settings().auth.oauth_redirect_base_url.rstrip("/")
     return f"{base}/api/v1/auth/callback/{provider}"
+
+
+def _set_token_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    """Set httpOnly cookie pair on a response."""
+    settings = get_settings().auth
+    common: dict[str, object] = {
+        "httponly": True,
+        "samesite": "lax",
+        "secure": settings.cookie_secure,
+        "path": "/",
+    }
+    if settings.cookie_domain:
+        common["domain"] = settings.cookie_domain
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        max_age=settings.access_token_expire_minutes * 60,
+        **common,  # type: ignore[arg-type]
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=settings.refresh_token_expire_days * 86400,
+        **common,  # type: ignore[arg-type]
+    )
 
 
 @router.post(
@@ -41,9 +67,9 @@ def login(provider: str) -> AuthorizationUrlResponse:
     return AuthorizationUrlResponse(authorization_url=url)
 
 
-@router.get("/auth/callback/{provider}", response_model=TokenResponse)
-async def callback(provider: str, code: str, state: str) -> TokenResponse:
-    """Handle OAuth callback — exchange code for tokens."""
+@router.get("/auth/callback/{provider}")
+async def callback(provider: str, code: str, state: str) -> RedirectResponse:
+    """Handle OAuth callback — upsert user in PG, set httpOnly cookies, redirect."""
     if provider not in PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
@@ -60,26 +86,45 @@ async def callback(provider: str, code: str, state: str) -> TokenResponse:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {exc}") from exc
 
-    # Use provider + provider_user_id as the internal user ID
-    user_id = f"{user_info.provider}:{user_info.provider_user_id}"
+    # Upsert user in PostgreSQL
+    from src.auth.pg_users import ensure_users_table, upsert_user
+    from src.utils.pg_client import PgClient
+
+    pg = PgClient()
+    try:
+        ensure_users_table(pg)
+        user = upsert_user(
+            pg,
+            provider=user_info.provider,
+            provider_user_id=user_info.provider_user_id,
+            email=user_info.email or None,
+            name=user_info.name,
+        )
+    finally:
+        pg.close()
+
     settings = get_settings().auth
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
-    access_token = create_access_token(user_id)
-    refresh_token = create_refresh_token(user_id)
-
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=settings.access_token_expire_minutes * 60,
-    )
+    redirect_url = settings.frontend_redirect_url.rstrip("/")
+    response = RedirectResponse(url=redirect_url, status_code=302)
+    _set_token_cookies(response, access_token, refresh_token)
+    return response
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)
-def refresh(body: RefreshRequest) -> TokenResponse:
-    """Refresh an access token using a valid refresh token (with rotation)."""
+def refresh(body: RefreshRequest) -> Response:
+    """Refresh an access token using a valid refresh token (with rotation).
+
+    Returns new tokens as JSON AND sets updated httpOnly cookies.
+    """
+    token = body.refresh_token
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+
     try:
-        payload = verify_token(body.refresh_token)
+        payload = verify_token(token)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")  # noqa: B904
 
@@ -91,29 +136,35 @@ def refresh(body: RefreshRequest) -> TokenResponse:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
     # Revoke the old refresh token (rotation)
-    revoke_token(body.refresh_token)
+    revoke_token(token)
 
     settings = get_settings().auth
     new_access = create_access_token(user_id)
     new_refresh = create_refresh_token(user_id)
 
-    return TokenResponse(
+    token_resp = TokenResponse(
         access_token=new_access,
         refresh_token=new_refresh,
         token_type="bearer",
         expires_in=settings.access_token_expire_minutes * 60,
     )
+    from fastapi.responses import JSONResponse
+
+    response = JSONResponse(content=token_resp.model_dump())
+    _set_token_cookies(response, new_access, new_refresh)
+    return response
 
 
 @router.post("/auth/logout", status_code=204)
-def logout(user: User = Depends(require_auth)) -> None:
-    """Invalidate the current session (revoke tokens)."""
-    # In a full implementation, we'd revoke the refresh token from a store.
-    # The access token is short-lived and will expire naturally.
-    return None
+def logout(user: User = Depends(require_auth)) -> Response:
+    """Invalidate the current session — clear auth cookies."""
+    response = Response(status_code=204)
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    return response
 
 
 @router.get("/auth/me", response_model=User)
 def me(user: User = Depends(require_auth)) -> User:
-    """Return the current authenticated user."""
+    """Return the current authenticated user from PostgreSQL."""
     return user

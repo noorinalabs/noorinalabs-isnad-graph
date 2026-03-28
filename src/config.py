@@ -59,6 +59,9 @@ class AuthSettings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
     oauth_redirect_base_url: str = "http://localhost:8000"
+    frontend_redirect_url: str = "http://localhost:3000"
+    cookie_secure: bool = False
+    cookie_domain: str | None = None
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
 

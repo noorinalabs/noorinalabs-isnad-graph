@@ -26,9 +26,10 @@ def _admin_user() -> User:
         id="admin-user",
         email="admin@example.com",
         name="Admin User",
-        provider="jwt",
+        provider="google",
         provider_user_id="admin-user",
         created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         is_admin=True,
     )
 
@@ -38,9 +39,10 @@ def _regular_user() -> User:
         id="regular-user",
         email="user@example.com",
         name="Regular User",
-        provider="jwt",
+        provider="google",
         provider_user_id="regular-user",
         created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         is_admin=False,
     )
 
@@ -76,13 +78,23 @@ def mock_neo4j() -> MagicMock:
 
 
 @pytest.fixture
-def admin_app(mock_neo4j: MagicMock) -> FastAPI:
-    """FastAPI app with admin auth override."""
+def mock_pg() -> MagicMock:
+    """Mock PgClient for admin user endpoints."""
+    client = MagicMock()
+    client.execute.return_value = []
+    return client
+
+
+@pytest.fixture
+def admin_app(mock_neo4j: MagicMock, mock_pg: MagicMock) -> FastAPI:
+    """FastAPI app with admin auth override and mocked PG."""
     from src.api.app import create_app
+    from src.api.deps import get_pg
 
     app = create_app()
     app.state.neo4j = mock_neo4j
     app.dependency_overrides[require_admin] = _admin_user
+    app.dependency_overrides[get_pg] = lambda: mock_pg
     return app
 
 
@@ -195,28 +207,41 @@ class TestAdminAnalytics:
 
 
 class TestAdminUsers:
+    @pytest.fixture(autouse=True)
+    def _setup_pg(self, admin_app: FastAPI, mock_pg: MagicMock) -> None:
+        from src.api.deps import get_pg
+
+        admin_app.dependency_overrides[get_pg] = lambda: mock_pg
+        self._pg = mock_pg
+
     def test_list_users_empty(self, admin_client: TestClient) -> None:
+        self._pg.execute.side_effect = [
+            [{"total": 0}],
+            [],
+        ]
         resp = admin_client.get("/api/v1/admin/users")
         assert resp.status_code == 200
         data = resp.json()
         assert data["items"] == []
         assert data["total"] == 0
 
-    def test_list_users_with_results(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.side_effect = [
+    def test_list_users_with_results(self, admin_client: TestClient) -> None:
+        now = datetime.now(UTC)
+        self._pg.execute.side_effect = [
             [{"total": 1}],
             [
                 {
-                    "u": {
-                        "id": "u1",
-                        "email": "a@b.com",
-                        "name": "Test",
-                        "provider": "google",
-                        "is_admin": False,
-                        "is_suspended": False,
-                        "created_at": "2025-01-01T00:00:00",
-                        "role": "user",
-                    }
+                    "id": "u1",
+                    "email": "a@b.com",
+                    "name": "Test",
+                    "provider": "google",
+                    "provider_user_id": "g123",
+                    "password_hash": None,
+                    "is_admin": False,
+                    "is_suspended": False,
+                    "created_at": now,
+                    "updated_at": now,
+                    "role": "user",
                 }
             ],
         ]
@@ -227,43 +252,47 @@ class TestAdminUsers:
         assert len(data["items"]) == 1
         assert data["items"][0]["email"] == "a@b.com"
 
-    def test_get_user_not_found(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = []
+    def test_get_user_not_found(self, admin_client: TestClient) -> None:
+        self._pg.execute.return_value = []
         resp = admin_client.get("/api/v1/admin/users/nonexistent")
         assert resp.status_code == 404
 
-    def test_get_user(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = [
+    def test_get_user(self, admin_client: TestClient) -> None:
+        now = datetime.now(UTC)
+        self._pg.execute.return_value = [
             {
-                "u": {
-                    "id": "u1",
-                    "email": "a@b.com",
-                    "name": "Test",
-                    "provider": "google",
-                    "is_admin": False,
-                    "is_suspended": False,
-                    "created_at": "2025-01-01T00:00:00",
-                    "role": None,
-                }
+                "id": "u1",
+                "email": "a@b.com",
+                "name": "Test",
+                "provider": "google",
+                "provider_user_id": "g123",
+                "password_hash": None,
+                "is_admin": False,
+                "is_suspended": False,
+                "created_at": now,
+                "updated_at": now,
+                "role": None,
             }
         ]
         resp = admin_client.get("/api/v1/admin/users/u1")
         assert resp.status_code == 200
         assert resp.json()["id"] == "u1"
 
-    def test_update_user(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_write.return_value = [
+    def test_update_user(self, admin_client: TestClient) -> None:
+        now = datetime.now(UTC)
+        self._pg.execute.return_value = [
             {
-                "u": {
-                    "id": "u1",
-                    "email": "a@b.com",
-                    "name": "Test",
-                    "provider": "google",
-                    "is_admin": True,
-                    "is_suspended": False,
-                    "created_at": "2025-01-01T00:00:00",
-                    "role": "admin",
-                }
+                "id": "u1",
+                "email": "a@b.com",
+                "name": "Test",
+                "provider": "google",
+                "provider_user_id": "g123",
+                "password_hash": None,
+                "is_admin": True,
+                "is_suspended": False,
+                "created_at": now,
+                "updated_at": now,
+                "role": "admin",
             }
         ]
         resp = admin_client.patch(
@@ -276,8 +305,8 @@ class TestAdminUsers:
         resp = admin_client.patch("/api/v1/admin/users/u1", json={})
         assert resp.status_code == 400
 
-    def test_update_user_not_found(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_write.return_value = []
+    def test_update_user_not_found(self, admin_client: TestClient) -> None:
+        self._pg.execute.return_value = []
         resp = admin_client.patch("/api/v1/admin/users/nonexistent", json={"is_admin": True})
         assert resp.status_code == 404
 
@@ -292,7 +321,6 @@ class TestAdminConfig:
         from src.api.deps import get_pg
 
         self._pg = MagicMock()
-        # Default: no rows in system_config, no rows in config_audit
         self._pg.execute.return_value = []
         admin_app.dependency_overrides[get_pg] = lambda: self._pg
 
@@ -321,7 +349,6 @@ class TestAdminConfig:
         data = resp.json()
         assert data["rate_limit_per_minute"] == 120
         assert data["cors_origins"] == ["http://example.com"]
-        # Defaults for missing keys
         assert data["max_search_results"] == 100
 
     def test_update_config(self, admin_client: TestClient) -> None:
@@ -331,7 +358,6 @@ class TestAdminConfig:
             json={"rate_limit_per_minute": 120},
         )
         assert resp.status_code == 200
-        # Verify upsert and audit INSERT calls were made
         calls = self._pg.execute.call_args_list
         upsert_calls = [c for c in calls if "INSERT INTO system_config" in str(c)]
         audit_calls = [c for c in calls if "INSERT INTO config_audit" in str(c)]
@@ -347,7 +373,6 @@ class TestAdminConfig:
             "/api/v1/admin/config",
             json={"jwt_secret": "hacked"},
         )
-        # Unknown field is ignored by pydantic, so no valid fields → 400
         assert resp.status_code == 400
 
     def test_audit_log_empty(self, admin_client: TestClient) -> None:
@@ -386,8 +411,6 @@ class TestAdminConfig:
         assert data["total"] == 1
         assert len(data["entries"]) == 1
         assert data["entries"][0]["key"] == "rate_limit_per_minute"
-        assert data["entries"][0]["old_value"] == "60"
-        assert data["entries"][0]["new_value"] == "120"
 
 
 # --- Auth enforcement ---

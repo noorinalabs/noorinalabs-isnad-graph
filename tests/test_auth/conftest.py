@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import src.auth.pg_users as _pg_users_mod
+import src.utils.pg_client as _pg_client_mod
+from src.auth.models import User
 from src.config import (
     AuthSettings,
     Neo4jSettings,
@@ -18,6 +22,19 @@ from src.config import (
     Settings,
     get_settings,
 )
+
+
+def _make_pg_user(_pg: object, user_id: str) -> User:
+    """Build a User as it would come from PostgreSQL (matches get_user_by_id signature)."""
+    return User(
+        id=user_id,
+        email=f"{user_id}@test.com",
+        name=user_id,
+        provider="google",
+        provider_user_id=user_id,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -61,8 +78,22 @@ def _patch_settings(test_settings: Settings) -> Iterator[None]:
         p.stop()
 
 
+@pytest.fixture(autouse=True)
+def _mock_pg_lookup() -> Iterator[None]:
+    """Mock PgClient and get_user_by_id so require_auth works without real PG."""
+    mock_client = MagicMock()
+    mock_client.close = MagicMock()
+
+    with (
+        patch.object(_pg_client_mod, "PgClient", return_value=mock_client),
+        patch.object(_pg_users_mod, "get_user_by_id", side_effect=_make_pg_user),
+    ):
+        yield
+
+
 @pytest.fixture
 def mock_neo4j() -> MagicMock:
+    """Mock Neo4jClient."""
     client = MagicMock()
     client.execute_read.return_value = []
     client.execute_write.return_value = []
@@ -71,6 +102,7 @@ def mock_neo4j() -> MagicMock:
 
 @pytest.fixture
 def app(mock_neo4j: MagicMock) -> FastAPI:
+    """FastAPI test application."""
     from src.api.app import create_app
 
     app = create_app()
@@ -80,4 +112,5 @@ def app(mock_neo4j: MagicMock) -> FastAPI:
 
 @pytest.fixture
 def client(app: FastAPI) -> TestClient:
+    """TestClient for auth tests."""
     return TestClient(app)
