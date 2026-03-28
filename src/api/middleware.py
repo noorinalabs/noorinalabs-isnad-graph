@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import structlog
@@ -242,16 +241,25 @@ async def require_admin(request: Request) -> User:
 
 
 async def require_auth(request: Request) -> User:
-    """FastAPI dependency that requires a valid Bearer token.
+    """FastAPI dependency that requires a valid access token.
 
-    Extracts the JWT from the Authorization header, verifies it,
-    and returns a User object. Raises 401 if the token is missing or invalid.
+    Checks for the token in this order:
+    1. ``access_token`` httpOnly cookie
+    2. ``Authorization: Bearer <token>`` header
+
+    After verifying the JWT, looks up the user in PostgreSQL.
+    Raises 401 if the token is missing/invalid or the user is not found.
+    Raises 403 if the user is suspended.
     """
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token: str | None = request.cookies.get("access_token")
 
-    token = auth_header.removeprefix("Bearer ")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.removeprefix("Bearer ")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
 
     from src.auth.tokens import verify_token
 
@@ -268,11 +276,22 @@ async def require_auth(request: Request) -> User:
     if not isinstance(user_id, str):
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
-    return User(
-        id=user_id,
-        email=f"{user_id}@placeholder",
-        name=user_id,
-        provider="jwt",
-        provider_user_id=user_id,
-        created_at=datetime.now(UTC),
-    )
+    from src.auth.pg_users import get_user_by_id
+    from src.utils.pg_client import PgClient
+
+    try:
+        pg = PgClient()
+        try:
+            user = get_user_by_id(pg, user_id)
+        finally:
+            pg.close()
+    except Exception:
+        raise HTTPException(status_code=401, detail="User lookup failed")  # noqa: B904
+
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.is_suspended:
+        raise HTTPException(status_code=403, detail="Account suspended")
+
+    return user

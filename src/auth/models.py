@@ -13,12 +13,16 @@ class User(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    email: str
+    email: str | None = None
     name: str
     provider: str
     provider_user_id: str
     created_at: datetime
+    updated_at: datetime | None = None
     is_admin: bool = False
+    is_suspended: bool = False
+    role: str | None = None
+    password_hash: str | None = None
 
 
 class TokenResponse(BaseModel):

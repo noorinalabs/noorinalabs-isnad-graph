@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import create_app
-from src.auth.tokens import create_access_token
+from src.api.middleware import require_auth
+from src.auth.models import User
 from src.utils.neo4j_client import Neo4jClient
 
 pytestmark = pytest.mark.integration
@@ -108,16 +111,27 @@ def _seed_data(neo4j_client: Neo4jClient) -> None:
     )
 
 
+def _integration_user() -> User:
+    return User(
+        id="test-integration-user",
+        email="integration@test.com",
+        name="Integration Test User",
+        provider="google",
+        provider_user_id="test-integration-user",
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+
 @pytest.fixture
 def api_client(neo4j_client: Neo4jClient, _seed_data: None) -> TestClient:
     """FastAPI TestClient backed by a real Neo4j container."""
     app = create_app()
     app.state.neo4j = neo4j_client
-    token = create_access_token("test-integration-user")
+    app.dependency_overrides[require_auth] = _integration_user
     return TestClient(
         app,
         raise_server_exceptions=False,
-        headers={"Authorization": f"Bearer {token}"},
     )
 
 
