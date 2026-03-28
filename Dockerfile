@@ -1,7 +1,7 @@
 FROM python:3.14-slim
 WORKDIR /app
-ARG CACHE_BUST=1
 COPY pyproject.toml uv.lock ./
 RUN pip install uv && uv sync --frozen --no-dev
+ARG CACHE_BUST=1
 COPY . .
 CMD ["/app/.venv/bin/uvicorn", "src.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
