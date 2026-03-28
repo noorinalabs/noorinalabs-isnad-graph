@@ -157,7 +157,7 @@ services:
     networks:
       - backend
       - frontend
-    command: uv run uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000 --workers 4
+    command: /app/.venv/bin/uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000 --workers 4
     restart: unless-stopped
 
   frontend:
