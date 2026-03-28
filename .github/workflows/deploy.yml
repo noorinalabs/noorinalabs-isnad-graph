@@ -14,21 +14,22 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Deploy to Hetzner VPS
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
           NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          CACHE_BUST: ${{ github.sha }}
         with:
           host: ${{ vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          envs: NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD
+          envs: NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD,CACHE_BUST
           script: |
             set -euo pipefail
             cd /opt/isnad-graph
@@ -44,13 +45,16 @@ jobs:
             export POSTGRES_DB="$POSTGRES_DB"
             export REDIS_PASSWORD="$REDIS_PASSWORD"
 
-            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            docker compose -f docker-compose.prod.yml build \
+              --build-arg CACHE_BUST="$CACHE_BUST"
+            docker compose -f docker-compose.prod.yml up -d \
+              --force-recreate --remove-orphans
 
             echo "==> Waiting for services to stabilize..."
             sleep 10
 
       - name: Verify health check
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: deploy
@@ -78,6 +82,20 @@ jobs:
             docker compose -f /opt/isnad-graph/docker-compose.prod.yml ps --format '{{.Name}}\t{{.Status}}'
 
             echo "==> Deployment verified successfully"
+
+      - name: Clean up Docker build cache
+        if: always()
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          script: |
+            echo "==> Pruning Docker build cache (keeping 2G)..."
+            docker builder prune -f --keep-storage 2G || true
+
+            echo "==> Removing dangling images older than 7 days..."
+            docker image prune -f --filter "until=168h" || true
 
       - name: Report deployment status
         if: always()

@@ -1,5 +1,6 @@
 FROM python:3.14-slim
 WORKDIR /app
+ARG CACHE_BUST=1
 COPY pyproject.toml uv.lock ./
 RUN pip install uv && uv sync --frozen --no-dev
 COPY . .
