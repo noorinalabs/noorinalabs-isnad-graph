@@ -118,12 +118,16 @@ services:
     build: .
     expose:
       - "8000"
+    # Security: read_only prevents runtime writes to the container filesystem.
+    # The venv and application code are baked into the image at build time.
+    # Only /tmp is writable at runtime (via tmpfs) for Python temp files.
     read_only: true
     tmpfs:
+      # Python stdlib (tempfile, multiprocessing) and uvicorn need a writable /tmp
       - /tmp:size=256M
-      - /root/.cache:size=64M
     environment:
       - NEO4J_URI=bolt://neo4j:7687
+      # NEO4J_USER must be "neo4j" — Neo4j requires the admin account to use this name
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
       - PG_DSN=postgresql://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
@@ -157,6 +161,9 @@ services:
     networks:
       - backend
       - frontend
+    # Uses the venv baked into the image at build time — NOT `uv run`, which would
+    # trigger a full dependency reinstall at startup and fail on a read_only filesystem.
+    # This is the single source of truth for the uvicorn command (Dockerfile has no CMD).
     command: /app/.venv/bin/uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port 8000 --workers 4
     restart: unless-stopped
 
