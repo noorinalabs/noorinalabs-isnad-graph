@@ -13,7 +13,7 @@ services:
     build:
       context: ./infra/neo4j
       dockerfile: Dockerfile
-    image: isnad-graph-neo4j:5-community
+    image: isnad-graph-neo4j:5.26.23-community
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.2-pg16
     ports:
       - "127.0.0.1:5432:5432"
     environment:
@@ -82,7 +82,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.8-alpine
     ports:
       - "127.0.0.1:6379:6379"
     command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
@@ -200,7 +200,7 @@ services:
   # --- Reverse Proxy ---
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.2-alpine
     ports:
       - "80:80"
       - "443:443"

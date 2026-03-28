@@ -7,7 +7,7 @@
 # When upgrading Neo4j, check the compatible GDS version at:
 #   https://graphdatascience.ninja/versions.json
 
-ARG NEO4J_VERSION=5-community
+ARG NEO4J_VERSION=5.26.23-community
 FROM neo4j:${NEO4J_VERSION}
 
 ARG GDS_VERSION=2.13.8
