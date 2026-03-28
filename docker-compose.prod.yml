@@ -121,8 +121,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=256M
-      - /root/.cache:size=512M
-      - /app/.venv:size=512M
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
