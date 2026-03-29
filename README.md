@@ -268,7 +268,8 @@ isnad-graph/
 ├── tests/                  # Test suite (pytest)
 │   ├── test_models/
 │   └── test_utils/
-├── docs/                   # PRD, phase specs, Mermaid diagrams
+├── docs/                   # PRD, phase specs, Mermaid diagrams, ops guide
+│   └── ops-url-guide.md    # All admin/monitoring URLs and troubleshooting
 ├── queries/                # Cypher queries
 │   ├── analysis/           # Analytical queries
 │   └── validation/         # Data validation queries
