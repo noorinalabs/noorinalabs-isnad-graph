@@ -8,12 +8,12 @@ setup: ## Install dependencies with uv
 
 setup-hooks: ## Configure git hooks (legacy .githooks + pre-commit)
 	git config core.hooksPath .githooks
-	uv run pre-commit install
+	uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
 	@echo "Git hooks configured (branch-name via .githooks, pre-commit via pre-commit framework)."
 
 hooks: ## Install pre-commit hooks (one-time setup after clone)
-	uv run pre-commit install
-	@echo "Pre-commit hooks installed. They will run on every commit."
+	uv run pre-commit install --hook-type pre-commit --hook-type commit-msg
+	@echo "Pre-commit hooks installed (pre-commit + commit-msg). They will run on every commit."
 
 infra: ## Start Docker services
 	docker compose up -d

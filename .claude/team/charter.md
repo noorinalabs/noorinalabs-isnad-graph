@@ -709,6 +709,52 @@ After every wave completes and the deployments branch is PR'd to main:
 2. Update any stale diagrams or documentation.
 3. The System Architect (Renaud) owns diagram accuracy; the Manager owns doc accuracy.
 
+## Automated Enforcement (Git Hooks)
+
+### Pre-commit Hook: Branch Ownership (#494)
+
+**What:** `.githooks/pre-commit` validates that the current branch starts with `{FirstInitial}.{LastName}/` matching the committer's `user.name`.
+
+**Augments:** § Branching Rules → Feature Branches → "Worktree branch safety" paragraph. The manual instruction to "run `git branch --show-current` and confirm" is now enforced automatically.
+
+**Exempt branches:** `main`, `deployments/*`, `worktree-*`, `CEO/*`, and detached HEAD states (rebases).
+
+**Remaining manual steps:** None for standard workflow. Engineers still must use `-c user.name=...` flags — the hook reads that value.
+
+**Emergency override:** `SKIP_BRANCH_CHECK=1 git commit ...`
+
+**Installation:** Included in `.pre-commit-config.yaml` (hook ID: `branch-ownership`). Also runs via `.githooks/pre-commit` when `core.hooksPath` is set.
+
+---
+
+### Commit-msg Hook: Co-Authored-By Trailers (#495)
+
+**What:** `.githooks/commit-msg` validates that every commit includes both required Co-Authored-By trailers: one for the team member (matching a known roster member) and one for Claude.
+
+**Augments:** § Commit Identity. The manual requirement to "include two Co-Authored-By trailers" is now enforced automatically at commit time.
+
+**Validated trailers:**
+1. `Co-Authored-By: <roster member name> <parametrization+...@gmail.com>`
+2. `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
+
+**Remaining manual steps:** When a new team member is hired (fire-and-replace), their name MUST be added to the `ROSTER_MEMBERS` array in `.githooks/commit-msg`. Without this, their commits will be rejected.
+
+**Emergency override:** `SKIP_TRAILER_CHECK=1 git commit ...`
+
+**Installation:** Included in `.pre-commit-config.yaml` (hook ID: `co-authored-by-trailers`, stage: `commit-msg`). Run `make hooks` to install both pre-commit and commit-msg hooks.
+
+---
+
+### GitHub Branch Protection: Require Review (#496)
+
+**What:** GitHub repository ruleset (ID: 14482071) requiring at least 1 approving review on all PRs targeting `deployments/**` branches. Stale reviews are dismissed on new pushes. CODEOWNERS review is not required (we use label-based assignment).
+
+**Augments:** § Code Review & Tech Debt → Peer Review and § Pull Requests → PR Review Workflow. The charter's "No PR may be merged without at least one peer review comment" is now a hard GitHub gate — PRs cannot be merged without an approving review.
+
+**Remaining manual steps:** Peer reviewers must still post an explicit approval (via GitHub review, not just a comment). The ruleset enforces the review but does not verify the reviewer is the designated peer from the wave kickoff.
+
+**Emergency override:** Repository admins can bypass the ruleset via the GitHub UI (Settings → Rules → "Require review on deployments branches" → add bypass actor). This should only be used for hotfix scenarios with Manager approval.
+
 ## Automated Skills (Claude Code)
 
 The following Claude Code skills automate recurring team processes. Each skill is a markdown file in `.claude/skills/` and is invoked via `/skill-name` in Claude Code.
