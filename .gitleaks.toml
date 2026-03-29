@@ -1,0 +1,5 @@
+# Gitleaks configuration — allowlist for test fixtures
+[allowlist]
+  paths = [
+    '''tests/.*''',
+  ]

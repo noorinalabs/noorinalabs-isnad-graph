@@ -132,7 +132,12 @@ def refresh(body: RefreshRequest) -> JSONResponse:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
     # Revoke the old refresh token (rotation)
-    revoke_token(body.refresh_token)
+    revoked_ok = revoke_token(body.refresh_token)
+    if not revoked_ok:
+        raise HTTPException(
+            status_code=503,
+            detail="Token revocation service unavailable — refresh rejected for safety",
+        )
 
     settings = get_settings().auth
     new_access = create_access_token(user_id)

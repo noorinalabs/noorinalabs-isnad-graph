@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import time
 import uuid
 from datetime import UTC, datetime
@@ -80,6 +81,40 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
                     content=f"Request body too large. Maximum size: {self.max_body_size} bytes",
                 )
         return await call_next(request)
+
+
+def _parse_trusted_proxies(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """Parse a comma-separated list of trusted proxy CIDRs/IPs into network objects."""
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        networks.append(ipaddress.ip_network(entry, strict=False))
+    return networks
+
+
+def _is_trusted_proxy(
+    client_host: str,
+    trusted: list[ipaddress.IPv4Network | ipaddress.IPv6Network],
+) -> bool:
+    """Return True if *client_host* falls within any trusted proxy network."""
+    try:
+        addr = ipaddress.ip_address(client_host)
+    except ValueError:
+        return False
+    return any(addr in network for network in trusted)
+
+
+def _get_client_ip(request: StarletteRequest, trusted_proxies: str) -> str:
+    """Extract the real client IP, respecting X-Forwarded-For only from trusted proxies."""
+    direct_ip = request.client.host if request.client else "unknown"
+    trusted = _parse_trusted_proxies(trusted_proxies)
+    if _is_trusted_proxy(direct_ip, trusted):
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return direct_ip
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -174,7 +209,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: StarletteRequest, call_next: RequestResponseEndpoint
     ) -> Response:
-        client_ip = request.client.host if request.client else "unknown"
+        from src.config import get_settings
+
+        trusted_proxies = get_settings().rate_limit.trusted_proxies
+        client_ip = _get_client_ip(request, trusted_proxies)
         now = time.time()
 
         allowed = self._check_redis(client_ip, now)
