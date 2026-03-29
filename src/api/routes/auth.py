@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from src.api.middleware import require_auth
-from src.auth.models import AuthorizationUrlResponse, RefreshRequest, User
+from src.auth.models import RefreshRequest, User
 from src.auth.providers import PROVIDERS, get_provider, retrieve_pkce_verifier, store_pkce_verifier
 from src.auth.tokens import create_access_token, create_refresh_token, revoke_token, verify_token
 from src.config import get_settings
@@ -27,10 +27,7 @@ def _build_redirect_uri(provider: str) -> str:
     return f"{base}/api/v1/auth/callback/{provider}"
 
 
-@router.post(
-    "/auth/login/{provider}",
-    response_model=AuthorizationUrlResponse,
-)
+@router.post("/auth/login/{provider}")
 def login(provider: str) -> JSONResponse:
     """Initiate OAuth flow — return the provider's authorization URL."""
     if provider not in PROVIDERS:
