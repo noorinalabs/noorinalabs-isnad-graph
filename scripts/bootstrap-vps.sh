@@ -29,7 +29,7 @@ fi
 # ── Step 1: System packages ─────────────────────────────────────────────────
 echo "==> [1/7] Installing system packages..."
 apt-get update -qq
-apt-get install -y -qq docker.io docker-compose-v2 docker-buildx git curl > /dev/null
+apt-get install -y -qq docker.io docker-compose-v2 docker-buildx git curl zstd > /dev/null
 systemctl enable docker
 systemctl start docker
 echo "    Docker version: $(docker --version)"
