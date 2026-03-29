@@ -133,11 +133,3 @@ class AuthorizationUrlResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     authorization_url: str
-
-
-class RefreshRequest(BaseModel):
-    """Refresh token request body."""
-
-    model_config = ConfigDict(frozen=True)
-
-    refresh_token: str
