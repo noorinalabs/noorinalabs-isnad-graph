@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, Response
 
 from src.api.middleware import require_auth
-from src.auth.models import AuthorizationUrlResponse, RefreshRequest, TokenResponse, User
+from src.auth.models import RefreshRequest, User
 from src.auth.providers import PROVIDERS, get_provider, retrieve_pkce_verifier, store_pkce_verifier
 from src.auth.tokens import create_access_token, create_refresh_token, revoke_token, verify_token
 from src.config import get_settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+_OAUTH_STATE_COOKIE = "oauth_state"
 
 
 def _build_redirect_uri(provider: str) -> str:
@@ -21,11 +27,8 @@ def _build_redirect_uri(provider: str) -> str:
     return f"{base}/api/v1/auth/callback/{provider}"
 
 
-@router.post(
-    "/auth/login/{provider}",
-    response_model=AuthorizationUrlResponse,
-)
-def login(provider: str) -> AuthorizationUrlResponse:
+@router.post("/auth/login/{provider}")
+def login(provider: str) -> JSONResponse:
     """Initiate OAuth flow — return the provider's authorization URL."""
     if provider not in PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
@@ -38,14 +41,33 @@ def login(provider: str) -> AuthorizationUrlResponse:
     # Persist PKCE verifier so the callback can use it
     store_pkce_verifier(state, verifier)
 
-    return AuthorizationUrlResponse(authorization_url=url)
+    settings = get_settings().auth
+    response = JSONResponse(content={"authorization_url": url})
+    response.set_cookie(
+        key=_OAUTH_STATE_COOKIE,
+        value=state,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=600,
+        path="/",
+    )
+    return response
 
 
-@router.get("/auth/callback/{provider}", response_model=TokenResponse)
-async def callback(provider: str, code: str, state: str) -> TokenResponse:
+@router.get("/auth/callback/{provider}")
+async def callback(provider: str, code: str, state: str, request: Request) -> JSONResponse:
     """Handle OAuth callback — exchange code for tokens."""
     if provider not in PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+
+    # Validate state parameter against session cookie (CSRF protection)
+    cookie_state = request.cookies.get(_OAUTH_STATE_COOKIE)
+    if not cookie_state or not secrets.compare_digest(cookie_state, state):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid OAuth state — possible CSRF attack. Please retry login.",
+        )
 
     oauth_provider = get_provider(provider)
     redirect_uri = _build_redirect_uri(provider)
@@ -57,8 +79,11 @@ async def callback(provider: str, code: str, state: str) -> TokenResponse:
         user_info = await oauth_provider.exchange_code(
             code=code, redirect_uri=redirect_uri, code_verifier=code_verifier
         )
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {exc}") from exc
+    except Exception:
+        logger.exception("OAuth code exchange failed for provider=%s", provider)
+        raise HTTPException(  # noqa: B904
+            status_code=400, detail="OAuth authentication failed. Please try again."
+        )
 
     # Use provider + provider_user_id as the internal user ID
     user_id = f"{user_info.provider}:{user_info.provider_user_id}"
@@ -67,16 +92,32 @@ async def callback(provider: str, code: str, state: str) -> TokenResponse:
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=settings.access_token_expire_minutes * 60,
+    response = JSONResponse(content={"status": "ok"})
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
     )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 86400,
+        path="/",
+    )
+    # Clear the one-time-use oauth_state cookie
+    response.delete_cookie(_OAUTH_STATE_COOKIE, path="/")
+    return response
 
 
-@router.post("/auth/refresh", response_model=TokenResponse)
-def refresh(body: RefreshRequest) -> TokenResponse:
+@router.post("/auth/refresh")
+def refresh(body: RefreshRequest) -> JSONResponse:
     """Refresh an access token using a valid refresh token (with rotation)."""
     try:
         payload = verify_token(body.refresh_token)
@@ -97,20 +138,42 @@ def refresh(body: RefreshRequest) -> TokenResponse:
     new_access = create_access_token(user_id)
     new_refresh = create_refresh_token(user_id)
 
-    return TokenResponse(
-        access_token=new_access,
-        refresh_token=new_refresh,
-        token_type="bearer",
-        expires_in=settings.access_token_expire_minutes * 60,
+    response = JSONResponse(content={"status": "ok"})
+    response.set_cookie(
+        key="access_token",
+        value=new_access,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
     )
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 86400,
+        path="/",
+    )
+    return response
 
 
 @router.post("/auth/logout", status_code=204)
-def logout(user: User = Depends(require_auth)) -> None:
+def logout(request: Request, user: User = Depends(require_auth)) -> Response:
     """Invalidate the current session (revoke tokens)."""
-    # In a full implementation, we'd revoke the refresh token from a store.
-    # The access token is short-lived and will expire naturally.
-    return None
+    access_token = request.cookies.get("access_token")
+    refresh_token = request.cookies.get("refresh_token")
+    if access_token:
+        revoke_token(access_token)
+    if refresh_token:
+        revoke_token(refresh_token)
+    response = Response(status_code=204)
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie("token_expires_at", path="/")
+    return response
 
 
 @router.get("/auth/me", response_model=User)

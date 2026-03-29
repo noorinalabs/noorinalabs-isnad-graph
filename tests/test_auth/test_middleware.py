@@ -81,9 +81,12 @@ class TestRefreshEndpoint:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["token_type"] == "bearer"
+        assert data["status"] == "ok"
+        # Tokens must be in httpOnly cookies, not in the response body
+        assert "access_token" not in data
+        assert "refresh_token" not in data
+        assert "access_token" in resp.cookies
+        assert "refresh_token" in resp.cookies
 
     def test_refresh_with_invalid_token(self, client: TestClient) -> None:
         resp = client.post(
