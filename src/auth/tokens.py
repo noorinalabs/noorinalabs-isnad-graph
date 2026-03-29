@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -11,15 +10,18 @@ from cachetools import TTLCache
 from jose import JWTError, jwt
 
 from src.config import get_settings
+from src.utils.logging import get_logger
 from src.utils.redis_client import get_redis_client
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Bounded in-memory fallback with TTL matching access token lifetime (30 min)
 _revoked_tokens: TTLCache[str, bool] = TTLCache(maxsize=10_000, ttl=1800)
 
 
-def create_access_token(user_id: str, expires_minutes: int | None = None) -> str:
+def create_access_token(
+    user_id: str, expires_minutes: int | None = None, role: str = "viewer"
+) -> str:
     """Create a JWT access token for the given user."""
     settings = get_settings().auth
     if expires_minutes is None:
@@ -31,6 +33,7 @@ def create_access_token(user_id: str, expires_minutes: int | None = None) -> str
         "exp": expire,
         "iat": datetime.now(UTC),
         "jti": secrets.token_hex(16),
+        "role": role,
     }
     return str(jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm))
 

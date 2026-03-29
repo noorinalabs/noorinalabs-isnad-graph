@@ -13,7 +13,10 @@ from src.api.models import (
     ModerationUpdateRequest,
     PaginatedResponse,
 )
+from src.utils.logging import get_logger
 from src.utils.neo4j_client import Neo4jClient
+
+log = get_logger(__name__)
 
 router = APIRouter()
 
@@ -73,6 +76,7 @@ def update_moderation_item(
     )
     if not rows:
         raise HTTPException(status_code=404, detail="Moderation item not found")
+    log.info("moderation_item_updated", item_id=item_id, status=body.status)
     return ModerationItemResponse(**rows[0]["props"])
 
 
@@ -98,6 +102,7 @@ def flag_content(
         })
         RETURN properties(m) AS props
     """
+    log.info("content_flagged", entity_type=body.entity_type, entity_id=body.entity_id)
     rows = neo4j.execute_write(
         query,
         {

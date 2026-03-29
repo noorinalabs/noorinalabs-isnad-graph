@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import secrets
 import time
 from abc import ABC, abstractmethod
@@ -14,9 +13,10 @@ import httpx
 import redis as redis_lib
 
 from src.config import get_settings
+from src.utils.logging import get_logger
 from src.utils.redis_client import get_redis_client
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
