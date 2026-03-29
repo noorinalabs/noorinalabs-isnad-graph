@@ -30,11 +30,13 @@ def _clean_settings_cache() -> None:
 def test_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     """Test settings with safe defaults."""
     monkeypatch.delenv("PG_DSN", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "test")
     for key in list(os.environ):
         if key.startswith(("NEO4J_", "PG_", "REDIS_", "AUTH_")):
             monkeypatch.delenv(key, raising=False)
     return Settings(
         _env_file=None,
+        environment="test",
         neo4j=Neo4jSettings(
             _env_file=None, uri="bolt://localhost:7687", user="neo4j", password="test"
         ),

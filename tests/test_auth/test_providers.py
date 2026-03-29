@@ -166,7 +166,7 @@ class TestOAuthRedirectURI:
         mock_settings = MagicMock()
         mock_auth = AuthSettings(
             _env_file=None,
-            jwt_secret="test",
+            jwt_secret="test" * 8,  # 32 chars, low entropy
             oauth_redirect_base_url="https://example.com/",
         )
         mock_settings.auth = mock_auth

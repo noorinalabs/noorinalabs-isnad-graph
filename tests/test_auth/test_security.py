@@ -22,10 +22,11 @@ def _clean_settings_cache() -> None:
 def test_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     """Test settings with safe defaults, env vars cleared to avoid .env conflicts."""
     monkeypatch.delenv("PG_DSN", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "test")
     for key in list(os.environ):
         if key.startswith(("NEO4J_", "PG_", "REDIS_")):
             monkeypatch.delenv(key, raising=False)
-    return Settings(_env_file=None)
+    return Settings(_env_file=None, environment="test")
 
 
 @pytest.fixture(autouse=True)

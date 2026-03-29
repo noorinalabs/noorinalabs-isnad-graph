@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+import secrets
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Neo4jSettings(BaseSettings):
@@ -31,6 +36,7 @@ class RateLimitSettings(BaseSettings):
 
     requests_per_minute: int = 120
     window_seconds: int = 60
+    trusted_proxies: str = "127.0.0.1,::1,172.16.0.0/12,10.0.0.0/8"
 
     model_config = SettingsConfigDict(env_prefix="RATE_LIMIT_")
 
@@ -43,13 +49,17 @@ class RedisSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
 
+_JWT_WEAK_DEFAULT = "dev-secret-change-in-production"
+
+
 class AuthSettings(BaseSettings):
     """OAuth and JWT authentication settings."""
 
-    jwt_secret: str = "dev-secret-change-in-production"
+    jwt_secret: str = _JWT_WEAK_DEFAULT
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+    cookie_secure: bool = True
     google_client_id: str = ""
     google_client_secret: str = ""
     apple_client_id: str = ""
@@ -61,6 +71,39 @@ class AuthSettings(BaseSettings):
     oauth_redirect_base_url: str = "http://localhost:8000"
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
+
+    @model_validator(mode="after")
+    def _validate_jwt_secret(self) -> AuthSettings:
+        """Reject weak JWT secrets in production environments."""
+        # Import here to avoid circular dependency; environment is on the root Settings,
+        # but AuthSettings is constructed standalone too. We read the env var directly.
+        import os
+
+        environment = os.environ.get("ENVIRONMENT", "production").lower()
+        is_dev = environment in {"dev", "development", "test", "testing"}
+
+        if self.jwt_secret == _JWT_WEAK_DEFAULT:
+            if is_dev:
+                generated = secrets.token_urlsafe(32)
+                object.__setattr__(self, "jwt_secret", generated)
+                logger.warning(
+                    "JWT secret was the insecure default — generated a random secret for %s. "
+                    "Set AUTH_JWT_SECRET in .env for stable tokens across restarts.",
+                    environment,
+                )
+            else:
+                raise ValueError(
+                    "AUTH_JWT_SECRET must be explicitly set in production. "
+                    "The default value is not allowed outside dev/test environments."
+                )
+        elif len(self.jwt_secret) < 32:
+            if not is_dev:
+                raise ValueError(
+                    f"AUTH_JWT_SECRET must be at least 32 characters in production "
+                    f"(got {len(self.jwt_secret)}). Generate one with: "
+                    f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+        return self
 
 
 class SecurityHeaderSettings(BaseSettings):
@@ -78,6 +121,8 @@ class SecurityHeaderSettings(BaseSettings):
 
 class Settings(BaseSettings):
     """Root application settings, composed from nested service settings."""
+
+    environment: str = "production"
 
     neo4j: Neo4jSettings = Neo4jSettings()
     postgres: PostgresSettings = PostgresSettings()

@@ -9,6 +9,12 @@ import pytest
 from src.config import Neo4jSettings, Settings, get_settings
 
 
+@pytest.fixture(autouse=True)
+def _test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure all config tests run in test environment."""
+    monkeypatch.setenv("ENVIRONMENT", "test")
+
+
 class TestSettingsDefaults:
     """Settings loads with expected default values."""
 
