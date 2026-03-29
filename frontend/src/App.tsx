@@ -13,6 +13,7 @@ import SearchPage from './pages/SearchPage'
 import TimelinePage from './pages/TimelinePage'
 import ComparativePage from './pages/ComparativePage'
 import GraphExplorerPage from './pages/GraphExplorerPage'
+import OAuthCallbackPage from './pages/OAuthCallbackPage'
 import UserManagementPage from './pages/admin/UserManagementPage'
 import SystemHealthPage from './pages/admin/SystemHealthPage'
 import ContentStatsPage from './pages/admin/ContentStatsPage'
@@ -48,6 +49,7 @@ export default function App() {
               <Route path="timeline" element={<TimelinePage />} />
               <Route path="compare" element={<ComparativePage />} />
               <Route path="graph" element={<GraphExplorerPage />} />
+              <Route path="auth/callback/:provider" element={<OAuthCallbackPage />} />
             </Route>
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/users" replace />} />
