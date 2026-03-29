@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import secrets
+import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import RedirectResponse, Response
 
 from src.api.middleware import require_auth
@@ -23,7 +24,7 @@ def _build_redirect_uri(provider: str) -> str:
 
 
 def _set_token_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    """Set httpOnly cookie pair on a response."""
+    """Set httpOnly cookie pair and a readable expiry metadata cookie on a response."""
     settings = get_settings().auth
     common: dict[str, object] = {
         "httponly": True,
@@ -44,6 +45,23 @@ def _set_token_cookies(response: Response, access_token: str, refresh_token: str
         value=refresh_token,
         max_age=settings.refresh_token_expire_days * 86400,
         **common,  # type: ignore[arg-type]
+    )
+    # Non-httpOnly metadata cookie so the frontend can read token expiry
+    # and trigger proactive refresh before the access token expires.
+    expires_at = int(time.time()) + settings.access_token_expire_minutes * 60
+    meta_common: dict[str, object] = {
+        "httponly": False,
+        "samesite": "lax",
+        "secure": settings.cookie_secure,
+        "path": "/",
+    }
+    if settings.cookie_domain:
+        meta_common["domain"] = settings.cookie_domain
+    response.set_cookie(
+        key="token_expires_at",
+        value=str(expires_at),
+        max_age=settings.access_token_expire_minutes * 60,
+        **meta_common,  # type: ignore[arg-type]
     )
 
 
@@ -114,12 +132,16 @@ async def callback(provider: str, code: str, state: str) -> RedirectResponse:
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)
-def refresh(body: RefreshRequest) -> Response:
+def refresh(request: Request, body: RefreshRequest | None = None) -> Response:
     """Refresh an access token using a valid refresh token (with rotation).
 
+    Accepts the refresh token from a JSON body OR from the httpOnly
+    ``refresh_token`` cookie (for browser clients that cannot read the cookie).
     Returns new tokens as JSON AND sets updated httpOnly cookies.
     """
-    token = body.refresh_token
+    token = body.refresh_token if body else None
+    if not token:
+        token = request.cookies.get("refresh_token")
     if not token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
 
@@ -161,6 +183,7 @@ def logout(user: User = Depends(require_auth)) -> Response:
     response = Response(status_code=204)
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie("token_expires_at", path="/")
     return response
 
 

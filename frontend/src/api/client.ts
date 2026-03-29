@@ -52,6 +52,11 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) {
     const refreshed = await refreshOnce()
     if (refreshed) {
+      // Notify useAuth to re-fetch user state after token refresh
+      const refreshFn = (window as unknown as Record<string, unknown>).__refreshAuthState
+      if (typeof refreshFn === 'function') {
+        ;(refreshFn as () => Promise<void>)()
+      }
       const retry = await fetch(url, {
         ...init,
         credentials: 'include',
