@@ -69,7 +69,6 @@ class AuthSettings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
     oauth_redirect_base_url: str = "http://localhost:8000"
-    cookie_secure: bool = True
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
 
@@ -102,7 +101,7 @@ class AuthSettings(BaseSettings):
                 raise ValueError(
                     f"AUTH_JWT_SECRET must be at least 32 characters in production "
                     f"(got {len(self.jwt_secret)}). Generate one with: "
-                    f"python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                    f'python -c "import secrets; print(secrets.token_urlsafe(32))"'
                 )
         return self
 
