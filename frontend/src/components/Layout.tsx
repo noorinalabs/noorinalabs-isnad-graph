@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import HeaderAuth from './HeaderAuth'
 
 export default function Layout() {
   return (
@@ -7,6 +8,7 @@ export default function Layout() {
       <header className="flex-row" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid #ddd' }}>
         <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Isnad Graph</h1>
         <span className="small-muted">Hadith Analysis Platform</span>
+        <HeaderAuth />
       </header>
       <div style={{ display: 'flex', flex: 1 }}>
         <Sidebar />
