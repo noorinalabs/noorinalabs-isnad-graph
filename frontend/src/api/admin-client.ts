@@ -63,6 +63,7 @@ export async function fetchContentStats(): Promise<ContentStats> {
   return fetchAdminJson(`${API_BASE}/stats`)
 }
 
-export async function fetchUsageAnalytics(): Promise<UsageAnalytics> {
-  return fetchAdminJson(`${API_BASE}/analytics`)
+export async function fetchUsageAnalytics(timeRange = '24h'): Promise<UsageAnalytics> {
+  const params = new URLSearchParams({ time_range: timeRange })
+  return fetchAdminJson(`${API_BASE}/analytics?${params}`)
 }

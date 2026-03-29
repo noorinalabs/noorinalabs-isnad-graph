@@ -1,18 +1,44 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchUsageAnalytics } from '../../api/admin-client'
 
+const TIME_RANGES = [
+  { value: '1h', label: 'Last 1 hour' },
+  { value: '24h', label: 'Last 24 hours' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+] as const
+
+type TimeRange = (typeof TIME_RANGES)[number]['value']
+
 export default function UsageAnalyticsPage() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h')
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin-analytics'],
-    queryFn: fetchUsageAnalytics,
+    queryKey: ['admin-analytics', timeRange],
+    queryFn: () => fetchUsageAnalytics(timeRange),
   })
 
   return (
     <div>
-      <h2>Usage Analytics</h2>
+      <div className="flex-row" style={{ alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ margin: 0 }}>Usage Analytics</h2>
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+          className="form-input"
+          style={{ marginLeft: 'auto', width: 'auto' }}
+        >
+          {TIME_RANGES.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {isLoading && <p>Loading analytics...</p>}
+      {error && <p className="error-text">Failed to load analytics: {(error as Error).message}</p>}
 
       {data && (
         <>
@@ -29,7 +55,7 @@ export default function UsageAnalyticsPage() {
 
           <h3>Popular Narrators</h3>
           {data.popular_narrators.length === 0 ? (
-            <p className="muted-text">No data available yet.</p>
+            <p className="muted-text">No data available for this time range.</p>
           ) : (
             <table className="data-table" style={{ maxWidth: 600 }}>
               <thead>

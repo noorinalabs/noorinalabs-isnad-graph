@@ -7,6 +7,9 @@ const adminNavItems = [
   { to: '/admin/health', label: 'System Health' },
   { to: '/admin/stats', label: 'Content Stats' },
   { to: '/admin/analytics', label: 'Usage Analytics' },
+  { to: '/admin/moderation', label: 'Moderation' },
+  { to: '/admin/reports', label: 'Reports' },
+  { to: '/admin/config', label: 'Configuration' },
 ]
 
 export default function AdminLayout() {
