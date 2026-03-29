@@ -444,10 +444,23 @@ When all work on a feature branch is complete (code committed, peer review done,
 
 **PR ownership:** Only the engineer who implemented the work creates the PR. The Manager and leads must NOT create duplicate PRs for the same branch. If the Manager needs to add a fix (e.g., a CVE bump) to an existing branch, they coordinate with the engineer to push to that branch — they do not create a separate PR.
 
+### Self-Service Peer Review (No Waiting)
+
+**Engineers must not go idle after creating a PR.** The PR creator is responsible for driving the review to completion:
+
+1. **After creating a PR**, immediately notify the designated peer reviewer (assigned at wave kickoff) via SendMessage with the PR URL and a summary of what to review.
+2. **If the peer reviewer is idle**, the message will wake them up — they must review and respond.
+3. **If the peer reviewer does not respond** (terminated, blocked, or unavailable), the PR creator must:
+   - Notify the team lead (orchestrator) that the review is blocked
+   - The team lead will either re-spawn the reviewer or assign an alternate
+4. **Do NOT go idle waiting for a review.** If you have other issues assigned, start the next one while the review is in progress. If no other issues, notify the team lead that you are available for review work yourself.
+
+This prevents the stall pattern where all engineers finish their PRs, go idle, and wait indefinitely for reviews that never come.
+
 ### PR Review Workflow for Deployments Branch PRs
 
 1. **Create the PR** targeting `deployments/phase{N}/wave-{M}`.
-2. **Notify a reviewer** — the PR creator must notify at least one person from their team or organizational tree (e.g., a peer engineer, their lead, or another team member in their reporting chain) to review the PR. Use SendMessage or a GitHub comment to notify.
+2. **Notify the designated peer reviewer** via SendMessage with the PR URL. Do not just post a GitHub comment — actively message them.
 3. **Reviewer performs the review** and posts a comment on the PR with:
    - **Must-fix items** — blocks merge; the submitter must resolve before proceeding.
    - **Tech debt items** — does not block merge; tracked as GitHub Issues.
@@ -458,7 +471,7 @@ When all work on a feature branch is complete (code committed, peer review done,
    - **No agreement reached**: Escalate to the project owner (user) to make the final call. Do not merge until resolved.
    - **Must-fix items**: Fix immediately and push to the branch.
    - **Quick-fix tech debt**: Fix immediately if minimal impact.
-   - **Non-trivial tech debt**: Create a GitHub Issue assigned to themselves (labeled `tech-debt` + their `FIRSTNAME_LASTNAME` label) for the Tech Lead to allocate in future planning (max 20% of any team member's capacity).
+   - **Non-trivial tech debt / non-blocking issues**: Create a **separate GitHub Issue** for each item, labeled `tech-debt` + their `FIRSTNAME_LASTNAME` label, targeted at the next wave. These must be individual issues — not a list in a comment or a single umbrella ticket. The Tech Lead allocates them in future planning (max 20% of any team member's capacity).
 5. **Push final changes** from the review fixes.
 6. **The team merges** the PR into the deployments branch themselves — no user approval needed for PRs into deployments branches.
 
@@ -536,6 +549,16 @@ git pull
 ```
 
 This applies to all agents, including worktree-based agents that need to navigate to their worktree directory.
+
+## Pre-Commit Hook Bypass for Docs-Only Changes
+
+When a commit contains **only markdown files** (`.md`), skip all pre-commit hooks:
+
+```bash
+git commit --no-verify -m "..."
+```
+
+Running linters, type checkers, and test suites on documentation changes wastes time and risks false failures from pre-existing issues.
 
 ## Commit Identity
 
