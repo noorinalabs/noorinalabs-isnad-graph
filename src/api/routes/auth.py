@@ -21,9 +21,7 @@ router = APIRouter()
 _OAUTH_STATE_COOKIE = "oauth_state"
 
 
-def _set_token_cookies(
-    response: Response, access_token: str, refresh_token: str
-) -> None:
+def _set_token_cookies(response: Response, access_token: str, refresh_token: str) -> None:
     """Set httpOnly access and refresh token cookies on a response."""
     settings = get_settings().auth
     response.set_cookie(
