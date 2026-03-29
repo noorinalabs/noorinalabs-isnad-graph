@@ -23,6 +23,48 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       # ---------------------------------------------------------------
+      # VPS prerequisite verification
+      # Checks that all required tools are present on the VPS before
+      # attempting backup or deploy. Required tools:
+      #   - docker / docker compose  (container runtime)
+      #   - rclone                   (B2 backup upload/download)
+      #   - zstd                     (Neo4j dump compression)
+      #   - sha256sum                (backup checksum verification)
+      #   - git                      (code checkout / rollback)
+      # If any are missing, the step fails with an actionable message.
+      # Install missing tools via bootstrap-vps.sh or:
+      #   apt-get install -y zstd && curl -sL https://rclone.org/install.sh | bash
+      # ---------------------------------------------------------------
+      - name: Verify VPS prerequisites
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            echo "==> Verifying VPS prerequisites..."
+            MISSING=""
+            for cmd in docker rclone zstd sha256sum git; do
+              if ! command -v "$cmd" &>/dev/null; then
+                MISSING="${MISSING} ${cmd}"
+              fi
+            done
+            if ! docker compose version &>/dev/null; then
+              MISSING="${MISSING} docker-compose-v2"
+            fi
+            if [[ -n "$MISSING" ]]; then
+              echo "::error::Missing required VPS tools:${MISSING}"
+              echo ""
+              echo "Install missing prerequisites by running bootstrap-vps.sh on the VPS,"
+              echo "or install manually:"
+              echo "  apt-get install -y zstd"
+              echo "  curl -sL https://rclone.org/install.sh | bash"
+              exit 1
+            fi
+            echo "==> All prerequisites verified"
+
+      # ---------------------------------------------------------------
       # Pre-deploy backup
       # Stops the API container for cross-DB consistency, runs backup.sh
       # on VPS via SSH, and records the current git commit SHA so that

@@ -165,7 +165,7 @@ def validate_staging(staging_dir: Path) -> dict[str, Any]:
             if "matn_ar" in table.column_names:
                 col = table.column("matn_ar")
                 non_null = col.drop_null()
-                ar_count = pc.sum(pc.match_substring_regex(non_null, r"[\u0600-\u06FF]")).as_py()
+                ar_count = pc.sum(pc.match_substring_regex(non_null, "[\u0600-\u06ff]")).as_py()
             if "matn_en" in table.column_names:
                 col = table.column("matn_en")
                 non_null = col.drop_null()

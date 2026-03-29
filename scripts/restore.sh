@@ -19,6 +19,7 @@
 #   ./scripts/restore.sh latest                    # Restore most recent backup
 #   ./scripts/restore.sh daily/2026-03-25          # Restore specific date
 #   ./scripts/restore.sh --force daily/2026-03-25  # Skip confirmation prompt
+#   ./scripts/restore.sh --dry-run latest          # Validate without restoring
 #   ./scripts/restore.sh --list                    # List available backups
 # =============================================================================
 set -euo pipefail
@@ -42,6 +43,7 @@ export RCLONE_CONFIG_ISNAD_ACCOUNT="${B2_KEY_ID}"
 export RCLONE_CONFIG_ISNAD_KEY="${B2_APP_KEY}"
 
 FORCE=false
+DRY_RUN=false
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -243,16 +245,22 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
+        --dry-run)
+            DRY_RUN=true
+            FORCE=true  # skip confirmation in dry-run mode
+            shift
+            ;;
         --list)
             list_backups
             exit 0
             ;;
         --help|-h)
-            echo "Usage: $0 [--force] [--list] <backup-path|latest>"
+            echo "Usage: $0 [--force] [--dry-run] [--list] <backup-path|latest>"
             echo ""
             echo "  latest              Restore the most recent backup"
             echo "  daily/2026-03-25    Restore a specific backup"
             echo "  --force             Skip confirmation prompt"
+            echo "  --dry-run           Validate backup without overwriting data"
             echo "  --list              List available backups"
             exit 0
             ;;
@@ -264,7 +272,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$BACKUP_PATH" ]]; then
-    echo "Usage: $0 [--force] [--list] <backup-path|latest>"
+    echo "Usage: $0 [--force] [--dry-run] [--list] <backup-path|latest>"
     echo "Run '$0 --list' to see available backups."
     exit 1
 fi
@@ -320,6 +328,33 @@ verify_checksums "$RESTORE_DIR"
 # Find dump files
 PG_DUMP=$(find "$RESTORE_DIR" -name 'isnad-pg-*.dump' -type f | head -1)
 NEO4J_DUMP=$(find "$RESTORE_DIR" \( -name 'isnad-neo4j-*.dump.zst' -o -name 'isnad-neo4j-*.dump' \) -type f | head -1)
+
+# ---------------------------------------------------------------------------
+# Dry-run mode: validate backup contents without restoring
+# ---------------------------------------------------------------------------
+if [[ "$DRY_RUN" == "true" ]]; then
+    log "INFO" "=== DRY RUN — validating backup without restoring ==="
+    log "INFO" "Backup source: ${RCLONE_REMOTE}:${B2_BUCKET}/${BACKUP_PATH}/"
+    log "INFO" "Checksums: PASSED"
+
+    if [[ -n "$PG_DUMP" ]]; then
+        PG_SIZE=$(du -h "$PG_DUMP" | cut -f1)
+        log "INFO" "PostgreSQL dump: $(basename "$PG_DUMP") (${PG_SIZE})"
+    else
+        log "WARNING" "No PostgreSQL dump found in backup"
+    fi
+
+    if [[ -n "$NEO4J_DUMP" ]]; then
+        NEO4J_SIZE=$(du -h "$NEO4J_DUMP" | cut -f1)
+        log "INFO" "Neo4j dump: $(basename "$NEO4J_DUMP") (${NEO4J_SIZE})"
+    else
+        log "WARNING" "No Neo4j dump found in backup"
+    fi
+
+    log "INFO" "Restore order: PostgreSQL first, then Neo4j"
+    log "INFO" "=== DRY RUN complete — no data was modified ==="
+    exit 0
+fi
 
 if [[ -n "$PG_DUMP" ]]; then
     restore_postgres "$PG_DUMP"
