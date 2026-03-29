@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Pre-commit hook: validate branch ownership
+# Ensures the current branch starts with the committer's {FirstInitial}.{LastName}/
+# Exempt: deployments/* branches, main, and worktree branches (worktree-*)
+#
+# Emergency override: SKIP_BRANCH_CHECK=1 git commit ...
+
+set -euo pipefail
+
+if [[ "${SKIP_BRANCH_CHECK:-0}" == "1" ]]; then
+    echo "WARN: Branch ownership check skipped (SKIP_BRANCH_CHECK=1)"
+    exit 0
+fi
+
+branch=$(git branch --show-current 2>/dev/null || echo "")
+
+# Detached HEAD (e.g., rebase) — allow
+if [[ -z "$branch" ]]; then
+    exit 0
+fi
+
+# Exempt branches: main, deployments/*, worktree-*, CEO/*
+if [[ "$branch" == "main" \
+   || "$branch" == deployments/* \
+   || "$branch" == worktree-* \
+   || "$branch" == CEO/* ]]; then
+    exit 0
+fi
+
+# Extract committer name from git config (set via -c user.name=...)
+committer_name=$(git config user.name 2>/dev/null || echo "")
+
+if [[ -z "$committer_name" ]]; then
+    echo "ERROR: Cannot determine committer name (git config user.name is empty)."
+    echo "Ensure you are committing with: git -c user.name=\"Firstname Lastname\" ..."
+    exit 1
+fi
+
+# Build expected prefix: first initial + last name
+first_initial=$(echo "$committer_name" | head -c 1)
+# Last name = last word of the name
+last_name=$(echo "$committer_name" | awk '{print $NF}')
+
+# Normalize diacritics for branch matching (branches use ASCII)
+# Remove common diacritics: ó→o, é→e, í→i, ú→u, á→a, ñ→n, ü→u, ö→o, etc.
+normalize() {
+    echo "$1" | sed \
+        -e 's/[áàâäã]/a/g' \
+        -e 's/[éèêë]/e/g' \
+        -e 's/[íìîï]/i/g' \
+        -e 's/[óòôöõ]/o/g' \
+        -e 's/[úùûü]/u/g' \
+        -e 's/[ñ]/n/g' \
+        -e 's/[ýÿ]/y/g' \
+        -e 's/[ç]/c/g' \
+        -e 's/[ÁÀÂÄÃ]/A/g' \
+        -e 's/[ÉÈÊË]/E/g' \
+        -e 's/[ÍÌÎÏ]/I/g' \
+        -e 's/[ÓÒÔÖÕ]/O/g' \
+        -e 's/[ÚÙÛÜ]/U/g' \
+        -e 's/[Ñ]/N/g' \
+        -e 's/[Ç]/C/g'
+}
+
+normalized_initial=$(normalize "$first_initial")
+normalized_last=$(normalize "$last_name")
+
+expected_prefix="${normalized_initial}.${normalized_last}/"
+
+if [[ "$branch" != ${expected_prefix}* ]]; then
+    echo "ERROR: Branch ownership mismatch."
+    echo "  Current branch: $branch"
+    echo "  Committer:      $committer_name"
+    echo "  Expected prefix: ${expected_prefix}"
+    echo ""
+    echo "You may only commit to branches starting with '${expected_prefix}'."
+    echo "Switch to your own branch or use SKIP_BRANCH_CHECK=1 to override."
+    exit 1
+fi
+
+exit 0
