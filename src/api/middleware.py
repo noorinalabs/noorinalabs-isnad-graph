@@ -6,6 +6,7 @@ import ipaddress
 import time
 import uuid
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import structlog
@@ -83,20 +84,24 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-def _parse_trusted_proxies(raw: str) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
-    """Parse a comma-separated list of trusted proxy CIDRs/IPs into network objects."""
+@lru_cache(maxsize=4)
+def _parse_trusted_proxies(raw: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """Parse a comma-separated list of trusted proxy CIDRs/IPs into network objects.
+
+    Results are cached since the trusted_proxies setting is immutable at runtime.
+    """
     networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
     for entry in raw.split(","):
         entry = entry.strip()
         if not entry:
             continue
         networks.append(ipaddress.ip_network(entry, strict=False))
-    return networks
+    return tuple(networks)
 
 
 def _is_trusted_proxy(
     client_host: str,
-    trusted: list[ipaddress.IPv4Network | ipaddress.IPv6Network],
+    trusted: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...],
 ) -> bool:
     """Return True if *client_host* falls within any trusted proxy network."""
     try:

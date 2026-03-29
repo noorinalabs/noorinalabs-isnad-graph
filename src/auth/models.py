@@ -125,11 +125,3 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
-
-
-class AuthorizationUrlResponse(BaseModel):
-    """Authorization URL for OAuth redirect."""
-
-    model_config = ConfigDict(frozen=True)
-
-    authorization_url: str

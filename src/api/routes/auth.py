@@ -21,6 +21,31 @@ router = APIRouter()
 _OAUTH_STATE_COOKIE = "oauth_state"
 
 
+def _set_token_cookies(
+    response: Response, access_token: str, refresh_token: str
+) -> None:
+    """Set httpOnly access and refresh token cookies on a response."""
+    settings = get_settings().auth
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=settings.refresh_token_expire_days * 86400,
+        path="/",
+    )
+
+
 def _build_redirect_uri(provider: str) -> str:
     """Build the OAuth callback redirect URI from settings."""
     base = get_settings().auth.oauth_redirect_base_url.rstrip("/")
@@ -87,30 +112,12 @@ async def callback(provider: str, code: str, state: str, request: Request) -> JS
 
     # Use provider + provider_user_id as the internal user ID
     user_id = f"{user_info.provider}:{user_info.provider_user_id}"
-    settings = get_settings().auth
 
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
     response = JSONResponse(content={"status": "ok"})
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        max_age=settings.access_token_expire_minutes * 60,
-        path="/",
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 86400,
-        path="/",
-    )
+    _set_token_cookies(response, access_token, refresh_token)
     # Clear the one-time-use oauth_state cookie
     response.delete_cookie(_OAUTH_STATE_COOKIE, path="/")
     return response
@@ -143,29 +150,11 @@ def refresh(request: Request) -> JSONResponse:
             detail="Token revocation service unavailable — refresh rejected for safety",
         )
 
-    settings = get_settings().auth
     new_access = create_access_token(user_id)
     new_refresh = create_refresh_token(user_id)
 
     response = JSONResponse(content={"status": "ok"})
-    response.set_cookie(
-        key="access_token",
-        value=new_access,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        max_age=settings.access_token_expire_minutes * 60,
-        path="/",
-    )
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        max_age=settings.refresh_token_expire_days * 86400,
-        path="/",
-    )
+    _set_token_cookies(response, new_access, new_refresh)
     return response
 
 

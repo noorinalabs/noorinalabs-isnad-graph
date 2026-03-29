@@ -1,5 +1,12 @@
-# Gitleaks configuration — allowlist for test fixtures
+# Gitleaks configuration — allowlist for test fixtures containing dummy secrets
 [allowlist]
   paths = [
-    '''tests/.*''',
+    '''tests/conftest\.py''',
+    '''tests/test_auth/conftest\.py''',
+    '''tests/test_auth/test_providers\.py''',
+    '''tests/test_config\.py''',
+    '''tests/test_api/test_admin_config\.py''',
+    '''tests/test_api/test_admin\.py''',
+    '''tests/test_parse/test_sunnah_parser\.py''',
+    '''tests/integration/conftest\.py''',
   ]
