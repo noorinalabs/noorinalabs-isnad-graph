@@ -18,6 +18,7 @@ from tests.test_api.test_admin import (
 
 @pytest.fixture(autouse=True)
 def _clear_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT", "test")
     test_settings = _test_settings()
     from src.config import get_settings
 

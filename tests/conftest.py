@@ -25,11 +25,13 @@ def settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     """Settings with test defaults via env vars."""
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_FORMAT", "console")
+    monkeypatch.setenv("ENVIRONMENT", "test")
     # Clear lru_cache so fresh settings are created
     get_settings.cache_clear()
     # Nested settings models must be constructed explicitly since they have
     # their own env_prefix and default values baked in at class level.
     return Settings(
+        environment="test",
         neo4j=Neo4jSettings(
             uri="bolt://localhost:7687",
             user="neo4j",

@@ -59,6 +59,7 @@ def _test_settings() -> Settings:
 @pytest.fixture(autouse=True)
 def _clear_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch get_settings to avoid .env parsing errors in tests."""
+    monkeypatch.setenv("ENVIRONMENT", "test")
     test_settings = _test_settings()
     get_settings.cache_clear()
 
