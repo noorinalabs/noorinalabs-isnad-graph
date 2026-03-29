@@ -15,4 +15,4 @@ Run a wave retrospective for the isnad-graph project.
    - Top 3 Going Well
    - Top 3 Pain Points
    - Proposed Process Changes
-6. Commit as Fatima Okonkwo
+6. Commit as the Manager (see `.claude/team/roster.json` for identity)

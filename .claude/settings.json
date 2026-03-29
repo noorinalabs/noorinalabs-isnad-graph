@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/validate_commit_identity.py",
+            "command": "python3 /home/parameterization/code/isnad-graph/.claude/hooks/validate_commit_identity.py",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/block_no_verify.py",
+            "command": "python3 /home/parameterization/code/isnad-graph/.claude/hooks/block_no_verify.py",
             "timeout": 10
           }
         ]
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/block_git_config.py",
+            "command": "python3 /home/parameterization/code/isnad-graph/.claude/hooks/block_git_config.py",
             "timeout": 10
           }
         ]
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/auto_set_env_test.py",
+            "command": "python3 /home/parameterization/code/isnad-graph/.claude/hooks/auto_set_env_test.py",
             "timeout": 10
           }
         ]
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/validate_labels.py",
+            "command": "python3 /home/parameterization/code/isnad-graph/.claude/hooks/validate_labels.py",
             "timeout": 30
           }
         ]

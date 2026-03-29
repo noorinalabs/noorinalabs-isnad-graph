@@ -52,19 +52,23 @@ Structure as:
 
 ### 4. Update trust matrix
 
-Checkout the trust matrix branch and update:
+Use a temporary worktree to update the trust matrix (avoids conflicts with the current working tree):
 
 ```bash
 git fetch origin CEO/0000-Trust_Matrix
-git checkout CEO/0000-Trust_Matrix
+git worktree add /tmp/trust-matrix-update CEO/0000-Trust_Matrix
 ```
 
-Update `.claude/team/trust_matrix.md` with directional trust changes based on wave performance:
+Update `/tmp/trust-matrix-update/.claude/team/trust_matrix.md` with directional trust changes based on wave performance:
 - Reliable delivery, clean reviews → increase trust (+1, max 5)
 - CI failures, must-fix items, broken commitments → decrease trust (-1, min 1)
 - No significant signal → no change
 
-Add change log entries with date and reason. Commit as Fatima Okonkwo, push, then return to the working branch.
+Add change log entries with date and reason. Commit as the Manager (see `.claude/team/roster.json` for identity), push, then clean up:
+
+```bash
+git worktree remove /tmp/trust-matrix-update
+```
 
 ### 5. Append to feedback log
 

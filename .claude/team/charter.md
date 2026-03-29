@@ -562,7 +562,7 @@ The following charter rules are enforced automatically via Claude Code hooks in 
 
 - **What it automates:** § Commit Identity — validates that every `git commit` command includes `-c user.name=` and `-c user.email=` flags matching a roster member.
 - **Augments:** The Commit Identity section above. The manual rule still applies; this hook enforces it automatically.
-- **Manual steps remaining:** When a new team member is hired, their name and email must be added to the `ROSTER` dict in `.claude/hooks/validate_commit_identity.py`.
+- **Manual steps remaining:** When a new team member is hired, add their name and email to `.claude/team/roster.json` (the single source of truth for all hooks and skills).
 - **Emergency override:** Remove or comment out the hook entry in `.claude/settings.json`. Re-add after the emergency.
 
 ### Hook 2: Block `--no-verify` (`block_no_verify.py`)
@@ -574,7 +574,7 @@ The following charter rules are enforced automatically via Claude Code hooks in 
 
 ### Hook 3: Block `git config` (`block_git_config.py`)
 
-- **What it automates:** § Commit Identity — blocks all `git config` commands (both read and write) to prevent accidental or intentional modification of global/repo-level git config.
+- **What it automates:** § Commit Identity — blocks `git config` write commands to prevent modification of global/repo-level git config. Read-only operations (`--get`, `--list`, `-l`, etc.) are allowed for tooling compatibility.
 - **Augments:** The charter rule "do NOT modify the global or repo-level git config."
 - **Manual steps remaining:** None.
 - **Emergency override:** Remove the hook entry from `.claude/settings.json`.

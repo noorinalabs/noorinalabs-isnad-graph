@@ -10,27 +10,17 @@ Exit codes:
 """
 
 import json
+from pathlib import Path
 import re
 import sys
 
-# Roster of valid (name, email) pairs from .claude/team/charter.md § Commit Identity
-ROSTER = {
-    "Fatima Okonkwo": "parametrization+Fatima.Okonkwo@gmail.com",
-    "Renaud Tremblay": "parametrization+Renaud.Tremblay@gmail.com",
-    "Sunita Krishnamurthy": "parametrization+Sunita.Krishnamurthy@gmail.com",
-    "Tomasz Wójcik": "parametrization+Tomasz.Wojcik@gmail.com",
-    "Dmitri Volkov": "parametrization+Dmitri.Volkov@gmail.com",
-    "Kwame Asante": "parametrization+Kwame.Asante@gmail.com",
-    "Amara Diallo": "parametrization+Amara.Diallo@gmail.com",
-    "Hiro Tanaka": "parametrization+Hiro.Tanaka@gmail.com",
-    "Carolina Méndez-Ríos": "parametrization+Carolina.Mendez-Rios@gmail.com",
-    "Yara Hadid": "parametrization+Yara.Hadid@gmail.com",
-    "Priya Nair": "parametrization+Priya.Nair@gmail.com",
-    "Elena Petrova": "parametrization+Elena.Petrova@gmail.com",
-    "Tariq Al-Rashidi": "parametrization+Tariq.Al-Rashidi@gmail.com",
-    "Mei-Lin Chang": "parametrization+Mei-Lin.Chang@gmail.com",
-    "Sable Nakamura-Whitfield": "parametrization+Sable.Nakamura-Whitfield@gmail.com",
-}
+# Load roster from shared JSON file — single source of truth for all hooks
+_ROSTER_PATH = Path(__file__).resolve().parent.parent / "team" / "roster.json"
+try:
+    ROSTER: dict[str, str] = json.loads(_ROSTER_PATH.read_text(encoding="utf-8"))
+except (FileNotFoundError, json.JSONDecodeError):
+    # Fallback: allow if roster file is missing (don't block all commits)
+    ROSTER = {}
 
 
 def main() -> None:

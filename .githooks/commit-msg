@@ -22,24 +22,20 @@ fi
 
 commit_msg=$(cat "$COMMIT_MSG_FILE")
 
-# Known roster members (user.name values)
-ROSTER_MEMBERS=(
-    "Fatima Okonkwo"
-    "Renaud Tremblay"
-    "Sunita Krishnamurthy"
-    "Tomasz Wójcik"
-    "Dmitri Volkov"
-    "Kwame Asante"
-    "Amara Diallo"
-    "Hiro Tanaka"
-    "Carolina Méndez-Ríos"
-    "Yara Hadid"
-    "Priya Nair"
-    "Elena Petrova"
-    "Tariq Al-Rashidi"
-    "Mei-Lin Chang"
-    "Sable Nakamura-Whitfield"
-)
+# Load roster members from shared roster.json
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROSTER_FILE="$REPO_ROOT/.claude/team/roster.json"
+
+ROSTER_MEMBERS=()
+if [[ -f "$ROSTER_FILE" ]]; then
+    while IFS= read -r name; do
+        ROSTER_MEMBERS+=("$name")
+    done < <(python3 -c "import json; [print(k) for k in json.load(open('$ROSTER_FILE'))]")
+else
+    echo "WARN: Roster file not found at $ROSTER_FILE — skipping name validation"
+    exit 0
+fi
 
 # Check for Claude trailer
 claude_trailer="Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"

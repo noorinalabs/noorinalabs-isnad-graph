@@ -65,13 +65,9 @@ For each confirmed orphan, close with a comment:
 
 ```bash
 gh issue close {NUMBER} --comment "$(cat <<'EOF'
-Requestor: Fatima.Okonkwo
-Requestee: N/A
-RequestOrReplied: Request
-
 Closed by wave audit. This issue was resolved by PR #{PR_NUMBER} ({PR_TITLE}) which merged to `deployments/phase{N}/wave-{M}`.
 
-Added label: `fixed-in-phase{N}-wave{M}`
+Added label: `fixed-in-phase{N}-wave-{M}`
 EOF
 )"
 ```
