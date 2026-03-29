@@ -1,5 +1,6 @@
 import { NavLink, Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import HeaderAuth from './HeaderAuth'
 import styles from './AdminLayout.module.css'
 
 const adminNavItems = [
@@ -27,6 +28,7 @@ export default function AdminLayout() {
           <h1 className={styles.headerTitle}>Isnad Graph</h1>
         </NavLink>
         <span className="small-muted">Admin Dashboard</span>
+        <HeaderAuth />
       </header>
       <div className={styles.body}>
         <nav className={styles.sidebar}>
