@@ -4,55 +4,111 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**isnad-graph** is a computational hadith analysis platform that ingests Sunni and Shia hadith collections into a Neo4j graph database for isnad (chain of narration) analysis, narrator network topology, and cross-sectarian parallel detection. The project is implemented in 5 phases (see `docs/` for detailed specs).
+**isnad-graph** is a computational hadith analysis platform that ingests Sunni and Shia hadith collections into a Neo4j graph database for isnad (chain of narration) analysis, narrator network topology, and cross-sectarian parallel detection. The platform includes a FastAPI backend, React frontend, OAuth/JWT authentication, observability stack, and production deployment on Hetzner VPS. See `docs/` for detailed phase specs.
 
 ## Tech Stack
 
 - **Python 3.14.3** with **uv** as the package manager
 - **Neo4j 5.x** — primary graph database (isnad chains, narrator networks)
 - **PostgreSQL 16+ with pgvector** — relational metadata, vector embeddings for semantic similarity
-- **Redis** — optional API response caching
-- **FastAPI** (API layer, Phase 5) / **React + TypeScript** (frontend, Phase 5)
-- **Docker Compose** for infrastructure services
+- **Redis** — session store, API response caching, rate limiting
+- **FastAPI** — API layer with OAuth/JWT auth, RBAC, rate limiting
+- **React 19 + TypeScript** — frontend with Radix UI, D3.js graph visualization, TanStack Query
+- **Vite** — frontend build tooling
+- **Docker Compose** — infrastructure services (dev and production)
+- **Terraform** — Hetzner VPS provisioning
+- **Prometheus + Grafana + Loki** — observability stack
+- **Caddy** — reverse proxy with automatic TLS (production)
+- **Playwright** — end-to-end browser testing
 
 ## Build & Development Commands
 
 ```bash
-make setup          # Install dependencies with uv
+# Setup
+make setup          # Install Python dependencies with uv (includes ML group)
+make setup-hooks    # Configure git hooks (branch-name + pre-commit)
+
+# Infrastructure
 make infra          # Start Docker services (Neo4j, PostgreSQL, Redis)
 make infra-down     # Stop Docker services
 make infra-reset    # Stop and remove volumes
 
-make test           # Run all tests
+# Quality
+make test           # Run pytest suite
+make test-integration # Run integration tests (requires Docker)
+make test-e2e       # Run Playwright browser tests (requires running app)
 make lint           # Run ruff linter
 make format         # Run ruff formatter
 make typecheck      # Run mypy (strict mode)
+make check          # Run all CI checks locally (lint + typecheck + test)
 
+# Data pipeline
 make pipeline       # Run full ETL pipeline end-to-end
 make acquire        # Phase 1: download raw data
 make parse          # Phase 1: parse to staging Parquet
-make resolve        # Phase 2: entity resolution
+make resolve        # Phase 2: entity resolution (NER + disambiguation + dedup)
 make load           # Phase 3: load into Neo4j
-make enrich         # Phase 4: compute metrics & topics
-make clean          # Remove staging data
+make enrich         # Phase 4: compute metrics, topics, historical overlay
+make clean          # Remove staging data and caches
+
+# Data validation
+make validate       # Run data quality validation (strict mode, JSON report)
+make validate-staging # Validate staging Parquet files (warn mode)
+make validate-pipeline # Run full pipeline validation against real data
+make profile-data   # Profile staging Parquet files
+
+# Operations
+make backup         # Run database backup to Backblaze B2
+make restore        # Restore databases from backup
+make clean-worktrees # Remove stale git worktrees
 ```
 
-**CLI entry point:** `isnad` (defined in `[project.scripts]` as `src.cli:main`)
+**Backend CLI:** `isnad` (defined in `[project.scripts]` as `src.cli:main`)
+
+**Frontend commands** (from `frontend/`):
+```bash
+npm run dev         # Start Vite dev server
+npm run build       # TypeScript check + Vite production build
+npm run test        # Run Vitest
+npm run lint        # Run ESLint
+```
 
 ## Architecture
 
-### Monorepo layout under `src/`
+### Backend layout (`src/`)
 
 | Module | Phase | Purpose |
 |--------|-------|---------|
 | `models/` | 0 | Frozen Pydantic v2 models for all graph nodes and edges |
 | `utils/` | 0 | Arabic text processing, Neo4j/PG clients, structured logging |
 | `config.py` | 0 | Pydantic Settings (loads `.env`), singleton via `get_settings()` |
-| `acquire/` | 1 | Downloaders for 7+ data sources → `data/raw/` |
+| `acquire/` | 1 | Downloaders for 8 data sources → `data/raw/` |
 | `parse/` | 1 | Parsers producing normalized Parquet → `data/staging/` |
 | `resolve/` | 2 | Narrator NER/disambiguation, hadith dedup (CAMeLBERT, FAISS) |
 | `graph/` | 3 | Neo4j node/edge loaders, validation queries |
-| `enrich/` | 4 | Graph metrics (centrality, PageRank, Louvain), topic classification |
+| `enrich/` | 4 | Graph metrics (centrality, PageRank, Louvain), topic classification, historical overlay |
+| `api/` | 5 | FastAPI app, routes, middleware (CORS, rate limiting, security headers) |
+| `auth/` | 11 | OAuth providers (Google, GitHub, Apple, Facebook), JWT tokens, 2FA/TOTP |
+
+### Frontend (`frontend/`)
+
+React 19 + TypeScript SPA with:
+- **Component library** — Radix UI primitives, Tailwind CSS, CVA variants
+- **Graph explorer** — D3.js force-directed isnad chain visualization
+- **Search + detail pages** — narrator/hadith search with faceted results
+- **Admin panel** — user management, moderation dashboard
+- **Auth flows** — OAuth login, email/password registration, 2FA setup
+
+### Infrastructure directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `infra/` | Prometheus, Grafana, Loki, Alertmanager, Promtail configs |
+| `terraform/` | Hetzner VPS provisioning (main.tf, variables, outputs) |
+| `systemd/` | Backup service and timer units for production |
+| `scripts/` | Pipeline validation, backup/restore, VPS bootstrap, deployment verification |
+| `queries/` | Reusable Cypher queries for Neo4j |
+| `notebooks/` | Jupyter notebooks for data exploration |
 
 ### Graph Schema (Neo4j)
 
@@ -68,20 +124,44 @@ Raw sources (CSV, JSON, REST APIs) → `data/raw/` → parsers → `data/staging
 
 - **Ruff** for linting and formatting, line length 100, with isort/pyflakes/pycodestyle/pydantic rules enabled
 - **mypy** strict mode with pydantic plugin
+- **ESLint** for frontend TypeScript linting
+- **pre-commit** hooks enforce lint, format, and commit message conventions
 - All Pydantic models use `ConfigDict(frozen=True)` for immutability
 - All enums are `(str, Enum)` for clean JSON/Parquet serialization
 - All downloaders and loaders must be **idempotent** (safe to re-run)
 - Arabic text utilities are pure Python (no NLP deps in Phase 0): diacritics stripping, alif/hamza/taa marbuta normalization, transmission phrase extraction
 - Staging data uses PyArrow schemas as intermediate between raw data and graph nodes
+- Auth endpoints use httponly secure cookies for refresh tokens
+- API routes use dependency injection for auth/RBAC via FastAPI `Depends()`
 
 ## Configuration
 
 Copy `.env.example` to `.env`. Key variables:
+
+**Databases:**
 - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` — graph database
-- `PG_DSN` — PostgreSQL connection string
+- `PG_DSN`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — PostgreSQL
+- `REDIS_URL`, `REDIS_PASSWORD` — session store, caching, rate limiting
+
+**APIs:**
 - `SUNNAH_API_KEY` — required for Sunnah.com API
 - `KAGGLE_USERNAME`, `KAGGLE_KEY` — required for Kaggle datasets
+
+**Auth (prefixed `AUTH_`):**
+- `AUTH_JWT_SECRET` — JWT signing secret (change in production)
+- `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GOOGLE_CLIENT_SECRET` — Google OAuth
+- `AUTH_GITHUB_CLIENT_ID`, `AUTH_GITHUB_CLIENT_SECRET` — GitHub OAuth
+- `AUTH_OAUTH_REDIRECT_BASE_URL` — OAuth callback base URL
+
+**Application:**
 - `DATA_RAW_DIR`, `DATA_STAGING_DIR`, `DATA_CURATED_DIR` — data paths
+- `CORS_ORIGINS` — JSON list of allowed origins
+- `RATE_LIMIT_REQUESTS_PER_MINUTE` — API rate limiting
+- `LOG_LEVEL`, `LOG_FORMAT` — logging configuration
+
+**Observability:**
+- `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` — Grafana credentials
+- `GRAFANA_ROOT_URL` — Grafana base URL
 
 ## Team Workflow
 
@@ -135,3 +215,10 @@ Copy `.env.example` to `.env`. Key variables:
 - `docs/phase0-claude-code-instructions.md` — Phase 0 scaffold spec
 - `docs/phase1-claude-code-instructions.md` — Phase 1 acquisition & parsing spec
 - `docs/diagrams/` — Mermaid diagrams (entity relationships, system architecture, Gantt chart)
+- `docs/deployment/` — production deployment guides and runbooks
+- `docs/security/` — security review, 2FA design, auth architecture
+- `docs/ux/` — wireframes, design tokens, branding assets
+- `docs/adr/` — architecture decision records
+- `docs/testing/` — test plans (Playwright E2E, integration)
+- `docs/data-validation-runbook.md` — data quality validation procedures
+- `docs/api-developer-guide.md` — API usage guide for developers
