@@ -24,24 +24,30 @@ jobs:
           SITE_URL: https://isnad-graph.noorinalabs.com
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -o pipefail
           chmod +x scripts/verify_deployment.sh
           ./scripts/verify_deployment.sh 2>&1 | tee verify-output.txt
-          echo "## Deployment Verification Results" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cat verify-output.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write verification summary
+        if: always()
+        run: |
+          if [ -f verify-output.txt ]; then
+            echo "## Deployment Verification Results" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat verify-output.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   notify-failure:
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'workflow_dispatch' &&
-      github.event.workflow_run.conclusion == 'failure'
+    needs: verify
+    if: always() && needs.verify.result == 'failure'
     steps:
-      - name: Report deploy failure
+      - name: Report verification failure
         run: |
-          echo "::error::Deploy workflow failed — skipping verification"
-          echo "## Deployment Verification Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Deployment verification failed — check verify job for details"
+          echo "## Deployment Verification Failed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The Deploy workflow failed. Verification was not run." >> "$GITHUB_STEP_SUMMARY"
+          echo "The deployment verification detected failures." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Check the [Deploy workflow run](https://github.com/${{ github.repository }}/actions/workflows/deploy.yml) for details." >> "$GITHUB_STEP_SUMMARY"
+          echo "Check the [verify-deploy workflow run](https://github.com/${{ github.repository }}/actions/workflows/verify-deploy.yml) for details." >> "$GITHUB_STEP_SUMMARY"
