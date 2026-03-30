@@ -44,6 +44,8 @@ class HistoricalEvent(BaseModel):
     """Geographic region of the event."""
     description: str | None = None
     """Narrative description of the event."""
+    source_url: str | None = None
+    """URL of the source from which the event was scraped."""
 
 
 class Location(BaseModel):

@@ -102,12 +102,12 @@ export default function TimelinePage() {
       .attr('class', 'event-bar')
       .style('cursor', 'pointer')
 
-    barEnter.append('rect').attr('rx', 3).attr('fill', '#1a73e8').attr('opacity', 0.75)
+    barEnter.append('rect').attr('rx', 3).attr('fill', 'var(--color-primary)').attr('opacity', 0.75)
     barEnter.append('text')
       .attr('text-anchor', 'end')
       .attr('dominant-baseline', 'central')
       .style('font-size', '11px')
-      .style('fill', '#333')
+      .style('fill', 'var(--color-foreground)')
 
     // Merge: update all (enter + existing)
     const barMerged = barEnter.merge(barGroups)

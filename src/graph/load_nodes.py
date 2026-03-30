@@ -455,7 +455,8 @@ SET n.name_en       = row.name_en,
     n.event_type    = row.event_type,
     n.caliphate     = row.caliphate,
     n.region        = row.region,
-    n.description   = row.description
+    n.description   = row.description,
+    n.source_url    = row.source_url
 """
 
 
@@ -506,6 +507,7 @@ def _load_historical_events(
                 "caliphate": evt.get("caliphate"),
                 "region": evt.get("region"),
                 "description": evt.get("description"),
+                "source_url": evt.get("source_url"),
             }
         )
 

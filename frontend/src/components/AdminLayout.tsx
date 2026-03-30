@@ -1,5 +1,6 @@
 import { NavLink, Outlet, Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import ThemeToggle from './ThemeToggle'
 import styles from './AdminLayout.module.css'
 
 const adminNavItems = [
@@ -26,7 +27,8 @@ export default function AdminLayout() {
         <NavLink to="/" className={styles.headerLink}>
           <h1 className={styles.headerTitle}>Isnad Graph</h1>
         </NavLink>
-        <span className="small-muted">Admin Dashboard</span>
+        <span className="small-muted" style={{ flex: 1 }}>Admin Dashboard</span>
+        <ThemeToggle />
       </header>
       <div className={styles.body}>
         <nav className={styles.sidebar}>

@@ -1,47 +1,49 @@
 .cardGrid {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-8);
   flex-wrap: wrap;
 }
 
 .card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1.5rem;
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
   min-width: 180px;
   text-align: center;
+  background: var(--color-card);
+  box-shadow: var(--shadow-xs);
 }
 
 .cardLabel {
-  font-size: 0.875rem;
-  color: #666;
-  margin-bottom: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--spacing-2);
 }
 
 .cardValueOk {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #188038;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-success);
 }
 
 .cardValueDown {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #d93025;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-destructive);
 }
 
 .cardValueWarning {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #e37400;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
 }
 
 .errorText {
-  color: red;
+  color: var(--color-destructive);
 }
 
 .refreshNote {
-  color: #666;
-  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-sm);
 }

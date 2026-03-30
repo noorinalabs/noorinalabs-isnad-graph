@@ -1,4 +1,4 @@
-"""Historical overlay — link narrators to events via date overlap."""
+"""Historical overlay — link narrators and compilers to events via date overlap."""
 
 from __future__ import annotations
 
@@ -33,20 +33,96 @@ WHERE n.birth_year_ah IS NULL OR n.death_year_ah IS NULL
 RETURN count(n) AS cnt
 """
 
-_MERGE_ACTIVE_DURING = """\
+_FETCH_COMPILERS = """\
+MATCH (c:Collection)
+WHERE c.compilation_year_ah IS NOT NULL
+RETURN c.id AS id, c.compilation_year_ah AS compilation_year_ah,
+       c.compiler_name AS compiler_name
+"""
+
+_MERGE_ACTIVE_DURING_NARRATOR = """\
 UNWIND $batch AS row
 MATCH (n:Narrator {id: row.narrator_id})
 MATCH (e:HistoricalEvent {id: row.event_id})
 MERGE (n)-[:ACTIVE_DURING]->(e)
 """
 
+_MERGE_ACTIVE_DURING_COMPILER = """\
+UNWIND $batch AS row
+MATCH (c:Collection {id: row.compiler_id})
+MATCH (e:HistoricalEvent {id: row.event_id})
+MERGE (c)-[:ACTIVE_DURING]->(e)
+"""
+
+
+def _compute_overlap_batch(
+    entities: list[dict[str, Any]],
+    sorted_events: list[dict[str, Any]],
+    event_starts: list[int],
+    entity_id_key: str,
+    batch_id_key: str,
+) -> tuple[list[dict[str, str]], set[str], set[str]]:
+    """Compute ACTIVE_DURING overlap batch for a set of entities.
+
+    Uses binary search on sorted events to efficiently find overlapping
+    event periods for each entity's lifetime.
+    """
+    batch: list[dict[str, str]] = []
+    linked_entities: set[str] = set()
+    linked_events: set[str] = set()
+
+    for ent in entities:
+        n_birth = ent["birth_year_ah"]
+        n_death = ent["death_year_ah"]
+        # Only consider events whose start year <= entity's death year
+        upper = bisect.bisect_right(event_starts, n_death)
+        for idx in range(upper):
+            evt = sorted_events[idx]
+            e_end = evt["year_end_ah"]
+            # Overlap: entity alive during any part of the event
+            if n_death >= evt["year_start_ah"] and n_birth <= e_end:
+                batch.append({batch_id_key: ent[entity_id_key], "event_id": evt["id"]})
+                linked_entities.add(ent[entity_id_key])
+                linked_events.add(evt["id"])
+
+    return batch, linked_entities, linked_events
+
+
+def _log_distribution(
+    batch: list[dict[str, str]],
+    entity_key: str,
+    entity_label: str,
+) -> None:
+    """Log edge distribution statistics for a batch."""
+    if not batch:
+        return
+    events_per_entity: dict[str, int] = {}
+    entities_per_event: dict[str, int] = {}
+    for row in batch:
+        events_per_entity[row[entity_key]] = events_per_entity.get(row[entity_key], 0) + 1
+        entities_per_event[row["event_id"]] = entities_per_event.get(row["event_id"], 0) + 1
+
+    epe_values = list(events_per_entity.values())
+    npe_values = list(entities_per_event.values())
+    log.info(
+        f"historical_overlay_{entity_label}_distribution",
+        events_per_entity_avg=round(sum(epe_values) / len(epe_values), 2),
+        events_per_entity_max=max(epe_values),
+        entities_per_event_avg=round(sum(npe_values) / len(npe_values), 2),
+        entities_per_event_max=max(npe_values),
+    )
+
 
 def run_historical_overlay(client: Neo4jClient) -> HistoricalResult:
-    """Create ACTIVE_DURING edges between narrators and historical events.
+    """Create ACTIVE_DURING edges between narrators/compilers and historical events.
 
     For each narrator-event pair, checks whether the narrator's active period
     (birth_year_ah to death_year_ah) overlaps with the event period.
     Narrators with lifespan > 120 AH are skipped as a data-quality filter.
+
+    Compilers (collections) are matched using compilation_year_ah as a proxy
+    for the compiler's active period. A ±30 year window around the compilation
+    year is used to approximate the compiler's scholarly active years.
     """
     events = client.execute_read(_FETCH_EVENTS)
     narrators = client.execute_read(_FETCH_NARRATORS)
@@ -77,62 +153,87 @@ def run_historical_overlay(client: Neo4jClient) -> HistoricalResult:
     )
 
     # Build overlap batch — sort events by start year and use binary search
-    # to skip events that start after the narrator's death, reducing O(N*M)
-    # to O(N * log(M) + relevant matches).
     sorted_events = sorted(events, key=lambda e: e["year_start_ah"])
     event_starts = [e["year_start_ah"] for e in sorted_events]
 
-    batch: list[dict[str, str]] = []
-    linked_narrators: set[str] = set()
-    linked_events: set[str] = set()
+    # --- Narrator ACTIVE_DURING edges ---
+    narrator_batch, linked_narrators, linked_events_nar = _compute_overlap_batch(
+        valid_narrators,
+        sorted_events,
+        event_starts,
+        entity_id_key="id",
+        batch_id_key="narrator_id",
+    )
 
-    for nar in valid_narrators:
-        n_birth = nar["birth_year_ah"]
-        n_death = nar["death_year_ah"]
-        # Only consider events whose start year <= narrator's death year
-        upper = bisect.bisect_right(event_starts, n_death)
-        for idx in range(upper):
-            evt = sorted_events[idx]
-            e_end = evt["year_end_ah"]
-            # Overlap: narrator alive during any part of the event
-            if n_death >= evt["year_start_ah"] and n_birth <= e_end:
-                batch.append({"narrator_id": nar["id"], "event_id": evt["id"]})
-                linked_narrators.add(nar["id"])
-                linked_events.add(evt["id"])
+    narrator_edges = (
+        client.execute_write_batch(_MERGE_ACTIVE_DURING_NARRATOR, narrator_batch)
+        if narrator_batch
+        else 0
+    )
+    _log_distribution(narrator_batch, "narrator_id", "narrator")
 
-    edges_created = client.execute_write_batch(_MERGE_ACTIVE_DURING, batch) if batch else 0
+    log.info(
+        "historical_overlay_narrators_complete",
+        edges_created=narrator_edges,
+        narrators_linked=len(linked_narrators),
+        events_linked=len(linked_events_nar),
+    )
 
-    # Log edge distribution
-    if linked_narrators:
-        events_per_narrator: dict[str, int] = {}
-        narrators_per_event: dict[str, int] = {}
-        for row in batch:
-            events_per_narrator[row["narrator_id"]] = (
-                events_per_narrator.get(row["narrator_id"], 0) + 1
-            )
-            narrators_per_event[row["event_id"]] = narrators_per_event.get(row["event_id"], 0) + 1
-
-        epn_values = list(events_per_narrator.values())
-        npe_values = list(narrators_per_event.values())
-        log.info(
-            "historical_overlay_distribution",
-            events_per_narrator_avg=round(sum(epn_values) / len(epn_values), 2),
-            events_per_narrator_max=max(epn_values),
-            narrators_per_event_avg=round(sum(npe_values) / len(npe_values), 2),
-            narrators_per_event_max=max(npe_values),
+    # --- Compiler ACTIVE_DURING edges ---
+    # Use compilation_year_ah ± 30 as proxy for compiler active period
+    _COMPILER_WINDOW_AH = 30
+    compilers_raw = client.execute_read(_FETCH_COMPILERS)
+    compiler_entities: list[dict[str, Any]] = []
+    for comp in compilers_raw:
+        year = comp["compilation_year_ah"]
+        compiler_entities.append(
+            {
+                "id": comp["id"],
+                "birth_year_ah": max(1, year - _COMPILER_WINDOW_AH),
+                "death_year_ah": year + _COMPILER_WINDOW_AH,
+            }
         )
+
+    compiler_batch, linked_compilers, linked_events_comp = _compute_overlap_batch(
+        compiler_entities,
+        sorted_events,
+        event_starts,
+        entity_id_key="id",
+        batch_id_key="compiler_id",
+    )
+
+    compiler_edges = (
+        client.execute_write_batch(_MERGE_ACTIVE_DURING_COMPILER, compiler_batch)
+        if compiler_batch
+        else 0
+    )
+    _log_distribution(compiler_batch, "compiler_id", "compiler")
+
+    log.info(
+        "historical_overlay_compilers_complete",
+        edges_created=compiler_edges,
+        compilers_linked=len(linked_compilers),
+        events_linked=len(linked_events_comp),
+    )
+
+    total_edges = narrator_edges + compiler_edges
+    all_linked_events = linked_events_nar | linked_events_comp
 
     log.info(
         "historical_overlay_complete",
-        edges_created=edges_created,
+        total_edges_created=total_edges,
+        narrator_edges=narrator_edges,
+        compiler_edges=compiler_edges,
         narrators_linked=len(linked_narrators),
-        events_linked=len(linked_events),
+        compilers_linked=len(linked_compilers),
+        events_linked=len(all_linked_events),
     )
 
     return HistoricalResult(
-        edges_created=edges_created,
+        edges_created=total_edges,
         narrators_linked=len(linked_narrators),
-        events_linked=len(linked_events),
+        compilers_linked=len(linked_compilers),
+        events_linked=len(all_linked_events),
         narrators_skipped_no_dates=narrators_skipped_no_dates,
         narrators_skipped_max_lifetime=narrators_skipped_max_lifetime,
     )

@@ -5,9 +5,9 @@
 }
 
 .header {
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid #ddd;
-  background: #f8f9fa;
+  padding: var(--spacing-3) var(--spacing-6);
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+  background: var(--color-card);
 }
 
 .headerLink {
@@ -17,7 +17,8 @@
 
 .headerTitle {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
+  font-family: var(--font-heading);
 }
 
 .body {
@@ -27,9 +28,9 @@
 
 .sidebar {
   width: 220px;
-  padding: 1rem;
-  border-right: 1px solid #ddd;
-  background: #fafafa;
+  padding: var(--spacing-4);
+  border-inline-end: var(--border-width-thin) solid var(--color-border);
+  background: var(--color-card);
 }
 
 .sidebarList {
@@ -39,7 +40,7 @@
 }
 
 .sidebarBackItem {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-4);
 }
 
 .sidebarBackLink {
@@ -47,26 +48,41 @@
 }
 
 .sidebarItem {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-2);
 }
 
 .sidebarLink {
   text-decoration: none;
   font-weight: 400;
-  color: #333;
+  color: var(--color-foreground);
+  display: block;
+  padding: var(--spacing-1_5) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.sidebarLink:hover {
+  background: var(--color-muted);
 }
 
 .sidebarLinkActive {
   text-decoration: none;
   font-weight: 700;
-  color: #1a73e8;
+  color: var(--color-primary);
+  display: block;
+  padding: var(--spacing-1_5) var(--spacing-3);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  font-size: var(--text-sm);
 }
 
 .main {
   flex: 1;
-  padding: 1.5rem;
+  padding: var(--spacing-6);
 }
 
 .loading {
-  padding: 2rem;
+  padding: var(--spacing-8);
+  color: var(--color-muted-foreground);
 }

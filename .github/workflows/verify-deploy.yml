@@ -1,0 +1,47 @@
+name: Verify Deployment
+
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for services to stabilize
+        run: sleep 30
+
+      - name: Run deployment verification
+        env:
+          SITE_URL: https://isnad-graph.noorinalabs.com
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/verify_deployment.sh
+          ./scripts/verify_deployment.sh 2>&1 | tee verify-output.txt
+          echo "## Deployment Verification Results" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat verify-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  notify-failure:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'workflow_dispatch' &&
+      github.event.workflow_run.conclusion == 'failure'
+    steps:
+      - name: Report deploy failure
+        run: |
+          echo "::error::Deploy workflow failed — skipping verification"
+          echo "## Deployment Verification Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The Deploy workflow failed. Verification was not run." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Check the [Deploy workflow run](https://github.com/${{ github.repository }}/actions/workflows/deploy.yml) for details." >> "$GITHUB_STEP_SUMMARY"

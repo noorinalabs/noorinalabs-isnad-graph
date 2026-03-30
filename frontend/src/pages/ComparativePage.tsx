@@ -40,20 +40,20 @@ export default function ComparativePage() {
               {data.items.map((pair, idx) => (
                 <tr key={`${pair.hadith_a_id}-${pair.hadith_b_id}-${idx}`}>
                   <td
-                    style={{ cursor: 'pointer', color: '#1a73e8' }}
+                    style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
                     onClick={() => navigate(`/hadiths/${pair.hadith_a_id}`)}
                   >
                     {pair.hadith_a_id}
                     <br />
-                    <small style={{ color: '#888' }}>{pair.hadith_a_corpus}</small>
+                    <small style={{ color: 'var(--color-muted-foreground)' }}>{pair.hadith_a_corpus}</small>
                   </td>
                   <td
-                    style={{ cursor: 'pointer', color: '#1a73e8' }}
+                    style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
                     onClick={() => navigate(`/hadiths/${pair.hadith_b_id}`)}
                   >
                     {pair.hadith_b_id}
                     <br />
-                    <small style={{ color: '#888' }}>{pair.hadith_b_corpus}</small>
+                    <small style={{ color: 'var(--color-muted-foreground)' }}>{pair.hadith_b_corpus}</small>
                   </td>
                   <td>
                     {pair.similarity_score != null ? (

@@ -276,7 +276,7 @@ export default function GraphExplorerPage() {
 
         {/* Depth control */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: '#555' }}>Depth:</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground, #555)' }}>Depth:</span>
           {[1, 2, 3].map((d) => (
             <button
               key={d}
@@ -301,7 +301,7 @@ export default function GraphExplorerPage() {
 
         {/* Layout toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: '#555' }}>Layout:</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground, #555)' }}>Layout:</span>
           {(['force', 'hierarchy', 'radial'] as LayoutMode[]).map((mode) => (
             <button
               key={mode}
@@ -353,7 +353,7 @@ export default function GraphExplorerPage() {
           <button
             onClick={() => setHighlightedChainNodeIds(null)}
             className="btn"
-            style={{ fontSize: '0.875rem', color: '#1a73e8' }}
+            style={{ fontSize: '0.875rem', color: 'var(--color-primary, #1a73e8)' }}
           >
             Clear highlight
           </button>
