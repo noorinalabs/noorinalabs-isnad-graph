@@ -3,6 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './hooks/useAuth'
 import Layout from './components/Layout'
 import AdminLayout from './components/AdminLayout'
+import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
+import LoginPage from './pages/LoginPage'
+import AuthCallbackPage from './pages/AuthCallbackPage'
 import NarratorsPage from './pages/NarratorsPage'
 import NarratorDetailPage from './pages/NarratorDetailPage'
 import HadithsPage from './pages/HadithsPage'
@@ -36,28 +40,39 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route element={<Layout />}>
-              <Route index element={<Navigate to="/narrators" replace />} />
-              <Route path="narrators" element={<NarratorsPage />} />
-              <Route path="narrators/:id" element={<NarratorDetailPage />} />
-              <Route path="hadiths" element={<HadithsPage />} />
-              <Route path="hadiths/:id" element={<HadithDetailPage />} />
-              <Route path="collections" element={<CollectionsPage />} />
-              <Route path="collections/:id" element={<CollectionDetailPage />} />
-              <Route path="search" element={<SearchPage />} />
-              <Route path="timeline" element={<TimelinePage />} />
-              <Route path="compare" element={<ComparativePage />} />
-              <Route path="graph" element={<GraphExplorerPage />} />
-            </Route>
-            <Route path="admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="/admin/users" replace />} />
-              <Route path="users" element={<UserManagementPage />} />
-              <Route path="health" element={<SystemHealthPage />} />
-              <Route path="stats" element={<ContentStatsPage />} />
-              <Route path="analytics" element={<UsageAnalyticsPage />} />
-              <Route path="moderation" element={<ModerationPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="config" element={<ConfigPage />} />
+            {/* Public routes */}
+            <Route path="login" element={<LoginPage />} />
+            <Route path="auth/callback/:provider" element={<AuthCallbackPage />} />
+
+            {/* Authenticated routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route index element={<Navigate to="/narrators" replace />} />
+                <Route path="narrators" element={<NarratorsPage />} />
+                <Route path="narrators/:id" element={<NarratorDetailPage />} />
+                <Route path="hadiths" element={<HadithsPage />} />
+                <Route path="hadiths/:id" element={<HadithDetailPage />} />
+                <Route path="collections" element={<CollectionsPage />} />
+                <Route path="collections/:id" element={<CollectionDetailPage />} />
+                <Route path="search" element={<SearchPage />} />
+                <Route path="timeline" element={<TimelinePage />} />
+                <Route path="compare" element={<ComparativePage />} />
+                <Route path="graph" element={<GraphExplorerPage />} />
+              </Route>
+
+              {/* Admin routes — require isAdmin */}
+              <Route element={<AdminRoute />}>
+                <Route path="admin" element={<AdminLayout />}>
+                  <Route index element={<Navigate to="/admin/users" replace />} />
+                  <Route path="users" element={<UserManagementPage />} />
+                  <Route path="health" element={<SystemHealthPage />} />
+                  <Route path="stats" element={<ContentStatsPage />} />
+                  <Route path="analytics" element={<UsageAnalyticsPage />} />
+                  <Route path="moderation" element={<ModerationPage />} />
+                  <Route path="reports" element={<ReportsPage />} />
+                  <Route path="config" element={<ConfigPage />} />
+                </Route>
+              </Route>
             </Route>
           </Routes>
         </BrowserRouter>
