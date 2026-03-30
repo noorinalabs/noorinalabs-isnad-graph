@@ -424,7 +424,7 @@ def _hadith_checks(table: pa.Table, num_rows: int) -> list[CheckResult]:
         col = table.column("matn_ar")
         null_count = col.null_count
         stripped = pc.utf8_trim(col.drop_null(), " \t\n\r")
-        blank_count = pc.sum(pc.equal(stripped, "")).as_py()
+        blank_count = pc.sum(pc.equal(stripped, "")).as_py() or 0
         empty = null_count + blank_count
         empty_pct = round(100.0 * empty / num_rows, 2)
         checks.append(
@@ -441,7 +441,7 @@ def _hadith_checks(table: pa.Table, num_rows: int) -> list[CheckResult]:
         col = table.column("matn_en")
         null_count = col.null_count
         stripped = pc.utf8_trim(col.drop_null(), " \t\n\r")
-        blank_count = pc.sum(pc.equal(stripped, "")).as_py()
+        blank_count = pc.sum(pc.equal(stripped, "")).as_py() or 0
         empty = null_count + blank_count
         empty_pct = round(100.0 * empty / num_rows, 2)
         checks.append(
