@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!--
+    Isnad Graph favicon — Riwaya (Proposal C)
+    8-pointed star with graph nodes at intersections.
+    Uses currentColor for automatic dark-mode adaptation.
+  -->
+  <style>
+    .star-stroke { stroke: #0f766e; stroke-width: 1.5; fill: none; }
+    .node { fill: #0f766e; }
+    @media (prefers-color-scheme: dark) {
+      .star-stroke { stroke: #2dd4bf; }
+      .node { fill: #2dd4bf; }
+    }
+  </style>
+  <!-- 8-pointed star outline -->
+  <polygon class="star-stroke" points="16,2 19.5,12.5 30,16 19.5,19.5 16,30 12.5,19.5 2,16 12.5,12.5"/>
+  <!-- Graph nodes at key intersections -->
+  <circle class="node" cx="16" cy="2" r="2"/>
+  <circle class="node" cx="30" cy="16" r="2"/>
+  <circle class="node" cx="16" cy="30" r="2"/>
+  <circle class="node" cx="2" cy="16" r="2"/>
+  <circle class="node" cx="16" cy="16" r="2.5"/>
+  <!-- Directed edges (interior lines doubling as star structure) -->
+  <line class="star-stroke" x1="16" y1="2" x2="16" y2="16"/>
+  <line class="star-stroke" x1="30" y1="16" x2="16" y2="16"/>
+  <line class="star-stroke" x1="16" y1="30" x2="16" y2="16"/>
+  <line class="star-stroke" x1="2" y1="16" x2="16" y2="16"/>
+</svg>
