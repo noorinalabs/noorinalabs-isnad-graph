@@ -75,6 +75,27 @@ class TestMuhaddithatParser:
         # Hadith 3: N1->N2, N2->N3 (2 edges) => 4 total
         assert table.num_rows == 4
 
+    def test_variousnarrators_csv_found(self, tmp_path: Path) -> None:
+        """Parser should find variousnarrators.csv as the narrator file."""
+        raw_dir = tmp_path / "raw"
+        muh_dir = raw_dir / "muhaddithat"
+        muh_dir.mkdir(parents=True)
+        staging_dir = tmp_path / "staging"
+
+        narrators_csv = "id,name,gender,bio\n"
+        narrators_csv += "N1,فاطمة بنت الحسين,female,عالمة\n"
+        narrators_csv += "N2,عائشة بنت أبي بكر,female,أم المؤمنين\n"
+        (muh_dir / "variousnarrators.csv").write_text(narrators_csv, encoding="utf-8")
+
+        hadiths_csv = "id,narrator_ids,text\n"
+        hadiths_csv += '1,"N1,N2",متن الحديث\n'
+        (muh_dir / "hadiths.csv").write_text(hadiths_csv, encoding="utf-8")
+
+        bio_path, edge_path = run(raw_dir, staging_dir)
+        assert bio_path.exists()
+        table = pq.read_table(bio_path)
+        assert table.num_rows == 2
+
     def test_no_source_dir_raises(self, tmp_path: Path) -> None:
         raw_dir = tmp_path / "raw"
         raw_dir.mkdir(parents=True)

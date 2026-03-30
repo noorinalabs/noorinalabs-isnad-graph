@@ -80,6 +80,46 @@ def _sample_rows() -> list[list[str]]:
     ]
 
 
+class TestDeriveCollectionName:
+    """Tests for directory-based and filename-based collection name derivation."""
+
+    def test_filename_mapping(self) -> None:
+        from src.parse.lk_corpus import _derive_collection_name
+
+        assert _derive_collection_name(Path("data/lk/albukhari.csv")) == "bukhari"
+        assert _derive_collection_name(Path("data/lk/altirmidhi.csv")) == "tirmidhi"
+
+    def test_directory_mapping(self) -> None:
+        from src.parse.lk_corpus import _derive_collection_name
+
+        assert _derive_collection_name(Path("data/lk/Bukhari/Chapter1.csv")) == "bukhari"
+        assert _derive_collection_name(Path("data/lk/Muslim/Chapter3.csv")) == "muslim"
+        assert _derive_collection_name(Path("data/lk/AbuDaud/Chapter1.csv")) == "abu_dawud"
+        assert _derive_collection_name(Path("data/lk/Tirmizi/Chapter2.csv")) == "tirmidhi"
+        assert _derive_collection_name(Path("data/lk/Nesai/Chapter1.csv")) == "nasai"
+        assert _derive_collection_name(Path("data/lk/IbnMaja/Chapter5.csv")) == "ibn_majah"
+
+    def test_unknown_returns_none(self) -> None:
+        from src.parse.lk_corpus import _derive_collection_name
+
+        assert _derive_collection_name(Path("data/lk/unknown/foo.csv")) is None
+
+    def test_per_chapter_layout_parses(self, tmp_path: Path) -> None:
+        """Per-chapter CSVs in book directories should be parsed correctly."""
+        raw_dir = tmp_path / "raw"
+        lk_dir = raw_dir / "lk" / "Bukhari"
+        lk_dir.mkdir(parents=True)
+        staging_dir = tmp_path / "staging"
+
+        _make_lk_csv(lk_dir / "Chapter1.csv", _sample_rows())
+
+        run(raw_dir, staging_dir)
+
+        table = pq.read_table(staging_dir / "hadiths_lk.parquet")
+        assert table.num_rows == 3
+        assert all(v.as_py() == "bukhari" for v in table.column("collection_name"))
+
+
 class TestLkParser:
     def test_produces_parquet_files(self, tmp_path: Path) -> None:
         raw_dir = tmp_path / "raw"

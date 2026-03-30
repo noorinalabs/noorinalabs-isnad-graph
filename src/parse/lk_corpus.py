@@ -76,10 +76,29 @@ def _strip_html(text: str | None) -> str | None:
     return text.strip() or None
 
 
-def _derive_collection_name(filename: str) -> str | None:
-    """Derive canonical collection name from CSV filename."""
-    stem = filename.rsplit(".", maxsplit=1)[0].lower()
-    return FILENAME_TO_COLLECTION.get(stem)
+# Parent directory -> canonical collection name mapping (new per-chapter layout).
+DIRNAME_TO_COLLECTION: dict[str, str] = {
+    "bukhari": "bukhari",
+    "muslim": "muslim",
+    "abudaud": "abu_dawud",
+    "tirmizi": "tirmidhi",
+    "nesai": "nasai",
+    "ibnmaja": "ibn_majah",
+}
+
+
+def _derive_collection_name(csv_path: Path) -> str | None:
+    """Derive canonical collection name from CSV path.
+
+    Checks the filename first (old flat-file layout), then falls back to
+    the parent directory name (new per-chapter layout).
+    """
+    stem = csv_path.stem.lower()
+    result = FILENAME_TO_COLLECTION.get(stem)
+    if result is not None:
+        return result
+    # Fall back to parent directory name.
+    return DIRNAME_TO_COLLECTION.get(csv_path.parent.name.lower())
 
 
 def _invalid_row_handler(row: pcsv.InvalidRow) -> str:
@@ -223,7 +242,7 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
     collection_rows: list[dict[str, object]] = []
 
     for csv_path in csv_files:
-        collection_name = _derive_collection_name(csv_path.name)
+        collection_name = _derive_collection_name(csv_path)
         if collection_name is None:
             logger.warning("lk_unknown_csv", path=str(csv_path))
             continue

@@ -243,7 +243,7 @@ def run(raw_dir: Path, staging_dir: Path) -> tuple[Path, Path]:
     hadiths_path = _find_csv(source_dir, "hadiths.csv")
 
     # Try to find a narrator/scholars CSV.
-    narrator_csv_names = ["narrators.csv", "scholars.csv", "narrator*.csv"]
+    narrator_csv_names = ["narrators.csv", "scholars.csv", "narrator*.csv", "*narrator*.csv"]
     narrators_path: Path | None = None
     for pattern in narrator_csv_names:
         matches = list(source_dir.rglob(pattern))
