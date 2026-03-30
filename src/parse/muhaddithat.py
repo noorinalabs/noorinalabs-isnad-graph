@@ -69,23 +69,28 @@ def _parse_narrator_bios(narrators_path: Path) -> tuple[pa.Table, dict[str, str]
         or header_map.get("displayname")
         or header_map.get("display_name")
         or header_map.get("fullname")
-        or header_map.get("arabicname")
     )
+    arabic_name_col = header_map.get("arabicname") or header_map.get("arabic_name")
     gender_col = header_map.get("gender")
     bio_col = header_map.get("bio") or header_map.get("biography")
 
-    if not id_col or not name_col:
+    # Need at least id + one name column (Arabic or transliterated).
+    if not id_col or not (name_col or arabic_name_col):
         msg = f"Required columns (id, name) not found. Headers: {table.column_names}"
         raise ValueError(msg)
 
     id_values = table.column(id_col).to_pylist()
-    name_values = table.column(name_col).to_pylist()
+    name_values = table.column(name_col).to_pylist() if name_col else [None] * table.num_rows
+    arabic_name_values = (
+        table.column(arabic_name_col).to_pylist() if arabic_name_col else [None] * table.num_rows
+    )
     gender_values = table.column(gender_col).to_pylist() if gender_col else [None] * table.num_rows
     bio_values = table.column(bio_col).to_pylist() if bio_col else [None] * table.num_rows
 
     for i in range(table.num_rows):
         ext_id = safe_str(id_values[i])
         display_name = safe_str(name_values[i])
+        arabic_name = safe_str(arabic_name_values[i])
         if not ext_id:
             continue
         if ext_id in seen_ids:
@@ -93,8 +98,12 @@ def _parse_narrator_bios(narrators_path: Path) -> tuple[pa.Table, dict[str, str]
             continue
         seen_ids.add(ext_id)
 
-        name_ar = display_name
-        name_ar_norm = normalize_arabic(display_name) if display_name else None
+        # Use the dedicated Arabic name column when available; the display
+        # name (Latin transliteration) goes into name_en.
+        name_ar = arabic_name
+        name_en = display_name
+        name_ar_norm = normalize_arabic(arabic_name) if arabic_name else None
+        name_en_norm = display_name.lower().strip() if display_name else None
         gender = safe_str(gender_values[i])
         bio_text = safe_str(bio_values[i])
 
@@ -106,9 +115,9 @@ def _parse_narrator_bios(narrators_path: Path) -> tuple[pa.Table, dict[str, str]
                 "bio_id": f"{SOURCE}:{ext_id}",
                 "source": SOURCE,
                 "name_ar": name_ar,
-                "name_en": None,
+                "name_en": name_en,
                 "name_ar_normalized": name_ar_norm,
-                "name_en_normalized": None,
+                "name_en_normalized": name_en_norm,
                 "kunya": None,
                 "nisba": None,
                 "laqab": None,

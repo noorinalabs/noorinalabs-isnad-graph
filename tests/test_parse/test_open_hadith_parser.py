@@ -11,18 +11,20 @@ from src.parse.schemas import HADITH_SCHEMA
 
 
 def _make_open_hadith_csv(raw_dir: Path) -> None:
-    """Create minimal Open Hadith diacritics CSV test data."""
+    """Create minimal Open Hadith diacritics CSV test data.
+
+    Real Open Hadith CSVs have no header row — just number,text per line.
+    """
     oh_dir = raw_dir / "open_hadith"
     oh_dir.mkdir(parents=True)
 
-    header = "hadith_number,text"
     rows = [
-        "1,إنما الأعمال بالنيات",
-        "2,لا ضرر ولا ضرار",
-        "3,من حسن إسلام المرء تركه ما لا يعنيه",
+        '"1","إنما الأعمال بالنيات"',
+        '"2","لا ضرر ولا ضرار"',
+        '"3","من حسن إسلام المرء تركه ما لا يعنيه"',
     ]
     csv_path = oh_dir / "bukhari_tashkeel.csv"
-    csv_path.write_text("\n".join([header, *rows]), encoding="utf-8")
+    csv_path.write_text("\n".join(rows), encoding="utf-8")
 
 
 class TestOpenHadithParser:
