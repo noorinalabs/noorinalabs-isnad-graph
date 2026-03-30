@@ -24,11 +24,15 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          AUTH_GOOGLE_CLIENT_ID: ${{ secrets.AUTH_GOOGLE_CLIENT_ID }}
+          AUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.AUTH_GOOGLE_CLIENT_SECRET }}
+          AUTH_GITHUB_CLIENT_ID: ${{ secrets.AUTH_GITHUB_CLIENT_ID }}
+          AUTH_GITHUB_CLIENT_SECRET: ${{ secrets.AUTH_GITHUB_CLIENT_SECRET }}
         with:
           host: ${{ vars.VPS_HOST }}
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          envs: NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD
+          envs: NEO4J_PASSWORD,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,REDIS_PASSWORD,AUTH_GOOGLE_CLIENT_ID,AUTH_GOOGLE_CLIENT_SECRET,AUTH_GITHUB_CLIENT_ID,AUTH_GITHUB_CLIENT_SECRET
           script: |
             set -euo pipefail
             cd /opt/isnad-graph
@@ -43,6 +47,10 @@ jobs:
             export POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
             export POSTGRES_DB="$POSTGRES_DB"
             export REDIS_PASSWORD="$REDIS_PASSWORD"
+            export AUTH_GOOGLE_CLIENT_ID="$AUTH_GOOGLE_CLIENT_ID"
+            export AUTH_GOOGLE_CLIENT_SECRET="$AUTH_GOOGLE_CLIENT_SECRET"
+            export AUTH_GITHUB_CLIENT_ID="$AUTH_GITHUB_CLIENT_ID"
+            export AUTH_GITHUB_CLIENT_SECRET="$AUTH_GITHUB_CLIENT_SECRET"
 
             echo "==> Pulling GHCR image for API (falls back to local build)..."
             docker compose -f docker-compose.prod.yml pull api 2>/dev/null || echo "GHCR pull failed — will build locally"
