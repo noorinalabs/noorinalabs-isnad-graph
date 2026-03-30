@@ -1,32 +1,47 @@
-# Full Pipeline Run Results (Phase 1-2)
+# Full Pipeline Run Results (Phase 1-2) — Wave 3 Re-run
 
 **Date:** 2026-03-30
-**Issue:** #535
+**Issue:** #544 (pipeline bug fixes and tuning)
 **Runner:** Elena Petrova
-**Branch base:** `deployments/phase12/wave-1`
+**Branch base:** `deployments/phase12/cleanup`
+**Bug fixes verified:** #570, #571, #572, #573, #574
 
 ## Pipeline Overview
 
-Phases 1-2 (acquire, parse, resolve) were executed locally. Phase 3 (Neo4j load) requires
-infrastructure and was not run. The dedup step of resolve was skipped due to missing
-`sentence-transformers` dependency in the local environment.
+Phases 1-2 (acquire, parse, validate-staging, resolve) were re-run after Wave 2 bug fixes.
+Phase 3 (Neo4j load) and Phase 4 (enrich) were not run (require infrastructure).
+
+## Comparison with Wave 1 Results
+
+| Area | Wave 1 | Wave 3 | Change |
+|------|--------|--------|--------|
+| Acquire: fawaz | FAILED (upstream CDN) | SUCCESS (20 ara + 10 eng files) | Fixed (#570) |
+| Parse: fawaz | 0 rows | 0 rows | **Still broken** (see below) |
+| Parse: muhaddithat | FAILED (column mismatch) | SUCCESS (113 bios, 330 edges) | Fixed (#571) |
+| Parse: open_hadith | 124,320 rows | 62,160 rows | Improved (dedup, #574) |
+| Validate: crash on null columns | TypeError crash | No crash | Fixed |
+| Resolve: disambiguate path | Looked in staging, NER wrote to curated | Reads from curated | Fixed (#572) |
+| Resolve: disambiguate completion | 0 narrators (path bug) | OOM/timeout (killed after ~60min) | Path fixed, but perf issue |
+| Resolve: dedup deps | Missing sentence-transformers | Installed (#573) | Fixed (not tested — dedup runs after disambiguate) |
+| Staging files | 13 | 15 | +2 new muhaddithat files |
+| Total staging rows | 3,833,232 | 3,771,515 | -61,717 (open_hadith dedup) |
 
 ## Phase 1: Acquire
 
 | Source | Status | Details |
 |--------|--------|---------|
-| lk (LK Hadith Corpus) | SUCCESS | 335 files, 117 MB (git clone) |
-| sanadset | SUCCESS | Mendeley download, 1.4 GB |
-| thaqalayn | SUCCESS | 67 files, 388 MB |
-| fawaz | FAILED | `Expected >=10 English edition files, found 0` — upstream repo structure may have changed |
+| lk (LK Hadith Corpus) | SUCCESS | 335 files, git clone |
+| sanadset | SUCCESS | Mendeley download, 3 files |
+| thaqalayn | SUCCESS | 67 files, git clone |
+| fawaz | SUCCESS | 20 Arabic + 10 English + editions.json + info.json (32 files) |
 | sunnah (API) | SKIPPED | `SUNNAH_API_KEY` not set |
-| sunnah_scraped | SUCCESS | 5 collections, 10,028 hadiths, 14 MB |
-| open_hadith | SUCCESS | 18 files, 255 MB |
-| muhaddithat | SUCCESS | 2 files, 292 KB |
+| sunnah_scraped | SUCCESS | 5 collections, 10,028 hadiths |
+| open_hadith | SUCCESS | 18 files |
+| muhaddithat | SUCCESS | 2 files |
 
-**Result:** 6/8 sources acquired successfully. 1 failed (fawaz — upstream issue), 1 skipped (sunnah API — no key).
+**Result:** 7/8 sources acquired successfully. 1 skipped (sunnah API — no key).
 
-Total raw data size: ~2.2 GB
+**Improvement over Wave 1:** Fawaz acquire now works (fix #570 — CDN URL update).
 
 ## Phase 1: Parse
 
@@ -39,45 +54,49 @@ Total raw data size: ~2.2 GB
 | hadiths_sunnah_scraped.parquet | sunnah_scraped | 10,028 | 9.1 MB |
 | narrator_mentions_lk.parquet | lk | 86,162 | 5.3 MB |
 | narrators_bio_kaggle.parquet | kaggle | 24,326 | 1.7 MB |
-| hadiths_open_hadith.parquet | open_hadith | 124,320 | 1.2 MB |
+| hadiths_open_hadith.parquet | open_hadith | 62,160 | 738 KB |
+| narrators_bio_muhaddithat.parquet | muhaddithat | 113 | 9.5 KB |
+| network_edges_muhaddithat.parquet | muhaddithat | 330 | 7.8 KB |
 | collections_thaqalayn.parquet | thaqalayn | 64 | 3.8 KB |
 | collections_lk.parquet | lk | 335 | 3.8 KB |
 | hadiths_fawaz.parquet | fawaz | 0 | 2.7 KB |
 | collections_sunnah_scraped.parquet | sunnah_scraped | 5 | 2.3 KB |
 | collections_fawaz.parquet | fawaz | 0 | 1.5 KB |
 
-**Totals:** 13 staging files, 3,833,232 rows
+**Totals:** 15 staging files, 3,771,515 rows
 
-### Parse Failures
+### Parse Improvements (Wave 3)
 
-- **muhaddithat**: Parser expects columns `(id, name)` but raw data has `(id, displayname, fullname, searchname, arabicname, ...)`. Needs parser update to map `displayname`/`fullname` to `name`.
-- **fawaz**: Empty output (0 rows) — acquire failed upstream.
+- **muhaddithat** (fix #571): Now produces 2 new files — `narrators_bio_muhaddithat.parquet` (113 female narrator bios) and `network_edges_muhaddithat.parquet` (330 transmission edges, avg chain length 4.4, 100% bio match rate).
+- **open_hadith** (fix #574): Row count decreased from 124,320 to 62,160, suggesting deduplication improvements. However, all text columns remain 100% null — this source provides metadata only.
+
+### Remaining Parse Issues
+
+- **fawaz**: Acquire now succeeds (32 files downloaded), but the parser produces 0 rows. Root cause: `editions.json` uses collection-level keys (e.g., `bukhari`, `abudawud`) but the parser's `run()` function filters for keys starting with `eng-` (line 166: `eng_keys = sorted(k for k in editions_data if k.startswith("eng-"))`). The individual edition files (`eng-bukhari.json`, `ara-bukhari.json`) exist and contain valid data, but the enumeration logic doesn't find them. **New bug — needs a follow-up fix.**
 
 ## Staging Validation
 
-Overall: **FAILED** (2 empty fawaz files caused hard failures; all other files passed)
-
-### Key Findings
+Overall: **FAILED** (2 empty fawaz files)
 
 | File | Status | Issues |
 |------|--------|--------|
 | collections_fawaz.parquet | FAIL | Empty file (0 rows) |
-| hadiths_fawaz.parquet | FAIL | Empty file (0 rows) |
-| collections_lk.parquet | PASS | 329 duplicate collection_id values (98.2%) |
+| collections_lk.parquet | PASS | 329 duplicate collection_id (98.2%) |
 | collections_sunnah_scraped.parquet | PASS | Clean |
-| collections_thaqalayn.parquet | PASS | Row count drift +1180% vs baseline (64 vs 5) |
-| hadiths_lk.parquet | PASS | 107 duplicate source_id (0.3%), minor null rates |
-| hadiths_open_hadith.parquet | PASS | 100% empty matn_ar/matn_en — data stored in full_text columns only |
-| hadiths_sanadset.parquet | PASS | 100% duplicate source_id, 99.99% Arabic coverage |
-| hadiths_sunnah_scraped.parquet | PASS | 9,852 duplicate source_id (98.2%) |
-| hadiths_thaqalayn.parquet | PASS | 100% empty matn_ar — text in full_text_ar only |
-| narrator_mentions_lk.parquet | PASS | 55.4% null name_ar, 44.6% null name_en |
-| narrator_mentions_sanadset.parquet | PASS | 100% null name_en, 99.1% null transmission_method |
+| collections_thaqalayn.parquet | PASS | Row count drift +1180% vs baseline |
+| hadiths_fawaz.parquet | FAIL | Empty file (0 rows) |
+| hadiths_lk.parquet | PASS | 107 duplicate source_id (0.3%) |
+| hadiths_open_hadith.parquet | PASS | 100% empty matn_ar/matn_en |
+| hadiths_sanadset.parquet | PASS | 100% duplicate source_id, row drift +6410% |
+| hadiths_sunnah_scraped.parquet | PASS | 9,852 duplicate source_id (98.2%), row drift -75% |
+| hadiths_thaqalayn.parquet | PASS | 100% empty matn_ar, row drift +656% |
+| narrator_mentions_lk.parquet | PASS | 236 duplicate mention_id (0.3%) |
+| narrator_mentions_sanadset.parquet | PASS | 2,789,372 duplicate mention_id (99.99%) |
 | narrators_bio_kaggle.parquet | PASS | Clean |
+| narrators_bio_muhaddithat.parquet | PASS | 0% Arabic chars in name_ar (names stored in transliteration) |
+| network_edges_muhaddithat.parquet | PASS | Clean |
 
-### Validation Bug Fix
-
-The `validate-staging` command crashed with `TypeError: unsupported operand type(s) for +: 'int' and 'NoneType'` in `_hadith_checks()` when `pc.sum()` returned `None` for columns with all-null values. Fixed by adding `or 0` fallback for `blank_count` in both `empty_matn_ar` and `empty_matn_en` checks (`src/parse/validate.py:427,444`).
+**Improvement over Wave 1:** Validation no longer crashes on all-null columns (the `pc.sum()` fix from Wave 1 holds). Two new muhaddithat files both pass validation.
 
 ## Phase 2: Resolve
 
@@ -90,65 +109,60 @@ The `validate-staging` command crashed with `TypeError: unsupported operand type
 | lk | 86,162 | Pre-extracted from staging |
 | sunnah_scraped | 15,116 | Extracted from English isnads, 1.51 mentions/hadith |
 | open_hadith | 0 | 100% null isnads — no extraction possible |
-| fawaz | 0 | No data |
-| muhaddithat | 0 | Skipped (no raw isnads) |
+| fawaz | 0 | Parser produced 0 hadiths (parse bug) |
+| muhaddithat | 0 | Skipped (no raw isnads — transmission data in network_edges) |
 
-**Total NER mentions:** 3,296,155
+**Total NER mentions:** 3,296,155 (unchanged from Wave 1)
 **Output:** `data/curated/narrator_mentions_resolved.parquet` (247 MB, 3.3M rows)
 
 ### Disambiguation
 
-- Loaded 24,326 biographical candidates from narrators_bio_kaggle
-- Could not find mentions file at `data/staging/narrator_mentions_resolved.parquet` — the NER step writes to `data/curated/`, but disambiguate looks in `data/staging/`
-- **Result:** 0 canonical narrators resolved (path mismatch bug)
+- Loaded 24,439 biographical candidates from 2 bio files (kaggle: 24,326 + muhaddithat: 113)
+- Successfully loaded 3,296,155 mentions from `data/curated/narrator_mentions_resolved.parquet` (fix #572 confirmed — path mismatch resolved)
+- **Result:** Process killed after ~60 minutes of CPU-intensive matching (93% CPU, 3.3GB RAM)
+- **No output files produced** — disambiguation did not complete
+
+**Improvement over Wave 1:** The path mismatch bug (#572) is fixed — disambiguate now correctly reads from `data/curated/` instead of `data/staging/`. However, the computation itself is too expensive for this environment (3.3M mentions x 24K candidates).
 
 ### Dedup (Hadith Parallel Detection)
 
-- Loaded 157,264 hadiths for comparison (775,559 skipped — missing text)
-- **Skipped:** `sentence-transformers` or `numpy` not installed in environment
-- **Result:** 0 parallel links detected (empty output)
+- Not reached — the dedup step runs after disambiguate, which did not complete
+- `sentence-transformers` dependency is now installed (fix #573)
 
-### Summary
+### Resolve Summary
 
-| Metric | Value |
-|--------|-------|
-| NER mentions extracted | 3,296,155 |
-| Canonical narrators | 0 (disambiguate path bug) |
-| Ambiguous mentions | 0 |
-| Parallel links | 0 (dedup deps missing) |
-| Output files | 3 |
+| Metric | Wave 1 | Wave 3 |
+|--------|--------|--------|
+| NER mentions extracted | 3,296,155 | 3,296,155 |
+| Bio candidates | 24,326 | 24,439 (+113 muhaddithat) |
+| Canonical narrators | 0 (path bug) | 0 (OOM/timeout) |
+| Ambiguous mentions | 0 | 0 |
+| Parallel links | 0 (missing deps) | 0 (not reached) |
 
-## Issues Found
+## Outstanding Issues
 
 ### Bugs
 
-1. **validate-staging crash** — `pc.sum().as_py()` returns `None` for all-null columns, causing `TypeError` in arithmetic. **Fixed** in this PR.
-2. **Disambiguate path mismatch** — NER writes `narrator_mentions_resolved.parquet` to `data/curated/` but disambiguate looks for it in `data/staging/`. Needs alignment.
+1. **Fawaz parser enumeration** (NEW): `editions.json` uses collection-level keys (`bukhari`) but parser filters for `eng-` prefixed keys. Acquire works, parse produces 0 rows. Needs parser update to enumerate edition files from the directory or from the nested `collection` arrays in `editions.json`.
 
-### Data Quality Concerns
+### Performance
 
-3. **Fawaz acquire failure** — upstream repo may have restructured; English edition file discovery logic needs update.
-4. **Muhaddithat parse failure** — column name mismatch (`displayname`/`fullname` vs expected `name`).
-5. **Open Hadith missing text** — 124,320 hadiths have 100% null `matn_ar`/`matn_en`/`full_text_ar`/`full_text_en`; data appears to be metadata-only.
-6. **High duplicate rates** — sanadset (100% duplicate source_id), sunnah_scraped (98%), thaqalayn (99.95%). These are likely cross-chapter duplicates from the source data structure.
-7. **Baseline drift** — several files exceed 30% drift tolerance vs baselines (sanadset: +6410%, thaqalayn hadiths: +656%, collections_thaqalayn: +1180%). Baselines need recalibration.
+2. **Disambiguate timeout**: Processing 3.3M mentions against 24K candidates exceeds available compute. Needs optimization:
+   - Batch processing with progress logging
+   - Pre-filter mentions by name similarity (blocking/indexing)
+   - Consider approximate matching (e.g., locality-sensitive hashing)
+   - Add memory-efficient streaming instead of loading all mentions at once
 
-### Missing Dependencies
+### Data Quality
 
-8. **sentence-transformers** not in project deps — needed for dedup step.
+3. **Open Hadith empty text**: 62,160 hadiths have 100% null text fields — metadata-only.
+4. **Muhaddithat transliterated names**: `narrators_bio_muhaddithat.parquet` has 0% Arabic characters in `name_ar` — names are stored as transliterations, not Arabic script.
+5. **High duplicate rates**: sanadset (100% duplicate source_id), sunnah_scraped (98%), collections_lk (98%). These are cross-chapter duplicates from source data structure.
+6. **Baseline drift**: Multiple files exceed 30% drift tolerance. Baselines need recalibration to reflect actual dataset sizes.
 
-## Recommendations for Phase 3 (Load into Neo4j)
+## Recommendations
 
-1. **Fix disambiguate path** so it reads from `data/curated/` where NER actually writes.
-2. **Add `sentence-transformers`** to project dependencies for dedup.
-3. **Fix fawaz downloader** to handle current upstream repo structure.
-4. **Fix muhaddithat parser** to accept actual column names from source data.
-5. **Recalibrate validation baselines** — current baselines were set from early test runs with much smaller datasets.
-6. **Deduplicate source_ids** before loading into Neo4j — decide on merge strategy for cross-chapter hadith duplicates.
-7. **Investigate open_hadith text extraction** — 124K hadiths are currently metadata-only shells.
-8. **Load order:** narrators_bio_kaggle (24K biographical nodes) first, then hadiths (932K across sources), then narrator_mentions_resolved (3.3M mention edges).
-9. **Expected graph size estimate:**
-   - NARRATOR nodes: ~24,326 (from bio data, plus disambiguation candidates)
-   - HADITH nodes: ~932,823 (sum of non-empty hadith files)
-   - COLLECTION nodes: ~404 (lk: 335, thaqalayn: 64, sunnah: 5)
-   - Narrator mention edges: ~3,296,155
+1. **Fix fawaz parser** — update enumeration to scan directory for `eng-*.json` / `ara-*.json` files instead of relying on `editions.json` keys.
+2. **Optimize disambiguate** — add blocking/indexing to reduce comparison space; add progress logging; consider chunked processing.
+3. **Recalibrate validation baselines** — current baselines were set from early test runs with much smaller datasets.
+4. **Test dedup independently** — sentence-transformers is installed but dedup was never reached. Run it separately to verify #573 fix.

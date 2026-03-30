@@ -157,14 +157,11 @@ def run(raw_dir: Path, staging_dir: Path) -> tuple[Path, Path]:
     """Parse all Fawaz English + Arabic editions into staging Parquet files."""
     fawaz_dir = raw_dir / "fawaz"
 
-    # Load editions catalog for enumeration
-    editions_path = fawaz_dir / "editions.json"
-    with open(editions_path) as f:
-        editions_data: dict[str, Any] = json.load(f)
-
-    # Group edition keys by collection name (e.g. "bukhari" -> ["eng-bukhari", "ara-bukhari"])
-    eng_keys = sorted(k for k in editions_data if k.startswith("eng-"))
-    ara_keys_set = {k for k in editions_data if k.startswith("ara-")}
+    # Enumerate edition files from the directory rather than editions.json,
+    # because editions.json uses collection-level keys (e.g. "bukhari") while
+    # the actual files use lang-prefixed names (e.g. "eng-bukhari.json").
+    eng_keys = sorted(p.stem for p in fawaz_dir.glob("eng-*.json"))
+    ara_keys_set = {p.stem for p in fawaz_dir.glob("ara-*.json")}
 
     all_hadiths: list[dict[str, Any]] = []
     all_collections: list[dict[str, Any]] = []
