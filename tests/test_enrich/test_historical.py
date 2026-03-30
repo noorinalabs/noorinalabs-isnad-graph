@@ -27,6 +27,10 @@ def _make_event(eid: str, start: int, end: int) -> dict[str, str | int]:
     return {"id": eid, "year_start_ah": start, "year_end_ah": end}
 
 
+def _make_compiler(cid: str, year: int) -> dict[str, str | int | None]:
+    return {"id": cid, "compilation_year_ah": year, "compiler_name": f"compiler-{cid}"}
+
+
 class TestDateOverlap:
     """Test the overlap logic: narrator alive during any part of event."""
 
@@ -36,6 +40,7 @@ class TestDateOverlap:
             [_make_event("e1", 50, 60)],  # events
             [_make_narrator("n1", 10, 80)],  # narrators
             [{"cnt": 0}],  # no-dates count
+            [],  # compilers
         ]
         mock_client.execute_write_batch.return_value = 1
 
@@ -45,7 +50,7 @@ class TestDateOverlap:
         assert result.narrators_linked == 1
         assert result.events_linked == 1
 
-        batch_arg = mock_client.execute_write_batch.call_args.args[1]
+        batch_arg = mock_client.execute_write_batch.call_args_list[0].args[1]
         assert {"narrator_id": "n1", "event_id": "e1"} in batch_arg
 
     def test_narrator_born_after_event(self, mock_client: MagicMock) -> None:
@@ -54,6 +59,7 @@ class TestDateOverlap:
             [_make_event("e1", 50, 60)],
             [_make_narrator("n1", 100, 170)],
             [{"cnt": 0}],
+            [],  # compilers
         ]
 
         result = run_historical_overlay(mock_client)
@@ -69,6 +75,7 @@ class TestDateOverlap:
             [_make_event("e1", 50, 60)],
             [_make_narrator("n1", 10, 40)],
             [{"cnt": 0}],
+            [],  # compilers
         ]
 
         result = run_historical_overlay(mock_client)
@@ -85,6 +92,7 @@ class TestMaxLifetimeFilter:
             [_make_event("e1", 50, 60)],
             [_make_narrator("n1", 10, 200)],  # 190-year lifespan
             [{"cnt": 0}],
+            [],  # compilers
         ]
 
         result = run_historical_overlay(mock_client)
@@ -99,6 +107,7 @@ class TestMaxLifetimeFilter:
             [_make_event("e1", 50, 60)],
             [_make_narrator("n1", 0, 120)],  # exactly 120
             [{"cnt": 0}],
+            [],  # compilers
         ]
         mock_client.execute_write_batch.return_value = 1
 
@@ -112,11 +121,60 @@ class TestMaxLifetimeFilter:
             [_make_event("e1", 50, 60)],
             [_make_narrator("n1", 0, 121)],  # 121 > 120
             [{"cnt": 0}],
+            [],  # compilers
         ]
 
         result = run_historical_overlay(mock_client)
 
         assert result.narrators_skipped_max_lifetime == 1
+
+
+class TestCompilerOverlay:
+    """Test ACTIVE_DURING edges for compilers (collections)."""
+
+    def test_compiler_linked_to_event(self, mock_client: MagicMock) -> None:
+        """Compiler with compilation_year_ah=232 should link to event 218-234."""
+        mock_client.execute_read.side_effect = [
+            [_make_event("e1", 218, 234)],  # mihna event
+            [],  # no narrators
+            [{"cnt": 0}],
+            [_make_compiler("col:bukhari", 232)],  # compilation year
+        ]
+        mock_client.execute_write_batch.return_value = 1
+
+        result = run_historical_overlay(mock_client)
+
+        assert result.compilers_linked == 1
+        assert result.edges_created == 1
+
+    def test_compiler_no_overlap(self, mock_client: MagicMock) -> None:
+        """Compiler compilation_year_ah=232, event 50-60 => no overlap with ±30 window."""
+        mock_client.execute_read.side_effect = [
+            [_make_event("e1", 50, 60)],
+            [],  # no narrators
+            [{"cnt": 0}],
+            [_make_compiler("col:bukhari", 232)],
+        ]
+
+        result = run_historical_overlay(mock_client)
+
+        assert result.compilers_linked == 0
+
+    def test_narrator_and_compiler_both_linked(self, mock_client: MagicMock) -> None:
+        """Both narrator and compiler can create ACTIVE_DURING edges."""
+        mock_client.execute_read.side_effect = [
+            [_make_event("e1", 50, 60)],
+            [_make_narrator("n1", 10, 80)],
+            [{"cnt": 0}],
+            [_make_compiler("col:test", 55)],  # compilation year within event
+        ]
+        mock_client.execute_write_batch.return_value = 1
+
+        result = run_historical_overlay(mock_client)
+
+        assert result.narrators_linked == 1
+        assert result.compilers_linked == 1
+        assert result.edges_created == 2  # 1 narrator + 1 compiler
 
 
 class TestHistoricalResult:
@@ -130,6 +188,7 @@ class TestHistoricalResult:
                 _make_narrator("n2", 60, 100),
             ],
             [{"cnt": 3}],  # 3 narrators without dates
+            [],  # no compilers
         ]
         mock_client.execute_write_batch.return_value = 3
 
@@ -138,6 +197,7 @@ class TestHistoricalResult:
         assert isinstance(result, HistoricalResult)
         assert result.edges_created == 3
         assert result.narrators_linked == 2
+        assert result.compilers_linked == 0
         assert result.events_linked == 2
         assert result.narrators_skipped_no_dates == 3
         assert result.narrators_skipped_max_lifetime == 0
@@ -151,11 +211,12 @@ class TestEdgeBatchCall:
             [_make_event("e1", 50, 60)],
             [_make_narrator("n1", 10, 80)],
             [{"cnt": 0}],
+            [],  # compilers
         ]
         mock_client.execute_write_batch.return_value = 1
 
         run_historical_overlay(mock_client)
 
-        query_arg = mock_client.execute_write_batch.call_args.args[0]
+        query_arg = mock_client.execute_write_batch.call_args_list[0].args[0]
         assert "MERGE" in query_arg
         assert "ACTIVE_DURING" in query_arg

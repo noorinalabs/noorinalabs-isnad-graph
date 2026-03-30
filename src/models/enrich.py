@@ -25,6 +25,7 @@ class HistoricalResult(BaseModel):
 
     edges_created: int
     narrators_linked: int
+    compilers_linked: int = 0
     events_linked: int
     narrators_skipped_no_dates: int
     narrators_skipped_max_lifetime: int
