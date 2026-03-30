@@ -75,6 +75,7 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
                 SOURCE_CORPUS,
                 collection_name,
                 book_number or 0,
+                chapter_number or 0,
                 hadith_number or 0,
             )
 

@@ -128,22 +128,27 @@ class ValidationReport(BaseModel):
 # ---------------------------------------------------------------------------
 
 DEFAULT_BASELINES: dict[str, dict[str, float | int]] = {
+    # Baselines calibrated from Wave 3 full pipeline run (2026-03-30)
     "hadiths_sunnah_api": {"row_count": 30000, "arabic_coverage_pct": 90.0},
-    "hadiths_open_hadith": {"row_count": 50000, "arabic_coverage_pct": 95.0},
-    "hadiths_thaqalayn": {"row_count": 15000, "arabic_coverage_pct": 95.0},
-    "hadiths_lk_corpus": {"row_count": 60000, "arabic_coverage_pct": 99.0},
-    "hadiths_fawaz": {"row_count": 5000, "arabic_coverage_pct": 80.0},
-    "hadiths_sanadset": {"row_count": 10000, "arabic_coverage_pct": 90.0},
-    "hadiths_sunnah_scraped": {"row_count": 40000, "arabic_coverage_pct": 90.0},
-    "hadiths_muhaddithat": {"row_count": 1000, "arabic_coverage_pct": 50.0},
+    "hadiths_open_hadith": {"row_count": 62160, "arabic_coverage_pct": 0.0},
+    "hadiths_thaqalayn": {"row_count": 113401, "arabic_coverage_pct": 0.0},
+    "hadiths_lk": {"row_count": 34088, "arabic_coverage_pct": 99.0},
+    "hadiths_fawaz": {"row_count": 0, "arabic_coverage_pct": 0.0},
+    "hadiths_sanadset": {"row_count": 650986, "arabic_coverage_pct": 90.0},
+    "hadiths_sunnah_scraped": {"row_count": 10028, "arabic_coverage_pct": 90.0},
+    "hadiths_muhaddithat": {"row_count": 0, "arabic_coverage_pct": 0.0},
     "narrator_mentions_sunnah_api": {"row_count": 100000},
-    "narrator_mentions_thaqalayn": {"row_count": 50000},
-    "narrator_mentions_lk_corpus": {"row_count": 200000},
-    "narrators_bio_lk_corpus": {"row_count": 10000},
-    "narrators_bio_muhaddithat": {"row_count": 500},
+    "narrator_mentions_thaqalayn": {"row_count": 405360},
+    "narrator_mentions_lk": {"row_count": 86162},
+    "narrator_mentions_sanadset": {"row_count": 2789517},
+    "narrators_bio_kaggle": {"row_count": 24326},
+    "narrators_bio_muhaddithat": {"row_count": 113},
     "collections_sunnah_api": {"row_count": 15},
-    "collections_thaqalayn": {"row_count": 5},
-    "network_edges_sanadset": {"row_count": 30000},
+    "collections_sunnah_scraped": {"row_count": 5},
+    "collections_thaqalayn": {"row_count": 64},
+    "collections_lk": {"row_count": 6},
+    "collections_fawaz": {"row_count": 0},
+    "network_edges_muhaddithat": {"row_count": 330},
 }
 
 DEFAULT_DRIFT_TOLERANCE_PCT = 30.0

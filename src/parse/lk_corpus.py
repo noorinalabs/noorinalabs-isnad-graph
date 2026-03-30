@@ -239,7 +239,8 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
 
     all_hadiths: list[dict[str, object]] = []
     all_mentions: list[dict[str, object]] = []
-    collection_rows: list[dict[str, object]] = []
+    # Accumulate hadith counts per collection for deduplication
+    collection_hadith_counts: dict[str, int] = {}
 
     for csv_path in csv_files:
         collection_name = _derive_collection_name(csv_path)
@@ -252,22 +253,29 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
         all_hadiths.extend(hadith_rows)
         all_mentions.extend(mention_rows)
 
-        # Build collection metadata with actual row count.
-        meta = COLLECTION_META.get(collection_name)
-        actual_count = len(hadith_rows)
+        collection_hadith_counts[collection_name] = collection_hadith_counts.get(
+            collection_name, 0
+        ) + len(hadith_rows)
+
+        if collection_name == "bukhari":
+            logger.info("lk_bukhari_gold_standard", row_count=len(hadith_rows))
+
+    # Build deduplicated collection metadata (one row per collection)
+    collection_rows: list[dict[str, object]] = []
+    for coll_name, actual_count in collection_hadith_counts.items():
+        meta = COLLECTION_META.get(coll_name)
         if meta:
             name_en, compiler, year_ah, ref_count = meta
-            # Sanity-check: warn if actual count differs by more than 20% from reference.
             if ref_count > 0 and abs(actual_count - ref_count) / ref_count > 0.2:
                 logger.warning(
                     "lk_count_mismatch",
-                    collection=collection_name,
+                    collection=coll_name,
                     actual=actual_count,
                     reference=ref_count,
                 )
             collection_rows.append(
                 {
-                    "collection_id": f"lk:{collection_name}",
+                    "collection_id": f"lk:{coll_name}",
                     "name_ar": None,
                     "name_en": name_en,
                     "compiler_name": compiler,
@@ -277,9 +285,6 @@ def run(raw_dir: Path, staging_dir: Path) -> list[Path]:
                     "source_corpus": "lk",
                 }
             )
-
-        if collection_name == "bukhari":
-            logger.info("lk_bukhari_gold_standard", row_count=actual_count)
 
     _log_grade_coverage(all_hadiths)
 
