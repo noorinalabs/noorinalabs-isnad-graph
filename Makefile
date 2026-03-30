@@ -1,4 +1,4 @@
-.PHONY: help setup setup-hooks hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean clean-worktrees pipeline validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check backup restore
+.PHONY: help setup setup-hooks hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean clean-worktrees pipeline validate validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check backup restore
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -64,7 +64,10 @@ clean: ## Remove staging data and caches
 	find . -type d -name .mypy_cache -exec rm -rf {} +
 	find . -type d -name .ruff_cache -exec rm -rf {} +
 
-validate-staging: ## Validate staging Parquet files
+validate: ## Run data quality validation (strict mode, JSON report)
+	uv run isnad validate-staging --strict --output-json data/reports/validation_report.json
+
+validate-staging: ## Validate staging Parquet files (warn mode)
 	uv run isnad validate-staging
 
 validate-pipeline: ## Run full pipeline validation against real data

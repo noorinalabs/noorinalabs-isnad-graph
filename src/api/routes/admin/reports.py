@@ -32,11 +32,11 @@ def _pipeline_metrics() -> PipelineMetrics | None:
     try:
         from src.parse.validate import validate_staging
 
-        summary = validate_staging(staging_dir)
+        report = validate_staging(staging_dir)
         return PipelineMetrics(
-            total_files=summary.get("total_files", 0),
-            total_rows=summary.get("total_rows", 0),
-            files=summary.get("files", []),
+            total_files=report.total_files,
+            total_rows=report.total_rows,
+            files=[fr.model_dump(mode="json") for fr in report.files],
         )
     except Exception:  # noqa: BLE001
         return None

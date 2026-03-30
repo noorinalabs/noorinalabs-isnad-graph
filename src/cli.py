@@ -285,7 +285,24 @@ def main() -> None:
         help="Skip these enrichment steps",
     )
     subparsers.add_parser("validate", help="Run graph validation queries")
-    subparsers.add_parser("validate-staging", help="Validate staging Parquet files")
+    vs_parser = subparsers.add_parser("validate-staging", help="Validate staging Parquet files")
+    vs_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Halt on any validation failure (default: warn mode)",
+    )
+    vs_parser.add_argument(
+        "--output-json",
+        type=str,
+        default=None,
+        help="Write JSON validation report to this path",
+    )
+    vs_parser.add_argument(
+        "--drift-tolerance",
+        type=float,
+        default=30.0,
+        help="Maximum drift percentage from baseline (default: 30.0)",
+    )
 
     args = parser.parse_args()
 
@@ -303,10 +320,20 @@ def main() -> None:
         from pathlib import Path
 
         from src.config import get_settings
-        from src.parse.validate import validate_staging
+        from src.parse.validate import Strictness, validate_staging
 
         settings = get_settings()
-        validate_staging(Path(settings.data_staging_dir))
+        strictness = Strictness.STRICT if args.strict else Strictness.WARN
+        output_json = Path(args.output_json) if args.output_json else None
+        report = validate_staging(
+            Path(settings.data_staging_dir),
+            strictness=strictness,
+            drift_tolerance_pct=args.drift_tolerance,
+            output_json=output_json,
+        )
+        if not report.passed and strictness == Strictness.STRICT:
+            print("\nValidation FAILED in strict mode. Pipeline halted.")
+            sys.exit(1)
     elif args.command == "resolve":
         _cmd_resolve()
     elif args.command == "load":
