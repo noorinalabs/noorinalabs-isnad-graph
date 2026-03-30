@@ -3,8 +3,8 @@
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Install dependencies with uv
-	uv sync
+setup: ## Install dependencies with uv (includes ML group for dedup)
+	uv sync --group ml
 
 setup-hooks: ## Configure git hooks (legacy .githooks + pre-commit)
 	git config core.hooksPath .githooks

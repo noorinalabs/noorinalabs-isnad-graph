@@ -64,7 +64,13 @@ def _parse_narrator_bios(narrators_path: Path) -> tuple[pa.Table, dict[str, str]
 
     # Detect column names (the repo may use various conventions).
     id_col = header_map.get("id") or header_map.get("narrator_id")
-    name_col = header_map.get("name") or header_map.get("display_name")
+    name_col = (
+        header_map.get("name")
+        or header_map.get("displayname")
+        or header_map.get("display_name")
+        or header_map.get("fullname")
+        or header_map.get("arabicname")
+    )
     gender_col = header_map.get("gender")
     bio_col = header_map.get("bio") or header_map.get("biography")
 

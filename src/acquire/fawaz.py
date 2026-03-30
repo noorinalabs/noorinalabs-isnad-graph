@@ -33,10 +33,32 @@ _EDITION_PREFIXES = ("eng-", "ara-")
 
 
 def _edition_keys(editions: dict[str, Any] | list[Any]) -> list[str]:
-    """Return edition keys that start with ``eng-`` or ``ara-``."""
-    if isinstance(editions, dict):
-        return sorted(k for k in editions if any(k.startswith(p) for p in _EDITION_PREFIXES))
-    return []
+    """Return edition keys that start with ``eng-`` or ``ara-``.
+
+    Handles both the legacy flat dict format (key -> edition data) and the
+    current nested format where each top-level key maps to an object with
+    a ``collection`` list of edition objects containing a ``name`` field.
+    """
+    if not isinstance(editions, dict):
+        return []
+
+    # Check if any top-level key matches an edition prefix (legacy flat format).
+    flat_keys = [k for k in editions if any(k.startswith(p) for p in _EDITION_PREFIXES)]
+    if flat_keys:
+        return sorted(flat_keys)
+
+    # Current nested format: {collection_name: {name, collection: [{name, ...}, ...]}}.
+    nested_keys: list[str] = []
+    for _coll_name, coll_data in editions.items():
+        if not isinstance(coll_data, dict):
+            continue
+        for edition in coll_data.get("collection", []):
+            if not isinstance(edition, dict):
+                continue
+            name = edition.get("name", "")
+            if any(name.startswith(p) for p in _EDITION_PREFIXES):
+                nested_keys.append(name)
+    return sorted(nested_keys)
 
 
 def run(raw_dir: Path) -> Path:

@@ -429,7 +429,9 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
 
     # Load inputs.
     candidates = _load_candidates(staging_dir)
-    mentions = _load_mentions(staging_dir)
+    # NER writes narrator_mentions_resolved.parquet to output_dir (curated),
+    # so load mentions from there rather than staging_dir.
+    mentions = _load_mentions(output_dir)
 
     if not mentions:
         logger.warning("disambiguate_no_mentions")
@@ -494,7 +496,7 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
             else:
                 rec = canonical_map[canonical_id]
                 raw_count = rec.get("mention_count")
-                prev = int(raw_count) if isinstance(raw_count, (int, str)) else 0
+                prev = int(raw_count) if isinstance(raw_count, int | str) else 0
                 rec["mention_count"] = prev + 1
                 # Merge source IDs.
                 src_ids = rec.get("source_ids")

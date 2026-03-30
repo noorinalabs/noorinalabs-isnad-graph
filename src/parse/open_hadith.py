@@ -25,7 +25,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Patterns indicating a diacritics/tashkeel file.
-_DIACRITICS_RE = re.compile(r"tashkeel|diacritics", re.IGNORECASE)
+_DIACRITICS_RE = re.compile(r"tashkeel|diacritics|mushakkala", re.IGNORECASE)
 
 # Common column name mappings (lowercase -> canonical).
 _TEXT_COLUMNS = {"hadith", "text", "matn", "content", "hadith_text", "حديث", "متن"}
@@ -86,6 +86,16 @@ def run(raw_dir: Path, staging_dir: Path) -> Path:
         book_col = _find_column(headers, _BOOK_COLUMNS)
         chapter_col = _find_column(headers, _CHAPTER_COLUMNS)
 
+        # Handle headerless CSVs (auto-generated column names like f0, f1, f2).
+        # Open Hadith Data CSVs have no headers: col 0 = number, col 1 = text.
+        if (
+            not text_col
+            and len(headers) >= 2
+            and all(h.startswith("f") and h[1:].isdigit() for h in headers)
+        ):
+            number_col = headers[0]
+            text_col = headers[1]
+
         # Convert columns to Python lists once (avoid O(n^2) per-row conversion).
         number_vals = table.column(number_col).to_pylist() if number_col else None
         text_vals = table.column(text_col).to_pylist() if text_col else None
@@ -108,11 +118,11 @@ def run(raw_dir: Path, staging_dir: Path) -> Path:
                     "book_number": book_num,
                     "chapter_number": chapter_num,
                     "hadith_number": hadith_num,
-                    "matn_ar": text_value,
+                    "matn_ar": None,
                     "matn_en": None,
                     "isnad_raw_ar": None,
                     "isnad_raw_en": None,
-                    "full_text_ar": text_value if text_col is None else None,
+                    "full_text_ar": text_value,
                     "full_text_en": None,
                     "grade": None,
                     "chapter_name_ar": None,
