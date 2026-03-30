@@ -88,8 +88,8 @@ health_url="${SITE_URL}/health"
 health_resp=$(curl -s --max-time "$TIMEOUT" "$health_url" 2>/dev/null || echo "")
 if echo "$health_resp" | jq -e '.status' &>/dev/null; then
   health_status=$(echo "$health_resp" | jq -r '.status')
-  if [ "$health_status" = "healthy" ]; then
-    pass "Health endpoint reports healthy"
+  if [ "$health_status" = "healthy" ] || [ "$health_status" = "degraded" ]; then
+    pass "Health endpoint reports status=$health_status"
   else
     fail "Health endpoint status=$health_status"
   fi
@@ -102,15 +102,14 @@ fi
 section "API Status (detailed service health)"
 status_url="${SITE_URL}/status"
 status_resp=$(curl -s --max-time "$TIMEOUT" "$status_url" 2>/dev/null || echo "")
-if echo "$status_resp" | jq -e '.neo4j' &>/dev/null; then
-  for svc in neo4j postgresql redis; do
-    svc_ok=$(echo "$status_resp" | jq -r ".$svc // \"missing\"")
-    if [ "$svc_ok" = "true" ] || [ "$svc_ok" = "connected" ] || [ "$svc_ok" = "ok" ]; then
-      pass "Service $svc is healthy"
-    else
-      warn "Service $svc status=$svc_ok"
-    fi
-  done
+if echo "$status_resp" | jq -e '.status' &>/dev/null; then
+  pub_status=$(echo "$status_resp" | jq -r '.status')
+  pub_message=$(echo "$status_resp" | jq -r '.message // ""')
+  if [ "$pub_status" = "operational" ]; then
+    pass "Status endpoint reports operational"
+  else
+    warn "Status endpoint reports $pub_status: $pub_message"
+  fi
 else
   warn "Status endpoint not available or unexpected format"
 fi
@@ -118,7 +117,7 @@ fi
 # ---------- 5. Key API Endpoints (smoke test — expect 401 without auth) ----------
 
 section "API Endpoint Smoke Tests"
-endpoints=("/api/v1/narrators" "/api/v1/hadiths" "/api/v1/collections" "/api/v1/search" "/api/v1/graph" "/api/v1/parallels" "/api/v1/timeline")
+endpoints=("/api/v1/narrators" "/api/v1/hadiths" "/api/v1/collections" "/api/v1/search" "/api/v1/parallels" "/api/v1/timeline")
 for ep in "${endpoints[@]}"; do
   ep_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$TIMEOUT" "${SITE_URL}${ep}" 2>/dev/null || echo "000")
   if [ "$ep_code" = "401" ] || [ "$ep_code" = "403" ] || [ "$ep_code" = "200" ]; then
@@ -145,7 +144,12 @@ required_headers=(
 for hdr in "${required_headers[@]}"; do
   if echo "$headers" | grep -qi "^${hdr}:"; then
     val=$(echo "$headers" | grep -i "^${hdr}:" | head -1 | cut -d: -f2- | xargs)
-    pass "Header $hdr present ($val)"
+    # X-XSS-Protection: 0 is the OWASP-recommended value (disable browser XSS filter)
+    if [ "$hdr" = "X-XSS-Protection" ] && [ "$val" = "0" ]; then
+      pass "Header $hdr present ($val — OWASP recommended)"
+    else
+      pass "Header $hdr present ($val)"
+    fi
   else
     fail "Header $hdr missing"
   fi

@@ -1,6 +1,19 @@
 isnad-graph.noorinalabs.com {
-    # API routes
+    # API routes (versioned)
     handle /api/* {
+        reverse_proxy api:8000
+    }
+
+    # API routes (top-level health/status — no /api prefix)
+    handle /health {
+        reverse_proxy api:8000
+    }
+    handle /status {
+        reverse_proxy api:8000
+    }
+
+    # Metrics (Prometheus scrape endpoint)
+    handle /metrics {
         reverse_proxy api:8000
     }
 
@@ -19,7 +32,9 @@ isnad-graph.noorinalabs.com {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
+        X-XSS-Protection "0"
         Referrer-Policy "strict-origin-when-cross-origin"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'"
         -Server
     }
 }

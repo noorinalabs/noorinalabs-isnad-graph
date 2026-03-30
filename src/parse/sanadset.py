@@ -107,13 +107,14 @@ def _extract_narrator_mentions(
 def _process_chunk(
     rows: list[dict[str, object]],
     collection_name: str,
+    row_offset: int = 0,
 ) -> tuple[list[dict[str, object]], list[dict[str, str | int | None]], int]:
     """Process a chunk of rows, returning hadith records, narrator mentions, and malformed count."""
     hadiths: list[dict[str, object]] = []
     mentions: list[dict[str, str | int | None]] = []
     malformed_count = 0
 
-    for row in rows:
+    for idx, row in enumerate(rows):
         full_text = safe_str(row.get("hadith") or row.get("text") or row.get("Hadith"))
         if full_text is None:
             continue
@@ -126,6 +127,7 @@ def _process_chunk(
             collection_name,
             str(book_num or 0),
             str(hadith_num or 0),
+            str(row_offset + idx),
         )
 
         # Extract SANAD and MATN content
@@ -309,6 +311,7 @@ def parse_sanadset(
     all_mentions: list[dict[str, str | int | None]] = []
     total_malformed = 0
     total_rows = 0
+    global_row_offset = 0
 
     for csv_file in csv_files:
         logger.info("parsing_csv", file=csv_file.name)
@@ -325,7 +328,9 @@ def parse_sanadset(
 
         for chunk_start in range(0, len(rows), _CHUNK_SIZE):
             chunk = rows[chunk_start : chunk_start + _CHUNK_SIZE]
-            hadiths, mentions, malformed = _process_chunk(chunk, collection_name)
+            hadiths, mentions, malformed = _process_chunk(
+                chunk, collection_name, row_offset=global_row_offset + chunk_start
+            )
             all_hadiths.extend(hadiths)
             all_mentions.extend(mentions)
             total_malformed += malformed
@@ -337,6 +342,8 @@ def parse_sanadset(
                 hadiths=len(hadiths),
                 mentions=len(mentions),
             )
+
+        global_row_offset += len(rows)
 
     # Data quality logging
     valid_sanad_count = sum(1 for h in all_hadiths if h["isnad_raw_ar"] is not None)

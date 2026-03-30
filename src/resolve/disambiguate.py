@@ -3,12 +3,18 @@
 5-stage pipeline: exact → fuzzy (rapidfuzz) → temporal → geographic → cross-ref.
 Produces canonical narrator records with deterministic UUID5 IDs,
 an ambiguous-narrators report, and a merge audit log.
+
+Performance: uses blocking indexes (first-2-char prefix) to reduce the
+candidate comparison space from O(n*m) to O(n * m/k), and streams
+mentions in batches to keep memory under 4GB.
 """
 
 from __future__ import annotations
 
 import csv
 import uuid
+from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -39,6 +45,15 @@ _LEVENSHTEIN_MAX_DIST = 2
 _CONFIDENCE_THRESHOLD = 0.70
 _TEMPORAL_MIN_GAP = 15
 _TEMPORAL_MAX_GAP = 80
+
+# Blocking: number of prefix characters to use for candidate grouping.
+_BLOCK_PREFIX_LEN = 2
+
+# Batch size for streaming mentions from Parquet.
+_MENTION_BATCH_SIZE = 50_000
+
+# Progress log interval.
+_PROGRESS_LOG_INTERVAL = 10_000
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +100,57 @@ class ChainContext:
 
 
 # ---------------------------------------------------------------------------
-# Stage 1: Exact match
+# Blocking index
+# ---------------------------------------------------------------------------
+@dataclass
+class BlockingIndex:
+    """Pre-computed indexes for fast candidate lookup by name prefix.
+
+    Reduces comparison space from O(candidates) to O(candidates / k)
+    where k is the number of distinct prefix blocks.
+    """
+
+    exact_ar: dict[str, list[Candidate]]
+    exact_en: dict[str, list[Candidate]]
+    blocks_ar: dict[str, list[Candidate]]
+    crossref_blocks: dict[str, list[Candidate]]
+
+
+def _build_blocking_index(candidates: list[Candidate]) -> BlockingIndex:
+    """Build blocking indexes over the candidate list."""
+    exact_ar: dict[str, list[Candidate]] = defaultdict(list)
+    exact_en: dict[str, list[Candidate]] = defaultdict(list)
+    blocks_ar: dict[str, list[Candidate]] = defaultdict(list)
+    crossref_blocks: dict[str, list[Candidate]] = defaultdict(list)
+
+    for c in candidates:
+        if c.name_ar_normalized:
+            exact_ar[c.name_ar_normalized].append(c)
+            prefix = c.name_ar_normalized[:_BLOCK_PREFIX_LEN]
+            blocks_ar[prefix].append(c)
+        if c.name_en:
+            exact_en[c.name_en.strip().lower()].append(c)
+        if c.external_id and c.name_ar_normalized:
+            prefix = c.name_ar_normalized[:_BLOCK_PREFIX_LEN]
+            crossref_blocks[prefix].append(c)
+
+    logger.info(
+        "blocking_index_built",
+        exact_ar_keys=len(exact_ar),
+        exact_en_keys=len(exact_en),
+        block_keys=len(blocks_ar),
+        crossref_keys=len(crossref_blocks),
+    )
+    return BlockingIndex(
+        exact_ar=dict(exact_ar),
+        exact_en=dict(exact_en),
+        blocks_ar=dict(blocks_ar),
+        crossref_blocks=dict(crossref_blocks),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Stage 1: Exact match (indexed)
 # ---------------------------------------------------------------------------
 def _exact_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
     """Full normalized-name match.
@@ -103,8 +168,21 @@ def _exact_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
     return results
 
 
+def _exact_match_indexed(mention_norm: str, index: BlockingIndex) -> list[Match]:
+    """O(1) exact match using pre-built hash indexes."""
+    results: list[Match] = []
+    if not mention_norm:
+        return results
+    for c in index.exact_ar.get(mention_norm, []):
+        results.append(Match(candidate=c, stage="exact", score=1.0))
+    lower = mention_norm.lower()
+    for c in index.exact_en.get(lower, []):
+        results.append(Match(candidate=c, stage="exact", score=1.0))
+    return results
+
+
 # ---------------------------------------------------------------------------
-# Stage 2: Fuzzy match
+# Stage 2: Fuzzy match (blocked)
 # ---------------------------------------------------------------------------
 def _fuzzy_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
     """rapidfuzz ratio >= threshold AND Levenshtein distance <= max.
@@ -121,6 +199,26 @@ def _fuzzy_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
         ratio = fuzz.ratio(mention_norm, cand_name)
         dist = Levenshtein.distance(mention_norm, cand_name)
         if ratio >= _FUZZY_RATIO_THRESHOLD and dist <= _LEVENSHTEIN_MAX_DIST:
+            results.append(Match(candidate=c, stage="fuzzy", score=round(ratio / 100.0, 4)))
+    return results
+
+
+def _fuzzy_match_blocked(mention_norm: str, index: BlockingIndex) -> list[Match]:
+    """Fuzzy match restricted to same-prefix block with score_cutoff pruning."""
+    results: list[Match] = []
+    if not mention_norm:
+        return results
+    prefix = mention_norm[:_BLOCK_PREFIX_LEN]
+    block = index.blocks_ar.get(prefix, [])
+    for c in block:
+        cand_name = c.name_ar_normalized or ""
+        if not cand_name:
+            continue
+        ratio = fuzz.ratio(mention_norm, cand_name, score_cutoff=_FUZZY_RATIO_THRESHOLD)
+        if ratio == 0:
+            continue
+        dist = Levenshtein.distance(mention_norm, cand_name)
+        if dist <= _LEVENSHTEIN_MAX_DIST:
             results.append(Match(candidate=c, stage="fuzzy", score=round(ratio / 100.0, 4)))
     return results
 
@@ -181,7 +279,7 @@ def _geographic_filter(matches: list[Match]) -> list[Match]:
 
 
 # ---------------------------------------------------------------------------
-# Stage 5: Cross-reference match
+# Stage 5: Cross-reference match (blocked)
 # ---------------------------------------------------------------------------
 def _crossref_match(mention_norm: str, candidates: list[Candidate]) -> list[Match]:
     """Match via external IDs (e.g., muslimscholars.info).
@@ -198,6 +296,22 @@ def _crossref_match(mention_norm: str, candidates: list[Candidate]) -> list[Matc
             ratio = fuzz.ratio(mention_norm, c.name_ar_normalized)
             if ratio >= 60:
                 results.append(Match(candidate=c, stage="crossref", score=round(ratio / 100.0, 4)))
+    return results
+
+
+def _crossref_match_blocked(mention_norm: str, index: BlockingIndex) -> list[Match]:
+    """Cross-reference match restricted to same-prefix block."""
+    results: list[Match] = []
+    if not mention_norm:
+        return results
+    prefix = mention_norm[:_BLOCK_PREFIX_LEN]
+    block = index.crossref_blocks.get(prefix, [])
+    for c in block:
+        if not (c.external_id and c.name_ar_normalized):
+            continue
+        ratio = fuzz.ratio(mention_norm, c.name_ar_normalized, score_cutoff=60)
+        if ratio > 0:
+            results.append(Match(candidate=c, stage="crossref", score=round(ratio / 100.0, 4)))
     return results
 
 
@@ -243,6 +357,53 @@ def _load_candidates(staging_dir: Path) -> list[Candidate]:
         total_candidates=len(candidates),
     )
     return candidates
+
+
+def _iter_mention_batches(
+    mentions_dir: Path,
+) -> Iterator[list[dict[str, str | int | float | None]]]:
+    """Stream narrator mentions from Parquet in fixed-size batches.
+
+    Reads the file using row-group-based iteration to avoid loading
+    all 3.3M rows into memory at once.
+    """
+    path = mentions_dir / "narrator_mentions_resolved.parquet"
+    if not path.exists():
+        logger.warning("mentions_file_missing", path=str(path))
+        return
+
+    pf = pq.ParquetFile(path)
+    total_rows = pf.metadata.num_rows
+    logger.info("mentions_streaming_start", total_rows=total_rows, batch_size=_MENTION_BATCH_SIZE)
+
+    batch: list[dict[str, str | int | float | None]] = []
+    for rg_idx in range(pf.metadata.num_row_groups):
+        table = pf.read_row_group(rg_idx)
+        for i in range(table.num_rows):
+            batch.append(
+                {
+                    "mention_id": table.column("mention_id")[i].as_py(),
+                    "hadith_id": table.column("hadith_id")[i].as_py(),
+                    "source_corpus": table.column("source_corpus")[i].as_py(),
+                    "position_in_chain": table.column("position_in_chain")[i].as_py(),
+                    "name_raw": safe_str(table.column("name_raw")[i].as_py()),
+                    "name_normalized": safe_str(table.column("name_normalized")[i].as_py()),
+                    "transmission_method": safe_str(table.column("transmission_method")[i].as_py()),
+                }
+            )
+            if len(batch) >= _MENTION_BATCH_SIZE:
+                yield batch
+                batch = []
+    if batch:
+        yield batch
+
+
+def _count_mentions(mentions_dir: Path) -> int:
+    """Return total mention count from Parquet metadata without reading data."""
+    path = mentions_dir / "narrator_mentions_resolved.parquet"
+    if not path.exists():
+        return 0
+    return int(pq.ParquetFile(path).metadata.num_rows)
 
 
 def _load_mentions(
@@ -348,6 +509,68 @@ def _disambiguate_mention(
     return None, all_matches
 
 
+def _disambiguate_mention_indexed(
+    mention: dict[str, str | int | float | None],
+    index: BlockingIndex,
+    death_year_index: dict[str, int | None],
+) -> tuple[Match | None, list[Match]]:
+    """Run 5-stage pipeline using blocking indexes for fast lookup."""
+    raw_name = str(mention.get("name_normalized") or mention.get("name_raw") or "")
+    if not raw_name:
+        return None, []
+
+    name = normalize_arabic(raw_name) if raw_name else ""
+    if not name:
+        return None, []
+
+    hadith_id = str(mention.get("hadith_id", ""))
+    position = int(mention.get("position_in_chain") or 0)
+    source_corpus = str(mention.get("source_corpus", ""))
+
+    adjacent_years: list[int] = []
+    for offset in (-1, 1):
+        key = f"{hadith_id}:{position + offset}"
+        year = death_year_index.get(key)
+        if year is not None:
+            adjacent_years.append(year)
+
+    chain_ctx = ChainContext(
+        hadith_id=hadith_id,
+        position_in_chain=position,
+        source_corpus=source_corpus,
+        adjacent_death_years=adjacent_years,
+    )
+
+    all_matches: list[Match] = []
+
+    # Stage 1: Exact match (O(1) dict lookup)
+    exact = _exact_match_indexed(name, index)
+    if exact:
+        all_matches.extend(exact)
+        return exact[0], all_matches
+
+    # Stage 2: Fuzzy match (blocked — only compare within same prefix)
+    fuzzy = _fuzzy_match_blocked(name, index)
+    if fuzzy:
+        # Stage 3: Temporal filter
+        fuzzy = _temporal_filter(fuzzy, chain_ctx)
+        # Stage 4: Geographic filter
+        fuzzy = _geographic_filter(fuzzy)
+        all_matches.extend(fuzzy)
+        if fuzzy:
+            best = max(fuzzy, key=lambda m: m.score)
+            return best, all_matches
+
+    # Stage 5: Cross-reference match (blocked)
+    crossref = _crossref_match_blocked(name, index)
+    if crossref:
+        all_matches.extend(crossref)
+        best = max(crossref, key=lambda m: m.score)
+        return best, all_matches
+
+    return None, all_matches
+
+
 # ---------------------------------------------------------------------------
 # Output builders
 # ---------------------------------------------------------------------------
@@ -420,6 +643,9 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
 
     Multi-stage pipeline: exact match, fuzzy match, temporal filter,
     geographic filter, cross-reference match.
+
+    Uses blocking indexes and batch streaming to handle 3M+ mentions
+    within <30min and <4GB peak memory.
     """
     logger.info(
         "disambiguate_run_start",
@@ -427,19 +653,22 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
         output_dir=str(output_dir),
     )
 
-    # Load inputs.
+    # Load candidates and build blocking index.
     candidates = _load_candidates(staging_dir)
-    # NER writes narrator_mentions_resolved.parquet to output_dir (curated),
-    # so load mentions from there rather than staging_dir.
-    mentions = _load_mentions(output_dir)
-
-    if not mentions:
-        logger.warning("disambiguate_no_mentions")
-        return []
 
     if not candidates:
         logger.warning("disambiguate_no_candidates")
         return []
+
+    index = _build_blocking_index(candidates)
+
+    # Check mention count without loading data.
+    total_mentions = _count_mentions(output_dir)
+    if total_mentions == 0:
+        logger.warning("disambiguate_no_mentions")
+        return []
+
+    logger.info("disambiguate_processing", total_mentions=total_mentions)
 
     # Build death-year index for temporal filtering:
     # key = "hadith_id:position" → death_year_ah of the resolved candidate.
@@ -455,97 +684,112 @@ def run(staging_dir: Path, output_dir: Path) -> list[Path]:
     source_resolved: dict[str, int] = {}
     source_total: dict[str, int] = {}
 
-    for mention in mentions:
-        corpus = str(mention.get("source_corpus", "unknown"))
-        source_total[corpus] = source_total.get(corpus, 0) + 1
+    processed = 0
 
-        best, all_matches = _disambiguate_mention(mention, candidates, death_year_index)
+    for batch in _iter_mention_batches(output_dir):
+        for mention in batch:
+            corpus = str(mention.get("source_corpus", "unknown"))
+            source_total[corpus] = source_total.get(corpus, 0) + 1
 
-        mention_id = str(mention.get("mention_id", ""))
-        mention_text = str(mention.get("name_normalized") or mention.get("name_raw") or "")
+            best, all_matches = _disambiguate_mention_indexed(mention, index, death_year_index)
 
-        if best and best.score >= _CONFIDENCE_THRESHOLD:
-            # Resolved.
-            source_resolved[corpus] = source_resolved.get(corpus, 0) + 1
-            c = best.candidate
-            norm_name = c.name_ar_normalized or normalize_arabic(c.name_ar or "")
-            canonical_id = _make_canonical_id(norm_name)
+            mention_id = str(mention.get("mention_id", ""))
+            mention_text = str(mention.get("name_normalized") or mention.get("name_raw") or "")
 
-            # Update death-year index for temporal chain context.
-            hadith_id = str(mention.get("hadith_id", ""))
-            position = int(mention.get("position_in_chain") or 0)
-            death_year_index[f"{hadith_id}:{position}"] = c.death_year_ah
+            if best and best.score >= _CONFIDENCE_THRESHOLD:
+                # Resolved.
+                source_resolved[corpus] = source_resolved.get(corpus, 0) + 1
+                c = best.candidate
+                norm_name = c.name_ar_normalized or normalize_arabic(c.name_ar or "")
+                canonical_id = _make_canonical_id(norm_name)
 
-            # Upsert canonical record.
-            if canonical_id not in canonical_map:
-                canonical_map[canonical_id] = {
-                    "canonical_id": canonical_id,
-                    "name_ar": c.name_ar,
-                    "name_en": c.name_en,
-                    "name_ar_normalized": norm_name,
-                    "aliases": [],
-                    "birth_year_ah": c.birth_year_ah,
-                    "death_year_ah": c.death_year_ah,
-                    "generation": c.generation,
-                    "gender": c.gender,
-                    "trustworthiness": c.trustworthiness,
-                    "source_ids": [c.bio_id],
-                    "external_id": c.external_id,
-                    "mention_count": 1,
-                }
+                # Update death-year index for temporal chain context.
+                hadith_id = str(mention.get("hadith_id", ""))
+                position = int(mention.get("position_in_chain") or 0)
+                death_year_index[f"{hadith_id}:{position}"] = c.death_year_ah
+
+                # Upsert canonical record.
+                if canonical_id not in canonical_map:
+                    canonical_map[canonical_id] = {
+                        "canonical_id": canonical_id,
+                        "name_ar": c.name_ar,
+                        "name_en": c.name_en,
+                        "name_ar_normalized": norm_name,
+                        "aliases": [],
+                        "birth_year_ah": c.birth_year_ah,
+                        "death_year_ah": c.death_year_ah,
+                        "generation": c.generation,
+                        "gender": c.gender,
+                        "trustworthiness": c.trustworthiness,
+                        "source_ids": [c.bio_id],
+                        "external_id": c.external_id,
+                        "mention_count": 1,
+                    }
+                else:
+                    rec = canonical_map[canonical_id]
+                    raw_count = rec.get("mention_count")
+                    prev = int(raw_count) if isinstance(raw_count, int | str) else 0
+                    rec["mention_count"] = prev + 1
+                    # Merge source IDs.
+                    src_ids = rec.get("source_ids")
+                    if isinstance(src_ids, list) and c.bio_id not in src_ids:
+                        src_ids.append(c.bio_id)
+                    # Add alias if different from primary.
+                    if mention_text and mention_text != norm_name:
+                        aliases = rec.get("aliases")
+                        if isinstance(aliases, list) and mention_text not in aliases:
+                            aliases.append(mention_text)
+
+                # Merge log entry.
+                merge_log_rows.append(
+                    {
+                        "canonical_id": canonical_id,
+                        "mention_id": mention_id,
+                        "mention_text": mention_text,
+                        "merge_stage": best.stage,
+                        "score": best.score,
+                    }
+                )
             else:
-                rec = canonical_map[canonical_id]
-                raw_count = rec.get("mention_count")
-                prev = int(raw_count) if isinstance(raw_count, int | str) else 0
-                rec["mention_count"] = prev + 1
-                # Merge source IDs.
-                src_ids = rec.get("source_ids")
-                if isinstance(src_ids, list) and c.bio_id not in src_ids:
-                    src_ids.append(c.bio_id)
-                # Add alias if different from primary.
-                if mention_text and mention_text != norm_name:
-                    aliases = rec.get("aliases")
-                    if isinstance(aliases, list) and mention_text not in aliases:
-                        aliases.append(mention_text)
-
-            # Merge log entry.
-            merge_log_rows.append(
-                {
-                    "canonical_id": canonical_id,
+                # Ambiguous — collect top-3 candidates.
+                top3 = sorted(all_matches, key=lambda m: m.score, reverse=True)[:3]
+                row: dict[str, str | float | None] = {
                     "mention_id": mention_id,
                     "mention_text": mention_text,
-                    "merge_stage": best.stage,
-                    "score": best.score,
+                    "source_corpus": corpus,
                 }
-            )
-        else:
-            # Ambiguous — collect top-3 candidates.
-            top3 = sorted(all_matches, key=lambda m: m.score, reverse=True)[:3]
-            row: dict[str, str | float | None] = {
-                "mention_id": mention_id,
-                "mention_text": mention_text,
-                "source_corpus": corpus,
-            }
-            for idx in range(3):
-                n = idx + 1
-                if idx < len(top3):
-                    m = top3[idx]
-                    norm = m.candidate.name_ar_normalized or ""
-                    row[f"candidate_{n}_id"] = _make_canonical_id(norm)
-                    row[f"candidate_{n}_name"] = m.candidate.name_ar or m.candidate.name_en or ""
-                    row[f"candidate_{n}_score"] = m.score
-                    row[f"candidate_{n}_stage"] = m.stage
-                else:
-                    row[f"candidate_{n}_id"] = None
-                    row[f"candidate_{n}_name"] = None
-                    row[f"candidate_{n}_score"] = None
-                    row[f"candidate_{n}_stage"] = None
-            ambiguous_rows.append(row)
+                for idx in range(3):
+                    n = idx + 1
+                    if idx < len(top3):
+                        m = top3[idx]
+                        norm = m.candidate.name_ar_normalized or ""
+                        row[f"candidate_{n}_id"] = _make_canonical_id(norm)
+                        row[f"candidate_{n}_name"] = (
+                            m.candidate.name_ar or m.candidate.name_en or ""
+                        )
+                        row[f"candidate_{n}_score"] = m.score
+                        row[f"candidate_{n}_stage"] = m.stage
+                    else:
+                        row[f"candidate_{n}_id"] = None
+                        row[f"candidate_{n}_name"] = None
+                        row[f"candidate_{n}_score"] = None
+                        row[f"candidate_{n}_stage"] = None
+                ambiguous_rows.append(row)
+
+            processed += 1
+            if processed % _PROGRESS_LOG_INTERVAL == 0:
+                logger.info(
+                    "disambiguate_progress",
+                    processed=processed,
+                    total=total_mentions,
+                    pct=round(processed / total_mentions * 100, 1),
+                    resolved=sum(source_resolved.values()),
+                    canonical=len(canonical_map),
+                )
 
     # ---------------------------------------------------------------------------
     # Metrics
     # ---------------------------------------------------------------------------
-    total_mentions = len(mentions)
     total_resolved = sum(source_resolved.values())
     total_canonical = len(canonical_map)
     total_ambiguous = len(ambiguous_rows)

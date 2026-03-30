@@ -314,6 +314,54 @@
 }
 
 [data-theme="light"] {
+  --color-background: oklch(0.96 0.01 85);
+  --color-foreground: oklch(0.25 0.02 260);
+  --color-card: oklch(0.99 0.005 85);
+  --color-card-foreground: oklch(0.25 0.02 260);
+  --color-popover: oklch(0.99 0.005 85);
+  --color-popover-foreground: oklch(0.25 0.02 260);
+  --color-primary: oklch(0.55 0.14 45);
+  --color-primary-hover: oklch(0.60 0.14 45);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: oklch(0.85 0.01 85);
+  --color-secondary-foreground: oklch(0.25 0.02 260);
+  --color-muted: oklch(0.93 0.005 85);
+  --color-muted-foreground: oklch(0.45 0.01 260);
+  --color-accent: oklch(0.90 0.03 45);
+  --color-accent-foreground: oklch(0.40 0.12 45);
+  --color-destructive: oklch(0.60 0.18 30);
+  --color-destructive-foreground: #ffffff;
+  --color-success: oklch(0.55 0.10 175);
+  --color-success-foreground: #ffffff;
+  --color-warning: oklch(0.65 0.14 75);
+  --color-warning-foreground: oklch(0.25 0.02 260);
+  --color-info: oklch(0.45 0.12 260);
+  --color-info-foreground: #ffffff;
+  --color-border: oklch(0.85 0.01 85);
+  --color-input: oklch(0.85 0.01 85);
+  --color-ring: oklch(0.55 0.14 45);
+  --color-sahih: oklch(0.55 0.10 175);
+  --color-sahih-bg: oklch(0.93 0.03 175);
+  --color-hasan: oklch(0.65 0.14 75);
+  --color-hasan-bg: oklch(0.95 0.04 75);
+  --color-daif: oklch(0.60 0.18 30);
+  --color-daif-bg: oklch(0.95 0.03 30);
+  --color-mawdu: oklch(0.50 0.15 15);
+  --color-mawdu-bg: oklch(0.94 0.03 15);
+  --color-sunni: oklch(0.55 0.10 175);
+  --color-sunni-bg: oklch(0.93 0.03 175);
+  --color-shia: oklch(0.45 0.12 260);
+  --color-shia-bg: oklch(0.93 0.03 260);
+  --color-tier-thiqah: oklch(0.55 0.10 175);
+  --color-tier-saduq: oklch(0.60 0.10 45);
+  --color-tier-daif-narrator: oklch(0.65 0.14 75);
+  --color-tier-matruk: oklch(0.60 0.18 30);
+  --color-tier-kadhdhab: oklch(0.50 0.15 15);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px oklch(0 0 0 / 0.1), 0 2px 4px oklch(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px oklch(0 0 0 / 0.1), 0 4px 6px oklch(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px oklch(0 0 0 / 0.1), 0 8px 10px oklch(0 0 0 / 0.04);
   color-scheme: light;
 }
 
