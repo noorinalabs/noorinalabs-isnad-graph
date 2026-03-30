@@ -107,6 +107,7 @@ Copy `.env.example` to `.env`. Key variables:
 | QA Engineer | Senior | Priya Nair | `roster/qa_engineer_priya.md` |
 | Data Engineer (Lead) | Staff | Elena Petrova | `roster/data_lead_elena.md` |
 | Data Engineer | Senior | Rashid Osei-Mensah | `roster/data_engineer_rashid.md` |
+| Data Scientist | Principal | Mei-Lin Chang | `roster/data_scientist_mei.md` |
 | UX Designer | Principal | Sable Nakamura-Whitfield | `roster/ux_designer_sable.md` |
 
 ### Key Rules

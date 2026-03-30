@@ -130,7 +130,7 @@ graph TD
     DA --> SEC["Security Engineer<br/><small>Yara Hadid · Senior</small>"]
 
     DE_LEAD --> D1["Data Engineer<br/><small>Rashid Osei-Mensah · Senior</small>"]
-    DE_LEAD --> D2["Data Scientist<br/><small>(vacant — Mei-Lin archived)</small>"]
+    DE_LEAD --> D2["Data Scientist<br/><small>Mei-Lin Chang · Principal</small>"]
 
     TL --> E1["Engineer<br/><small>Kwame Asante · Principal</small>"]
     TL --> E2["Engineer<br/><small>Amara Diallo · Senior</small>"]
