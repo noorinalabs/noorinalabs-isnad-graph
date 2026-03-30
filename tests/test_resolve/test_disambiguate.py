@@ -11,9 +11,13 @@ from src.resolve.disambiguate import (
     Candidate,
     ChainContext,
     Match,
+    _build_blocking_index,
     _crossref_match,
+    _crossref_match_blocked,
     _exact_match,
+    _exact_match_indexed,
     _fuzzy_match,
+    _fuzzy_match_blocked,
     _geographic_filter,
     _make_canonical_id,
     _temporal_filter,
@@ -224,3 +228,132 @@ class TestCanonicalId:
     def test_uses_fixed_namespace(self) -> None:
         expected = str(uuid.uuid5(_CANONICAL_NAMESPACE, "test_input"))
         assert _make_canonical_id("test_input") == expected
+
+
+# ---------------------------------------------------------------------------
+# Blocking index
+# ---------------------------------------------------------------------------
+class TestBlockingIndex:
+    def test_build_index_groups_by_prefix(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        # "ابو هريره" starts with "اب", "انس بن مالك" starts with "ان", "علي" starts with "عل"
+        assert len(index.blocks_ar) >= 2
+
+    def test_exact_ar_index_populated(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        assert "\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0647" in index.exact_ar
+        assert "\u0627\u0646\u0633 \u0628\u0646 \u0645\u0627\u0644\u0643" in index.exact_ar
+
+    def test_exact_en_index_populated(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        assert "abu hurayra" in index.exact_en
+        assert "anas ibn malik" in index.exact_en
+
+    def test_crossref_only_has_external_id_candidates(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        # Only candidate_abu_hurayra has an external_id
+        all_crossref = [c for block in index.crossref_blocks.values() for c in block]
+        assert all(c.external_id is not None for c in all_crossref)
+
+    def test_empty_candidates(self) -> None:
+        index = _build_blocking_index([])
+        assert index.exact_ar == {}
+        assert index.exact_en == {}
+        assert index.blocks_ar == {}
+        assert index.crossref_blocks == {}
+
+
+# ---------------------------------------------------------------------------
+# Indexed exact match
+# ---------------------------------------------------------------------------
+class TestExactMatchIndexed:
+    def test_exact_arabic_match(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _exact_match_indexed("\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0647", index)
+        assert len(matches) == 1
+        assert matches[0].stage == "exact"
+        assert matches[0].score == 1.0
+        assert matches[0].candidate.bio_id == "bio-001"
+
+    def test_exact_english_match(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _exact_match_indexed("Abu Hurayra", index)
+        assert len(matches) == 1
+        assert matches[0].candidate.name_en == "Abu Hurayra"
+
+    def test_no_match(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _exact_match_indexed("unknown narrator", index)
+        assert matches == []
+
+    def test_empty_mention(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _exact_match_indexed("", index)
+        assert matches == []
+
+    def test_parity_with_linear_exact(self, candidates: list[Candidate]) -> None:
+        """Indexed exact match produces same results as linear scan."""
+        index = _build_blocking_index(candidates)
+        name = "\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0647"
+        linear = _exact_match(name, candidates)
+        indexed = _exact_match_indexed(name, index)
+        assert len(linear) == len(indexed)
+        assert {m.candidate.bio_id for m in linear} == {m.candidate.bio_id for m in indexed}
+
+
+# ---------------------------------------------------------------------------
+# Blocked fuzzy match
+# ---------------------------------------------------------------------------
+class TestFuzzyMatchBlocked:
+    def test_similar_name_matches(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        # One-char difference — same prefix block
+        matches = _fuzzy_match_blocked("\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0629", index)
+        assert len(matches) >= 1
+        assert all(m.stage == "fuzzy" for m in matches)
+
+    def test_different_prefix_no_match(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        # Prefix "xx" has no candidates
+        matches = _fuzzy_match_blocked("xx test name", index)
+        assert matches == []
+
+    def test_empty_mention(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _fuzzy_match_blocked("", index)
+        assert matches == []
+
+    def test_parity_within_block(self, candidates: list[Candidate]) -> None:
+        """Blocked fuzzy match finds same results as linear for same-prefix names."""
+        index = _build_blocking_index(candidates)
+        name = "\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0629"
+        linear = _fuzzy_match(name, candidates)
+        blocked = _fuzzy_match_blocked(name, index)
+        # Blocked should find at least everything linear finds within the same block
+        linear_same_prefix = [
+            m for m in linear if (m.candidate.name_ar_normalized or "")[:2] == name[:2]
+        ]
+        assert len(blocked) == len(linear_same_prefix)
+
+
+# ---------------------------------------------------------------------------
+# Blocked cross-reference match
+# ---------------------------------------------------------------------------
+class TestCrossrefMatchBlocked:
+    def test_external_id_boosts_match(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _crossref_match_blocked(
+            "\u0627\u0628\u0648 \u0647\u0631\u064a\u0631\u0647", index
+        )
+        assert len(matches) >= 1
+        assert all(m.stage == "crossref" for m in matches)
+
+    def test_no_match_different_prefix(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _crossref_match_blocked("xx no match", index)
+        assert matches == []
+
+    def test_empty_mention(self, candidates: list[Candidate]) -> None:
+        index = _build_blocking_index(candidates)
+        matches = _crossref_match_blocked("", index)
+        assert matches == []
