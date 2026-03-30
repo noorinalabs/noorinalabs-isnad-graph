@@ -3,13 +3,13 @@
 Datasets:
 - Mendeley Data ``5xth87zwb5`` v4 — sanadset.csv (~650K hadiths), books.csv
 - Kaggle ``fahd09/hadith-dataset`` — same data (removed/intermittent as of early 2026)
-- Kaggle ``fahd09/hadith-narrators`` — narrator biographies (24K+)
+- Kaggle ``fahd09/hadith-narrators`` — narrator biographies (24K+), CC0 licensed
 
-The Kaggle datasets (``fahd09/hadith-dataset`` and ``fahd09/hadith-narrators``) were
-removed or made private circa early 2026. Mendeley Data hosts the same Sanadset
-corpus (DOI: 10.17632/5xth87zwb5.4) with stable public download URLs and is now
-the primary acquisition path. Kaggle is retained as a fallback for the narrators
-dataset, which is not available on Mendeley.
+The Kaggle narrator dataset (``fahd09/hadith-narrators``) was temporarily removed
+circa early 2026 but is accessible again as of March 2026. Mendeley Data hosts the
+Sanadset hadith corpus (DOI: 10.17632/5xth87zwb5.4) with stable public download
+URLs and is the primary acquisition path. The narrators dataset is downloaded from
+Kaggle using the Python API (with CLI subprocess as fallback).
 """
 
 from __future__ import annotations
@@ -91,7 +91,23 @@ def _download_mendeley(dest: Path) -> list[Path]:
 
 
 def _run_kaggle_download(dataset: str, dest: Path) -> None:
-    """Run ``kaggle datasets download`` via subprocess."""
+    """Download a Kaggle dataset using the Python API, falling back to CLI subprocess."""
+    logger.info("kaggle_download_start", dataset=dataset, dest=str(dest))
+
+    # Try the Python API first (works even when CLI binary is not installed)
+    try:
+        import kaggle  # type: ignore[import-untyped]  # noqa: PLC0415
+
+        kaggle.api.authenticate()
+        kaggle.api.dataset_download_files(dataset, path=str(dest), unzip=True)
+        logger.info("kaggle_download_complete", dataset=dataset, method="python_api")
+        return
+    except ImportError:
+        logger.debug("kaggle_python_api_unavailable", note="falling back to CLI")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("kaggle_python_api_failed", dataset=dataset, error=str(exc))
+
+    # Fallback: CLI subprocess
     cmd = [
         "kaggle",
         "datasets",
@@ -102,7 +118,6 @@ def _run_kaggle_download(dataset: str, dest: Path) -> None:
         str(dest),
         "--unzip",
     ]
-    logger.info("kaggle_download_start", dataset=dataset, dest=str(dest))
     try:
         subprocess.run(  # noqa: S603
             cmd,
@@ -111,7 +126,7 @@ def _run_kaggle_download(dataset: str, dest: Path) -> None:
             text=True,
             check=True,
         )
-        logger.info("kaggle_download_complete", dataset=dataset)
+        logger.info("kaggle_download_complete", dataset=dataset, method="cli")
     except subprocess.TimeoutExpired:
         logger.error("kaggle_download_timeout", dataset=dataset, timeout=_SUBPROCESS_TIMEOUT)
         raise
