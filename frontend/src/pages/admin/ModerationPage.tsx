@@ -54,6 +54,7 @@ export default function ModerationPage() {
             value={flagForm.entity_type}
             onChange={(e) => setFlagForm({ ...flagForm, entity_type: e.target.value })}
             className="form-input"
+            aria-label="Entity type"
           >
             <option value="hadith">Hadith</option>
             <option value="narrator">Narrator</option>
@@ -61,6 +62,7 @@ export default function ModerationPage() {
           <input
             type="text"
             placeholder="Entity ID"
+            aria-label="Entity ID"
             value={flagForm.entity_id}
             onChange={(e) => setFlagForm({ ...flagForm, entity_id: e.target.value })}
             className="form-input"
@@ -69,6 +71,7 @@ export default function ModerationPage() {
           <input
             type="text"
             placeholder="Reason"
+            aria-label="Reason for flagging"
             value={flagForm.reason}
             onChange={(e) => setFlagForm({ ...flagForm, reason: e.target.value })}
             className="form-input"

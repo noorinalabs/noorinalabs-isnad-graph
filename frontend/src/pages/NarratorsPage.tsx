@@ -29,6 +29,7 @@ export default function NarratorsPage() {
         <input
           type="text"
           placeholder="Search narrators..."
+          aria-label="Search narrators"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -60,6 +61,9 @@ export default function NarratorsPage() {
                 <tr
                   key={n.id}
                   onClick={() => navigate(`/narrators/${n.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/narrators/${n.id}`) }}
+                  tabIndex={0}
+                  role="link"
                   className="clickable-row"
                 >
                   <td className="text-rtl">{n.name_ar}</td>

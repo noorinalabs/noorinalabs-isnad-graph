@@ -41,6 +41,7 @@ export default function UserManagementPage() {
         <input
           type="text"
           placeholder="Search users by name or email..."
+          aria-label="Search users by name or email"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}

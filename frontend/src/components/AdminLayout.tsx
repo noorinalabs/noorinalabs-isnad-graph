@@ -31,7 +31,7 @@ export default function AdminLayout() {
         <ThemeToggle />
       </header>
       <div className={styles.body}>
-        <nav className={styles.sidebar}>
+        <nav className={styles.sidebar} aria-label="Admin navigation">
           <ul className={styles.sidebarList}>
             <li className={styles.sidebarBackItem}>
               <NavLink to="/" className={`small-muted ${styles.sidebarBackLink}`}>

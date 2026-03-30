@@ -33,6 +33,9 @@ export default function CollectionsPage() {
               <tr
                 key={c.id}
                 onClick={() => navigate(`/collections/${c.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/collections/${c.id}`) }}
+                tabIndex={0}
+                role="link"
                 className="clickable-row"
               >
                 <td className="text-rtl">{c.name_ar}</td>

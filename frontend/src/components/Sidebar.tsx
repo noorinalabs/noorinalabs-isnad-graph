@@ -16,6 +16,7 @@ export default function Sidebar() {
 
   return (
     <nav
+      aria-label="Main navigation"
       style={{
         width: 220,
         padding: 'var(--spacing-4)',

@@ -214,8 +214,10 @@ export default function ConfigPage() {
         <h2>Feature Flags</h2>
         {Object.entries(formData.feature_flags ?? {}).map(([key, val]) => (
           <div key={key} className="flag-row">
-            <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} />
-            <span style={{ flex: 1 }}>{key}</span>
+            <label className="flex-row" style={{ flex: 1, gap: '0.5rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} />
+              <span>{key}</span>
+            </label>
             <button onClick={() => removeFlag(key)} className="btn-danger">Remove</button>
           </div>
         ))}
@@ -228,7 +230,7 @@ export default function ConfigPage() {
             className="form-input"
             style={{ flex: 1 }}
           />
-          <button onClick={addFlag}>Add Flag</button>
+          <button onClick={addFlag} className="btn">Add Flag</button>
         </div>
       </section>
 

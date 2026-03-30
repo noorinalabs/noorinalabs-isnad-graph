@@ -52,7 +52,8 @@
   transition: background-color var(--duration-fast) var(--ease-default);
 }
 
-.data-table tbody tr.clickable-row:hover {
+.data-table tbody tr.clickable-row:hover,
+.data-table tbody tr.clickable-row:focus-visible {
   background-color: var(--color-muted);
 }
 

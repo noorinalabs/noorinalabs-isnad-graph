@@ -580,6 +580,7 @@ export default function GraphExplorerPage() {
                 <button
                   key={btn.label}
                   title={btn.title}
+                  aria-label={btn.title}
                   style={{
                     width: 32,
                     height: 32,

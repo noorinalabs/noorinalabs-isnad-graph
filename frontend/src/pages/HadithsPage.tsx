@@ -36,6 +36,9 @@ export default function HadithsPage() {
                 <tr
                   key={h.id}
                   onClick={() => navigate(`/hadiths/${h.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/hadiths/${h.id}`) }}
+                  tabIndex={0}
+                  role="link"
                   className="clickable-row"
                 >
                   <td>{h.source_corpus}</td>

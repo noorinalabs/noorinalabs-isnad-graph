@@ -163,7 +163,7 @@ export default function TimelinePage() {
 
       <div className="timeline-body">
         <div className="timeline-chart">
-          <svg ref={svgRef} width="100%" height={400} />
+          <svg ref={svgRef} width="100%" height={400} role="img" aria-label={`Timeline chart showing events from ${effectiveRange[0]} to ${effectiveRange[1]} AH`} />
         </div>
 
         {selectedEvent && (
