@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response
 
-from src.auth.models import User
+from src.auth.models import Role, User
 
 if TYPE_CHECKING:
     from src.config import SecurityHeaderSettings
@@ -234,8 +234,24 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 
 async def require_admin(request: Request) -> User:
-    """Require authenticated user with is_admin=True. Return 403 if not admin."""
+    """Require authenticated user with is_admin=True. Return 403 if not admin.
+
+    Validates the user's role string against the Role enum and logs a warning
+    if an unknown role is encountered (defaults to viewer-level access).
+    """
     user = await require_auth(request)
+
+    # Validate role string against known Role enum values (#483)
+    if user.role is not None:
+        role_values = {r.value for r in Role}
+        if user.role not in role_values:
+            log.warning(
+                "unknown_role_string",
+                user_id=user.id,
+                role=user.role,
+                msg="User has role string not in Role enum; defaulting to viewer-level access",
+            )
+
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
@@ -244,8 +260,11 @@ async def require_admin(request: Request) -> User:
 async def require_auth(request: Request) -> User:
     """FastAPI dependency that requires a valid Bearer token.
 
-    Extracts the JWT from the Authorization header, verifies it,
-    and returns a User object. Raises 401 if the token is missing or invalid.
+    Extracts the JWT from the Authorization header, verifies it, and returns
+    a User object. When possible, looks up the real user record from Neo4j
+    so that email/name are not placeholder values (#482).
+
+    Raises 401 if the token is missing or invalid.
     """
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
@@ -268,9 +287,28 @@ async def require_auth(request: Request) -> User:
     if not isinstance(user_id, str):
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
+    # Attempt to look up the real user record from Neo4j (#482)
+    try:
+        neo4j = request.app.state.neo4j
+        records = neo4j.execute_read("MATCH (u:USER {id: $user_id}) RETURN u", {"user_id": user_id})
+        if records:
+            u = records[0]["u"]
+            return User(
+                id=user_id,
+                email=u.get("email", user_id),
+                name=u.get("name", user_id),
+                provider=u.get("provider", "jwt"),
+                provider_user_id=user_id,
+                created_at=datetime.now(UTC),
+                is_admin=u.get("is_admin", False),
+                role=u.get("role"),
+            )
+    except Exception:  # noqa: BLE001
+        log.debug("neo4j_user_lookup_failed", user_id=user_id)
+
     return User(
         id=user_id,
-        email=f"{user_id}@placeholder",
+        email=user_id,
         name=user_id,
         provider="jwt",
         provider_user_id=user_id,
