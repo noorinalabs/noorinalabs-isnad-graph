@@ -405,6 +405,28 @@ def _cmd_audit(*, last_n: int = 10) -> None:
         print()
 
 
+def _cmd_admin_promote(email: str) -> None:
+    """Promote a user to admin by email address."""
+    from src.utils.neo4j_client import Neo4jClient
+
+    _check_neo4j()
+
+    with Neo4jClient() as client:
+        query = """
+            MATCH (u:USER {email: $email})
+            SET u.is_admin = true
+            RETURN u.id AS id, u.email AS email, u.name AS name
+        """
+        records = client.execute_write(query, {"email": email})
+
+    if not records:
+        print(f"ERROR: No user found with email '{email}'.")
+        sys.exit(1)
+
+    r = records[0]
+    print(f"User promoted to admin: {r['name']} ({r['email']}) [id={r['id']}]")
+
+
 def _cmd_stub(name: str) -> None:
     """Print a not-yet-implemented message for a pipeline stage."""
     print(f"Command '{name}' not yet implemented. See Makefile targets.")
@@ -457,6 +479,11 @@ def main() -> None:
         default=10,
         help="Number of recent audit entries to display (default: 10)",
     )
+    admin_parser = subparsers.add_parser("admin", help="Admin management commands")
+    admin_sub = admin_parser.add_subparsers(dest="admin_command")
+    promote_parser = admin_sub.add_parser("promote", help="Promote a user to admin by email")
+    promote_parser.add_argument("email", help="Email address of the user to promote")
+
     vs_parser = subparsers.add_parser("validate-staging", help="Validate staging Parquet files")
     vs_parser.add_argument(
         "--strict",
@@ -520,6 +547,11 @@ def main() -> None:
         _cmd_audit(last_n=args.last)
     elif args.command == "validate":
         _cmd_validate()
+    elif args.command == "admin":
+        if args.admin_command == "promote":
+            _cmd_admin_promote(args.email)
+        else:
+            admin_parser.print_help()
     else:
         _cmd_stub(args.command)
 

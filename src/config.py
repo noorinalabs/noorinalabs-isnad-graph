@@ -59,6 +59,7 @@ class AuthSettings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
     oauth_redirect_base_url: str = "http://localhost:8000"
+    first_user_is_admin: bool = False
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
 
