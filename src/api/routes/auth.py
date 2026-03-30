@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import secrets
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from src.api.middleware import require_auth
 from src.auth.models import AuthorizationUrlResponse, TokenResponse, User
@@ -41,9 +43,9 @@ def login(provider: str) -> AuthorizationUrlResponse:
     return AuthorizationUrlResponse(authorization_url=url)
 
 
-@router.get("/auth/callback/{provider}", response_model=TokenResponse)
-async def callback(provider: str, code: str, state: str) -> TokenResponse:
-    """Handle OAuth callback — exchange code for tokens."""
+@router.get("/auth/callback/{provider}")
+async def callback(provider: str, code: str, state: str) -> RedirectResponse:
+    """Handle OAuth callback — exchange code for tokens, redirect to frontend."""
     if provider not in PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
@@ -62,17 +64,13 @@ async def callback(provider: str, code: str, state: str) -> TokenResponse:
 
     # Use provider + provider_user_id as the internal user ID
     user_id = f"{user_info.provider}:{user_info.provider_user_id}"
-    settings = get_settings().auth
 
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=settings.access_token_expire_minutes * 60,
-    )
+    # Redirect to frontend callback page with token
+    params = urlencode({"token": access_token, "refresh_token": refresh_token})
+    return RedirectResponse(url=f"/auth/callback/{provider}?{params}", status_code=302)
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)

@@ -7,11 +7,16 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const token = searchParams.get('token')
-    const returnUrl = searchParams.get('return_url') || '/'
+    const refreshToken = searchParams.get('refresh_token')
+    const returnUrl = sessionStorage.getItem('oauth_return_url') || '/'
 
     if (token) {
       localStorage.setItem('access_token', token)
     }
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken)
+    }
+    sessionStorage.removeItem('oauth_return_url')
 
     navigate(returnUrl, { replace: true })
   }, [searchParams, navigate])
