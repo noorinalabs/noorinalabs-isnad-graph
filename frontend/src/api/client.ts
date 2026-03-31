@@ -50,8 +50,19 @@ export async function fetchNarratorChains(id: string): Promise<NarratorChainsRes
 export async function fetchHadiths(
   page = 1,
   limit = 20,
+  filters?: {
+    collection?: string
+    source_corpus?: string
+    grade?: string
+    q?: string
+  },
 ): Promise<PaginatedResponse<Hadith>> {
-  return fetchJson(`${API_BASE}/hadiths?page=${page}&limit=${limit}`)
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (filters?.collection) params.set('collection', filters.collection)
+  if (filters?.source_corpus) params.set('source_corpus', filters.source_corpus)
+  if (filters?.grade) params.set('grade', filters.grade)
+  if (filters?.q) params.set('q', filters.q)
+  return fetchJson(`${API_BASE}/hadiths?${params}`)
 }
 
 export async function fetchHadith(id: string): Promise<Hadith> {

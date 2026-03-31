@@ -100,6 +100,8 @@ class HadithResponse(BaseModel):
     grade_composite: str | None = None
     topic_tags: list[str] = []
     source_corpus: str
+    collection_name: str | None = None
+    display_title: str | None = None
     has_shia_parallel: bool = False
     has_sunni_parallel: bool = False
 

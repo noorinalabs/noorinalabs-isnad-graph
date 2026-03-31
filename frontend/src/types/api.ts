@@ -35,6 +35,8 @@ export interface Hadith {
   grade_composite: string | null
   topic_tags: string[]
   source_corpus: string
+  collection_name: string | null
+  display_title: string | null
   has_shia_parallel: boolean
   has_sunni_parallel: boolean
 }

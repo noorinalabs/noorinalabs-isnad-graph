@@ -24,6 +24,7 @@ import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
 import ModerationPage from './pages/admin/ModerationPage'
 import ReportsPage from './pages/admin/ReportsPage'
 import ConfigPage from './pages/admin/ConfigPage'
+import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -48,7 +49,7 @@ export default function App() {
             {/* Authenticated routes */}
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
-                <Route index element={<Navigate to="/narrators" replace />} />
+                <Route index element={<HomePage />} />
                 <Route path="narrators" element={<NarratorsPage />} />
                 <Route path="narrators/:id" element={<NarratorDetailPage />} />
                 <Route path="hadiths" element={<HadithsPage />} />
