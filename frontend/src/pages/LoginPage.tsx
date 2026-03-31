@@ -37,14 +37,42 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6 rounded-xl border border-border bg-card p-8 shadow-lg">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold font-heading">Isnad Graph</h1>
-          <p className="text-sm text-muted-foreground">Sign in to continue</p>
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-card p-10 shadow-xl">
+        {/* Geometric accent line */}
+        <div className="geo-border-top" />
+
+        <div className="text-center space-y-3">
+          {/* Octagonal icon placeholder */}
+          <div
+            className="mx-auto flex items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 'var(--radius-lg)',
+              background: 'var(--color-primary)',
+              color: 'var(--color-primary-foreground)',
+              transform: 'rotate(0deg)',
+            }}
+          >
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="10" cy="10" r="3" />
+              <circle cx="22" cy="10" r="3" />
+              <circle cx="16" cy="22" r="3" />
+              <line x1="13" y1="10" x2="19" y2="10" />
+              <line x1="11" y1="13" x2="15" y2="19" />
+              <line x1="21" y1="13" x2="17" y2="19" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-semibold" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-foreground)' }}>
+            Isnad Graph
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Sign in to access the hadith analysis platform
+          </p>
         </div>
 
         {error && (
-          <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-2 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -53,7 +81,7 @@ export default function LoginPage() {
           <button
             onClick={() => handleOAuth('google')}
             disabled={loading !== null}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-muted hover:border-primary/30 transition-colors disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path
@@ -79,7 +107,7 @@ export default function LoginPage() {
           <button
             onClick={() => handleOAuth('github')}
             disabled={loading !== null}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium hover:bg-muted hover:border-primary/30 transition-colors disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
@@ -87,6 +115,9 @@ export default function LoginPage() {
             {loading === 'github' ? 'Redirecting...' : 'Continue with GitHub'}
           </button>
         </div>
+
+        {/* Geometric accent line */}
+        <div className="geo-border-bottom" />
       </div>
     </div>
   )

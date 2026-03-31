@@ -16,9 +16,15 @@ export default function HadithsPage() {
 
   return (
     <div>
-      <h2>Hadiths</h2>
+      <h2 className="page-heading">Hadiths</h2>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && (
+        <div>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="skeleton skeleton-row" style={{ width: `${90 - i * 5}%` }} />
+          ))}
+        </div>
+      )}
       {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (

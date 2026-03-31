@@ -6,8 +6,19 @@
 
 .header {
   padding: var(--spacing-3) var(--spacing-6);
-  border-bottom: var(--border-width-thin) solid var(--color-border);
   background: var(--color-card);
+  border-bottom: var(--border-width-thick) solid transparent;
+  border-image: repeating-linear-gradient(
+    90deg,
+    var(--color-primary) 0px,
+    var(--color-primary) 8px,
+    transparent 8px,
+    transparent 12px,
+    var(--color-border) 12px,
+    var(--color-border) 14px,
+    transparent 14px,
+    transparent 18px
+  ) 4;
 }
 
 .headerLink {
@@ -19,6 +30,9 @@
   margin: 0;
   font-size: var(--text-xl);
   font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--color-primary);
+  letter-spacing: var(--tracking-tight);
 }
 
 .body {
@@ -63,18 +77,20 @@
 }
 
 .sidebarLink:hover {
-  background: var(--color-muted);
+  background: var(--color-accent);
+  color: var(--color-primary);
 }
 
 .sidebarLinkActive {
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-primary);
   display: block;
   padding: var(--spacing-1_5) var(--spacing-3);
   border-radius: var(--radius-md);
   background: var(--color-accent);
   font-size: var(--text-sm);
+  border-inline-start: 3px solid var(--color-primary);
 }
 
 .main {

@@ -1,4 +1,9 @@
-/* Shared styles for the Isnad Graph frontend — Qalam Design System */
+/* Shared styles for the Isnad Graph frontend — Qalam Design System
+ * ================================================================
+ * Visual polish pass: consistent Qalam palette application,
+ * table striping, skeleton loading, empty/error states,
+ * Islamic geometric accent patterns, button/card uniformity.
+ */
 
 /* --- Error / status text --- */
 .error-text {
@@ -27,24 +32,41 @@
   flex-wrap: wrap;
 }
 
-/* --- Tables --- */
+/* ============================================================
+ * TABLES — Qalam-styled with alternating row colors
+ * ============================================================ */
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--text-sm);
 }
 
 .data-table thead tr {
-  border-bottom: var(--border-width-medium) solid var(--color-border);
+  border-bottom: var(--border-width-medium) solid var(--color-primary);
   text-align: left;
 }
 
-.data-table th,
+.data-table th {
+  padding: var(--spacing-3) var(--spacing-3);
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-muted-foreground);
+}
+
 .data-table td {
-  padding: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-3);
 }
 
 .data-table tbody tr {
   border-bottom: var(--border-width-thin) solid var(--color-border);
+}
+
+/* Alternating row striping */
+.data-table tbody tr:nth-child(even) {
+  background: var(--color-muted);
 }
 
 .data-table tbody tr.clickable-row {
@@ -54,7 +76,7 @@
 
 .data-table tbody tr.clickable-row:hover,
 .data-table tbody tr.clickable-row:focus-visible {
-  background-color: var(--color-muted);
+  background-color: var(--color-accent);
 }
 
 /* Compact variant for nested tables */
@@ -63,7 +85,9 @@
   padding: var(--spacing-1);
 }
 
-/* --- Stat / status cards --- */
+/* ============================================================
+ * CARDS — Unified Qalam styling
+ * ============================================================ */
 .stat-card {
   border: var(--border-width-thin) solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -72,11 +96,18 @@
   text-align: center;
   background: var(--color-card);
   color: var(--color-card-foreground);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card-label {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-2);
 }
@@ -84,15 +115,16 @@
 .stat-card-value {
   font-size: var(--text-2xl);
   font-weight: var(--font-weight-bold);
+  font-family: var(--font-heading);
   color: var(--color-foreground);
 }
 
 .stat-card-value-lg {
   font-size: var(--text-xl);
   font-weight: var(--font-weight-bold);
+  font-family: var(--font-heading);
 }
 
-/* --- Metric card (bordered section) --- */
 .metric-card {
   border: var(--border-width-thin) solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -100,7 +132,7 @@
   margin-bottom: var(--spacing-4);
   background: var(--color-card);
   color: var(--color-card-foreground);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
 }
 
 .metric-card h3 {
@@ -116,18 +148,21 @@
   padding: var(--spacing-1) 0;
 }
 
-/* --- Badges --- */
+/* ============================================================
+ * BADGES — Consistent rounding and sizing
+ * ============================================================ */
 .badge {
   display: inline-block;
   padding: 0.15rem var(--spacing-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
 }
 
 .badge-sm {
   padding: 0.1rem var(--spacing-1_5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-size: var(--text-xs);
 }
 
@@ -137,7 +172,7 @@
   background: var(--color-info);
   color: var(--color-info-foreground);
   padding: 0.125rem var(--spacing-1_5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   opacity: 0.85;
 }
 
@@ -164,8 +199,8 @@
 .badge-topic {
   display: inline-block;
   margin-inline-end: var(--spacing-1);
-  padding: 0.1rem var(--spacing-1_5);
-  border-radius: var(--radius-sm);
+  padding: 0.15rem var(--spacing-2);
+  border-radius: var(--radius-full);
   font-size: var(--text-xs);
   background: var(--color-accent);
   color: var(--color-accent-foreground);
@@ -173,7 +208,7 @@
 
 .badge-topic-lg {
   padding: var(--spacing-1) var(--spacing-2_5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-foreground);
   font-size: var(--text-sm);
@@ -182,23 +217,21 @@
 /* Moderation status badges */
 .badge-approved {
   padding: 0.2rem var(--spacing-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--color-success);
   color: var(--color-success-foreground);
-  opacity: 0.9;
 }
 
 .badge-rejected {
   padding: 0.2rem var(--spacing-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--color-destructive);
   color: var(--color-destructive-foreground);
-  opacity: 0.9;
 }
 
 .badge-pending {
   padding: 0.2rem var(--spacing-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: var(--color-warning);
   color: var(--color-warning-foreground);
 }
@@ -223,26 +256,28 @@
 .badge-similarity-high {
   background: var(--color-sahih-bg);
   padding: 0.15rem var(--spacing-1_5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-size: var(--text-sm);
 }
 
 .badge-similarity-low {
   background: var(--color-hasan-bg);
   padding: 0.15rem var(--spacing-1_5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   font-size: var(--text-sm);
 }
 
-/* --- Forms --- */
+/* ============================================================
+ * FORMS & BUTTONS — Consistent sizing, focus states
+ * ============================================================ */
 .form-input {
-  padding: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
   border: var(--border-width-thin) solid var(--color-input);
   border-radius: var(--radius-md);
   background: var(--color-card);
   color: var(--color-foreground);
   font-family: var(--font-body);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   transition: border-color var(--duration-fast) var(--ease-default),
     box-shadow var(--duration-fast) var(--ease-default);
 }
@@ -250,29 +285,35 @@
 .form-input:focus {
   outline: none;
   border-color: var(--color-ring);
-  box-shadow: 0 0 0 2px var(--color-ring) / 0.25;
+  box-shadow: 0 0 0 3px oklch(from var(--color-ring) l c h / 0.15);
+}
+
+.form-input::placeholder {
+  color: var(--color-muted-foreground);
 }
 
 .form-input-block {
   display: block;
   width: 100%;
   margin-top: var(--spacing-1);
-  padding: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
   border: var(--border-width-thin) solid var(--color-input);
   border-radius: var(--radius-md);
   background: var(--color-card);
   color: var(--color-foreground);
   font-family: var(--font-body);
+  font-size: var(--text-sm);
 }
 
 .form-input-sm {
   width: 80px;
-  padding: var(--spacing-1);
+  padding: var(--spacing-1) var(--spacing-2);
   border: var(--border-width-thin) solid var(--color-input);
   border-radius: var(--radius-md);
   background: var(--color-card);
   color: var(--color-foreground);
   font-family: var(--font-body);
+  font-size: var(--text-sm);
 }
 
 .btn {
@@ -285,11 +326,21 @@
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease-default);
+  transition: background-color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
 }
 
 .btn:hover {
   background: var(--color-muted);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn-sm {
@@ -301,6 +352,11 @@
   color: var(--color-secondary-foreground);
   cursor: pointer;
   font-family: var(--font-body);
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.btn-sm:hover {
+  background: var(--color-muted);
 }
 
 .btn-action {
@@ -310,7 +366,12 @@
   border: var(--border-width-thin) solid var(--color-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  transition: background-color var(--duration-fast) var(--ease-default);
+  transition: background-color var(--duration-fast) var(--ease-default),
+    filter var(--duration-fast) var(--ease-default);
+}
+
+.btn-action:hover {
+  filter: brightness(0.95);
 }
 
 .btn-action-suspend {
@@ -335,36 +396,57 @@
 
 .btn-primary {
   padding: var(--spacing-2) var(--spacing-6);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   background: var(--color-primary);
   color: var(--color-primary-foreground);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-body);
-  transition: background-color var(--duration-fast) var(--ease-default);
+  font-size: var(--text-sm);
+  transition: background-color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
 }
 
 .btn-primary:hover {
   background: var(--color-primary-hover);
 }
 
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
 .btn-danger {
   color: var(--color-destructive);
   background: transparent;
   border: var(--border-width-thin) solid var(--color-destructive);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   padding: var(--spacing-1) var(--spacing-2);
   font-family: var(--font-body);
+  font-size: var(--text-sm);
+  transition: background-color var(--duration-fast) var(--ease-default);
 }
 
-/* --- Pagination --- */
+.btn-danger:hover {
+  background: var(--color-destructive);
+  color: var(--color-destructive-foreground);
+}
+
+/* ============================================================
+ * PAGINATION
+ * ============================================================ */
 .pagination {
   display: flex;
-  gap: var(--spacing-2);
-  margin-top: var(--spacing-4);
+  gap: var(--spacing-1);
+  margin-top: var(--spacing-6);
   align-items: center;
+  justify-content: center;
 }
 
 .pagination button {
@@ -380,15 +462,25 @@
 }
 
 .pagination button:hover:not(:disabled) {
-  background: var(--color-muted);
+  background: var(--color-accent);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .pagination button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* --- Links --- */
+.pagination span {
+  padding: 0 var(--spacing-3);
+  font-size: var(--text-sm);
+  color: var(--color-muted-foreground);
+}
+
+/* ============================================================
+ * LINKS
+ * ============================================================ */
 .link-primary {
   color: var(--color-primary);
   text-decoration: none;
@@ -397,9 +489,12 @@
 
 .link-primary:hover {
   color: var(--color-primary-hover);
+  text-decoration: underline;
 }
 
-/* --- Section spacing --- */
+/* ============================================================
+ * SECTION SPACING
+ * ============================================================ */
 .section {
   margin-top: var(--spacing-6);
 }
@@ -408,7 +503,22 @@
   margin-bottom: var(--spacing-8);
 }
 
-/* --- Grid layouts --- */
+/* ============================================================
+ * PAGE HEADING — Serif heading per Qalam
+ * ============================================================ */
+.page-heading {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-2xl);
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-6);
+  padding-bottom: var(--spacing-3);
+  border-bottom: var(--border-width-medium) solid var(--color-primary);
+}
+
+/* ============================================================
+ * GRID LAYOUTS
+ * ============================================================ */
 .grid-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -416,7 +526,9 @@
   margin-bottom: var(--spacing-4);
 }
 
-/* --- Arabic text --- */
+/* ============================================================
+ * ARABIC TEXT
+ * ============================================================ */
 .text-rtl {
   direction: rtl;
   text-align: right;
@@ -443,13 +555,17 @@
   line-height: var(--leading-relaxed);
 }
 
-/* --- Monospace --- */
+/* ============================================================
+ * MONOSPACE
+ * ============================================================ */
 .mono {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 
-/* --- Status colors --- */
+/* ============================================================
+ * STATUS COLORS
+ * ============================================================ */
 .text-success {
   color: var(--color-success);
 }
@@ -472,20 +588,26 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* --- Flag content box --- */
+/* ============================================================
+ * FLAG CONTENT BOX
+ * ============================================================ */
 .flag-box {
   margin-bottom: var(--spacing-6);
   padding: var(--spacing-4);
   border: var(--border-width-thin) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-card);
+  box-shadow: var(--shadow-xs);
 }
 
 .flag-box h3 {
   margin-top: 0;
+  font-family: var(--font-heading);
 }
 
-/* --- Save message --- */
+/* ============================================================
+ * SAVE MESSAGE
+ * ============================================================ */
 .save-success {
   margin-inline-start: var(--spacing-3);
   color: var(--color-success);
@@ -496,7 +618,9 @@
   color: var(--color-destructive);
 }
 
-/* --- Audit table cell overflow --- */
+/* ============================================================
+ * AUDIT TABLE
+ * ============================================================ */
 .cell-truncate {
   padding: var(--spacing-2);
   border-bottom: var(--border-width-thin) solid var(--color-border);
@@ -505,11 +629,15 @@
   text-overflow: ellipsis;
 }
 
-/* --- Config audit table --- */
 .audit-th {
   text-align: left;
   padding: var(--spacing-2);
   border-bottom: var(--border-width-thin) solid var(--color-border);
+  font-family: var(--font-heading);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-muted-foreground);
 }
 
 .audit-td {
@@ -517,7 +645,9 @@
   border-bottom: var(--border-width-thin) solid var(--color-border);
 }
 
-/* --- Feature flag row --- */
+/* ============================================================
+ * FEATURE FLAG ROW
+ * ============================================================ */
 .flag-row {
   display: flex;
   align-items: center;
@@ -525,7 +655,9 @@
   margin-bottom: var(--spacing-2);
 }
 
-/* --- Graph explorer --- */
+/* ============================================================
+ * GRAPH EXPLORER
+ * ============================================================ */
 .graph-container {
   flex: 1;
   border: var(--border-width-thin) solid var(--color-border);
@@ -557,17 +689,20 @@
 }
 
 .search-dropdown-item {
-  padding: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
   cursor: pointer;
   border-bottom: var(--border-width-thin) solid var(--color-border);
   transition: background-color var(--duration-fast) var(--ease-default);
+  font-size: var(--text-sm);
 }
 
 .search-dropdown-item:hover {
-  background: var(--color-muted);
+  background: var(--color-accent);
 }
 
-/* --- Search result row --- */
+/* ============================================================
+ * SEARCH RESULT ROW
+ * ============================================================ */
 .search-result {
   padding: var(--spacing-3);
   border-bottom: var(--border-width-thin) solid var(--color-border);
@@ -576,10 +711,12 @@
 }
 
 .search-result:hover {
-  background: var(--color-muted);
+  background: var(--color-accent);
 }
 
-/* --- Timeline --- */
+/* ============================================================
+ * TIMELINE
+ * ============================================================ */
 .timeline-controls {
   display: flex;
   gap: var(--spacing-4);
@@ -611,7 +748,9 @@
   font-family: var(--font-heading);
 }
 
-/* --- Collection detail meta --- */
+/* ============================================================
+ * COLLECTION DETAIL
+ * ============================================================ */
 .collection-meta {
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-6);
@@ -621,7 +760,9 @@
   margin: 0 var(--spacing-2);
 }
 
-/* --- Narrator detail bio table --- */
+/* ============================================================
+ * NARRATOR DETAIL BIO TABLE
+ * ============================================================ */
 .bio-table {
   border-collapse: collapse;
 }
@@ -629,6 +770,7 @@
 .bio-table td:first-child {
   padding: var(--spacing-1_5) var(--spacing-4) var(--spacing-1_5) 0;
   font-weight: var(--font-weight-semibold);
+  color: var(--color-muted-foreground);
 }
 
 .bio-table td:last-child {
@@ -639,7 +781,9 @@
   border-bottom: var(--border-width-thin) solid var(--color-border);
 }
 
-/* --- Network stat mini-cards --- */
+/* ============================================================
+ * NETWORK STAT MINI-CARDS
+ * ============================================================ */
 .network-stat {
   padding: var(--spacing-3) var(--spacing-4);
   border: var(--border-width-thin) solid var(--color-border);
@@ -653,21 +797,28 @@
 .network-stat-label {
   font-size: var(--text-xs);
   color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 
 .network-stat-value {
   font-size: var(--text-xl);
   font-weight: var(--font-weight-semibold);
+  font-family: var(--font-heading);
   color: var(--color-foreground);
 }
 
-/* --- Admin page container --- */
+/* ============================================================
+ * ADMIN PAGE CONTAINER
+ * ============================================================ */
 .admin-page {
   padding: var(--spacing-6);
   max-width: 800px;
 }
 
-/* --- Dark/Light mode toggle --- */
+/* ============================================================
+ * DARK/LIGHT MODE TOGGLE
+ * ============================================================ */
 .theme-toggle {
   display: flex;
   align-items: center;
@@ -680,15 +831,210 @@
   color: var(--color-foreground);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  transition: background-color var(--duration-fast) var(--ease-default);
+  transition: background-color var(--duration-fast) var(--ease-default),
+    border-color var(--duration-fast) var(--ease-default);
 }
 
 .theme-toggle:hover {
   background: var(--color-muted);
+  border-color: var(--color-primary);
 }
 
-/* --- Selection styling --- */
+/* ============================================================
+ * SELECTION STYLING
+ * ============================================================ */
 ::selection {
   background: var(--color-primary);
   color: var(--color-primary-foreground);
+}
+
+/* ============================================================
+ * SKELETON LOADING — parchment shimmer
+ * Per asset-specifications.md: subtle opacity pulse
+ * ============================================================ */
+.skeleton {
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
+  animation: skeleton-shimmer var(--duration-slower) ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* Skeleton variants */
+.skeleton-text {
+  height: 1em;
+  margin-bottom: var(--spacing-2);
+}
+
+.skeleton-heading {
+  height: 1.5em;
+  width: 40%;
+  margin-bottom: var(--spacing-3);
+}
+
+.skeleton-row {
+  height: 2.5rem;
+  margin-bottom: var(--spacing-1);
+}
+
+/* ============================================================
+ * EMPTY STATE
+ * ============================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-16) var(--spacing-6);
+  text-align: center;
+  color: var(--color-muted-foreground);
+}
+
+.empty-state-icon {
+  margin-bottom: var(--spacing-4);
+  color: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+.empty-state-heading {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-lg);
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-2);
+}
+
+.empty-state-body {
+  font-size: var(--text-sm);
+  max-width: 320px;
+  line-height: var(--leading-relaxed);
+}
+
+/* ============================================================
+ * ERROR PAGES (404, 500, 403)
+ * ============================================================ */
+.error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  padding: var(--spacing-8);
+}
+
+.error-page-code {
+  font-family: var(--font-heading);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-2);
+}
+
+.error-page-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-foreground);
+  margin-bottom: var(--spacing-3);
+}
+
+.error-page-body {
+  font-size: var(--text-sm);
+  color: var(--color-muted-foreground);
+  max-width: 400px;
+  margin-bottom: var(--spacing-6);
+  line-height: var(--leading-relaxed);
+}
+
+/* ============================================================
+ * ISLAMIC GEOMETRIC ACCENT — CSS-only decorative borders
+ * Subtle octagonal/diamond motif for section dividers
+ * ============================================================ */
+.geo-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin: var(--spacing-6) 0;
+  color: var(--color-border);
+}
+
+.geo-divider::before,
+.geo-divider::after {
+  content: '';
+  flex: 1;
+  height: var(--border-width-thin);
+  background: var(--color-border);
+}
+
+.geo-divider-diamond {
+  width: 8px;
+  height: 8px;
+  background: var(--color-primary);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* Geometric border accent — top or bottom of a container */
+.geo-border-top {
+  border-top: var(--border-width-thick) solid transparent;
+  border-image: repeating-linear-gradient(
+    90deg,
+    var(--color-primary) 0px,
+    var(--color-primary) 8px,
+    transparent 8px,
+    transparent 12px,
+    var(--color-border) 12px,
+    var(--color-border) 14px,
+    transparent 14px,
+    transparent 18px
+  ) 4;
+}
+
+.geo-border-bottom {
+  border-bottom: var(--border-width-thick) solid transparent;
+  border-image: repeating-linear-gradient(
+    90deg,
+    var(--color-primary) 0px,
+    var(--color-primary) 8px,
+    transparent 8px,
+    transparent 12px,
+    var(--color-border) 12px,
+    var(--color-border) 14px,
+    transparent 14px,
+    transparent 18px
+  ) 4;
+}
+
+/* ============================================================
+ * SCROLLBAR — Subtle, Qalam-palette
+ * ============================================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
 }
