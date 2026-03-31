@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
@@ -9,6 +11,26 @@ from src.api.models import CollectionResponse, PaginatedResponse
 from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter()
+
+
+def _row_to_response(props: dict[str, Any]) -> CollectionResponse:
+    """Build a CollectionResponse from Neo4j node properties.
+
+    Uses ``.get()`` with defaults so that missing or null properties on the
+    Neo4j node don't cause a Pydantic validation error (500).
+    """
+    return CollectionResponse(
+        id=props.get("id", ""),
+        name_ar=props.get("name_ar", ""),
+        name_en=props.get("name_en", ""),
+        compiler_name=props.get("compiler_name"),
+        compiler_id=props.get("compiler_id"),
+        compilation_year_ah=props.get("compilation_year_ah"),
+        sect=props.get("sect", ""),
+        canonical_rank=props.get("canonical_rank"),
+        total_hadiths=props.get("total_hadiths"),
+        book_count=props.get("book_count"),
+    )
 
 
 @router.get("/collections", response_model=PaginatedResponse[CollectionResponse])
@@ -29,7 +51,7 @@ def list_collections(
         "MATCH (c:Collection) RETURN properties(c) AS props ORDER BY c.id SKIP $skip LIMIT $limit",
         {"skip": skip, "limit": limit},
     )
-    items = [CollectionResponse(**row["props"]) for row in rows]
+    items = [_row_to_response(row["props"]) for row in rows]
     return PaginatedResponse[CollectionResponse](items=items, total=total, page=page, limit=limit)
 
 
@@ -45,4 +67,4 @@ def get_collection(
     )
     if not rows:
         raise HTTPException(status_code=404, detail=f"Collection '{collection_id}' not found")
-    return CollectionResponse(**rows[0]["props"])
+    return _row_to_response(rows[0]["props"])
