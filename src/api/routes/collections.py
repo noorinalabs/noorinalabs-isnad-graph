@@ -45,13 +45,29 @@ def list_collections(
     count_rows = neo4j.execute_read(
         "MATCH (c:Collection) RETURN count(c) AS total",
     )
-    total = count_rows[0]["total"] if count_rows else 0
+    total = int((count_rows[0] or {}).get("total", 0)) if count_rows else 0
 
     rows = neo4j.execute_read(
-        "MATCH (c:Collection) RETURN properties(c) AS props ORDER BY c.id SKIP $skip LIMIT $limit",
+        """
+        MATCH (c:Collection)
+        OPTIONAL MATCH (c)-[:HAS_BOOK]->(b:Book)
+        OPTIONAL MATCH (c)-[:HAS_HADITH]->(h:Hadith)
+        WITH c, count(DISTINCT b) AS book_count, count(DISTINCT h) AS hadith_count
+        RETURN properties(c) + {
+            book_count: coalesce(c.book_count, book_count),
+            total_hadiths: coalesce(c.total_hadiths, hadith_count),
+            sect: coalesce(c.sect, ''),
+            name_ar: coalesce(c.name_ar, ''),
+            name_en: coalesce(c.name_en, ''),
+            id: coalesce(c.id, '')
+        } AS props
+        ORDER BY c.id
+        SKIP $skip
+        LIMIT $limit
+        """,
         {"skip": skip, "limit": limit},
     )
-    items = [_row_to_response(row["props"]) for row in rows]
+    items = [_row_to_response((row or {}).get("props") or {}) for row in rows]
     return PaginatedResponse[CollectionResponse](items=items, total=total, page=page, limit=limit)
 
 
@@ -62,9 +78,22 @@ def get_collection(
 ) -> CollectionResponse:
     """Return a single collection by ID."""
     rows = neo4j.execute_read(
-        "MATCH (c:Collection {id: $id}) RETURN properties(c) AS props",
+        """
+        MATCH (c:Collection {id: $id})
+        OPTIONAL MATCH (c)-[:HAS_BOOK]->(b:Book)
+        OPTIONAL MATCH (c)-[:HAS_HADITH]->(h:Hadith)
+        WITH c, count(DISTINCT b) AS book_count, count(DISTINCT h) AS hadith_count
+        RETURN properties(c) + {
+            book_count: coalesce(c.book_count, book_count),
+            total_hadiths: coalesce(c.total_hadiths, hadith_count),
+            sect: coalesce(c.sect, ''),
+            name_ar: coalesce(c.name_ar, ''),
+            name_en: coalesce(c.name_en, ''),
+            id: coalesce(c.id, '')
+        } AS props
+        """,
         {"id": collection_id},
     )
     if not rows:
         raise HTTPException(status_code=404, detail=f"Collection '{collection_id}' not found")
-    return _row_to_response(rows[0]["props"])
+    return _row_to_response((rows[0] or {}).get("props") or {})
