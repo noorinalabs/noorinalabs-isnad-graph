@@ -226,7 +226,7 @@ export default function GraphExplorerPage() {
                 border: 'none',
                 cursor: 'pointer',
                 fontSize: '1rem',
-                color: '#666',
+                color: 'var(--color-muted-foreground)',
               }}
               aria-label="Clear search"
             >
@@ -265,7 +265,7 @@ export default function GraphExplorerPage() {
                   }}
                 >
                   <span>{n.name_en}</span>
-                  <span dir="rtl" lang="ar" style={{ color: '#666', fontSize: '0.875rem' }}>
+                  <span dir="rtl" lang="ar" style={{ color: 'var(--color-muted-foreground)', fontSize: '0.875rem' }}>
                     {n.name_ar}
                   </span>
                 </div>
@@ -359,7 +359,7 @@ export default function GraphExplorerPage() {
           </button>
         )}
 
-        {isLoading && <span style={{ fontSize: '0.875rem', color: '#888' }}>Loading...</span>}
+        {isLoading && <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Loading...</span>}
       </div>
 
       {/* --- Node limit warning --- */}
@@ -409,38 +409,33 @@ export default function GraphExplorerPage() {
               height={dimensions.height}
             />
           ) : (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100%',
-                color: '#888',
-                gap: '1rem',
-              }}
-            >
-              <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#bbb">
-                <circle cx="16" cy="16" r="4" />
-                <circle cx="48" cy="16" r="4" />
-                <circle cx="32" cy="48" r="4" />
-                <circle cx="48" cy="48" r="4" />
-                <line x1="20" y1="16" x2="44" y2="16" />
-                <line x1="18" y1="20" x2="30" y2="44" />
-                <line x1="34" y1="48" x2="44" y2="48" />
-              </svg>
-              <p>Search for a narrator to begin exploring the transmission network.</p>
-              <p style={{ fontSize: '0.875rem' }}>
+            <div className="empty-state" style={{ height: '100%' }}>
+              <div className="empty-state-icon">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <circle cx="16" cy="16" r="4" />
+                  <circle cx="48" cy="16" r="4" />
+                  <circle cx="32" cy="48" r="4" />
+                  <circle cx="48" cy="48" r="4" />
+                  <line x1="20" y1="16" x2="44" y2="16" strokeDasharray="4 3" />
+                  <line x1="18" y1="20" x2="30" y2="44" strokeDasharray="4 3" />
+                  <line x1="34" y1="48" x2="44" y2="48" strokeDasharray="4 3" />
+                </svg>
+              </div>
+              <div className="empty-state-heading">No graph data</div>
+              <div className="empty-state-body">
+                Search for a narrator to explore the transmission network.
+              </div>
+              <p style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--spacing-4)' }}>
                 Try:{' '}
                 {SUGGESTED_NARRATORS.map((name, i) => (
                   <span key={name}>
                     {i > 0 && ', '}
                     <button
                       onClick={() => handleSuggestedSearch(name)}
+                      className="link-primary"
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: '#1a73e8',
                         cursor: 'pointer',
                         textDecoration: 'underline',
                         padding: 0,
@@ -623,7 +618,7 @@ export default function GraphExplorerPage() {
                   fontSize: '0.75rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
-                  color: '#888',
+                  color: 'var(--color-muted-foreground)',
                 }}
               >
                 Narrator
@@ -635,7 +630,7 @@ export default function GraphExplorerPage() {
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: '1rem',
-                  color: '#666',
+                  color: 'var(--color-muted-foreground)',
                 }}
                 aria-label="Close detail panel"
               >
@@ -654,7 +649,7 @@ export default function GraphExplorerPage() {
                 }}
               />
             ) : (
-              <p style={{ color: '#888', fontSize: '0.875rem' }}>Loading details...</p>
+              <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.875rem' }}>Loading details...</p>
             )}
           </div>
         )}
@@ -666,7 +661,7 @@ export default function GraphExplorerPage() {
           padding: '0.25rem 1rem',
           borderTop: '1px solid var(--color-border, #e0e0e0)',
           fontSize: '0.75rem',
-          color: '#888',
+          color: 'var(--color-muted-foreground)',
           display: 'flex',
           gap: '1.5rem',
           background: 'var(--color-card, #fff)',
@@ -722,34 +717,34 @@ function NarratorDetailPanel({
       <div style={{ fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1rem' }}>
         {narrator.kunya && (
           <div>
-            <span style={{ color: '#888' }}>Kunya:</span> {narrator.kunya}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Kunya:</span> {narrator.kunya}
           </div>
         )}
         {narrator.nisba && (
           <div>
-            <span style={{ color: '#888' }}>Nisba:</span> {narrator.nisba}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Nisba:</span> {narrator.nisba}
           </div>
         )}
         {narrator.generation && (
           <div>
-            <span style={{ color: '#888' }}>Generation:</span> {narrator.generation}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Generation:</span> {narrator.generation}
           </div>
         )}
         <div>
-          <span style={{ color: '#888' }}>Birth:</span>{' '}
+          <span style={{ color: 'var(--color-muted-foreground)' }}>Birth:</span>{' '}
           {narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : '\u2014'}
           {' | '}
-          <span style={{ color: '#888' }}>Death:</span>{' '}
+          <span style={{ color: 'var(--color-muted-foreground)' }}>Death:</span>{' '}
           {narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : '\u2014'}
         </div>
         {narrator.sect_affiliation && (
           <div>
-            <span style={{ color: '#888' }}>Sect:</span> {narrator.sect_affiliation}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Sect:</span> {narrator.sect_affiliation}
           </div>
         )}
         {narrator.trustworthiness_consensus && (
           <div>
-            <span style={{ color: '#888' }}>Trustworthiness:</span>{' '}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Trustworthiness:</span>{' '}
             {narrator.trustworthiness_consensus}
           </div>
         )}
@@ -768,7 +763,7 @@ function NarratorDetailPanel({
             fontSize: '0.75rem',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            color: '#888',
+            color: 'var(--color-muted-foreground)',
             marginBottom: '0.5rem',
           }}
         >
@@ -776,26 +771,26 @@ function NarratorDetailPanel({
         </div>
         <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
           <div>
-            <span style={{ color: '#888' }}>Teachers (in):</span> {narrator.in_degree ?? '\u2014'}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Teachers (in):</span> {narrator.in_degree ?? '\u2014'}
           </div>
           <div>
-            <span style={{ color: '#888' }}>Students (out):</span>{' '}
+            <span style={{ color: 'var(--color-muted-foreground)' }}>Students (out):</span>{' '}
             {narrator.out_degree ?? '\u2014'}
           </div>
           {narrator.betweenness_centrality != null && (
             <div>
-              <span style={{ color: '#888' }}>Betweenness:</span>{' '}
+              <span style={{ color: 'var(--color-muted-foreground)' }}>Betweenness:</span>{' '}
               {narrator.betweenness_centrality.toFixed(4)}
             </div>
           )}
           {narrator.pagerank != null && (
             <div>
-              <span style={{ color: '#888' }}>PageRank:</span> {narrator.pagerank.toFixed(4)}
+              <span style={{ color: 'var(--color-muted-foreground)' }}>PageRank:</span> {narrator.pagerank.toFixed(4)}
             </div>
           )}
           {narrator.community_id != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <span style={{ color: '#888' }}>Community:</span> {narrator.community_id}
+              <span style={{ color: 'var(--color-muted-foreground)' }}>Community:</span> {narrator.community_id}
               <span
                 style={{
                   display: 'inline-block',
@@ -831,7 +826,7 @@ function NarratorDetailPanel({
               fontSize: '0.75rem',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              color: '#888',
+              color: 'var(--color-muted-foreground)',
             }}
           >
             Chains ({chainsTotal} total)
@@ -839,7 +834,7 @@ function NarratorDetailPanel({
         </div>
         <div style={{ maxHeight: 200, overflowY: 'auto' }}>
           {chains.length === 0 && (
-            <div style={{ color: '#999', fontSize: '0.85rem' }}>No chains found.</div>
+            <div style={{ color: 'var(--color-muted-foreground)', fontSize: '0.85rem' }}>No chains found.</div>
           )}
           {chains.map((c) => (
             <div
@@ -847,13 +842,13 @@ function NarratorDetailPanel({
               onClick={() => onChainSelect(c)}
               style={{
                 padding: '0.375rem 0',
-                borderBottom: '1px solid #f0f0f0',
+                borderBottom: '1px solid var(--color-border)',
                 cursor: 'pointer',
                 fontSize: '0.8rem',
               }}
             >
               <div style={{ fontWeight: 500 }}>
-                {c.grade && <span style={{ color: '#888' }}>[{c.grade}]</span>}{' '}
+                {c.grade && <span style={{ color: 'var(--color-muted-foreground)' }}>[{c.grade}]</span>}{' '}
                 {c.matn_en || c.hadith_id}
               </div>
               {c.matn_ar && (
@@ -861,7 +856,7 @@ function NarratorDetailPanel({
                   dir="rtl"
                   lang="ar"
                   style={{
-                    color: '#666',
+                    color: 'var(--color-muted-foreground)',
                     fontSize: '0.75rem',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -883,7 +878,7 @@ function NarratorDetailPanel({
         style={{
           display: 'block',
           textAlign: 'center',
-          color: '#1a73e8',
+          color: 'var(--color-primary)',
           fontSize: '0.85rem',
           textDecoration: 'none',
           padding: '0.5rem',

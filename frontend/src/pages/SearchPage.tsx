@@ -381,7 +381,7 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <h2 className="text-2xl font-semibold mb-4">Search</h2>
+      <h2 className="page-heading">Search</h2>
 
       {/* Search bar */}
       <form onSubmit={handleSubmit} className="mb-4">

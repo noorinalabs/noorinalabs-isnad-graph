@@ -84,6 +84,7 @@ fi
 # ---------- 3. API Health Endpoint ----------
 
 section "API Health Check"
+health_resolved=false
 # Try /health first (Caddy direct), then /api/v1/health as fallback
 for health_path in "/health" "/api/v1/health"; do
   health_url="${SITE_URL}${health_path}"
@@ -92,16 +93,15 @@ for health_path in "/health" "/api/v1/health"; do
     health_status=$(echo "$health_resp" | jq -r '.status')
     if [ "$health_status" = "healthy" ] || [ "$health_status" = "degraded" ] || [ "$health_status" = "ok" ]; then
       pass "Health endpoint (${health_path}) reports status=$health_status"
-      break
     else
       fail "Health endpoint (${health_path}) status=$health_status"
-      break
     fi
+    health_resolved=true
+    break
   fi
 done
-# If neither worked, check if we at least got an HTTP response
-if [ -z "$health_resp" ] || ! echo "$health_resp" | jq -e '.status' &>/dev/null; then
-  # Accept any 200 response as healthy even if format doesn't match
+# If neither endpoint returned parseable JSON, fall back to HTTP status code
+if [ "$health_resolved" = "false" ]; then
   health_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$TIMEOUT" "${SITE_URL}/health" 2>/dev/null || echo "000")
   if [ "$health_code" = "200" ]; then
     pass "Health endpoint returned HTTP 200 (non-JSON response)"
@@ -173,7 +173,34 @@ for hdr in "${required_headers[@]}"; do
   fi
 done
 
-# ---------- 7. SSL Certificate ----------
+# ---------- 7. Caddy Config Reload Verification ----------
+
+section "Caddy Config Verification"
+# Verify that Caddy (the reverse proxy) is serving security headers on the root URL.
+# This confirms that the running Caddy process has loaded the current Caddyfile,
+# not a stale cached config from a previous deployment.
+caddy_headers=$(curl -s -D - -o /dev/null --max-time "$TIMEOUT" "$SITE_URL" 2>/dev/null || echo "")
+caddy_check_headers=("X-XSS-Protection" "Content-Security-Policy" "X-Content-Type-Options")
+caddy_ok=true
+for chdr in "${caddy_check_headers[@]}"; do
+  if echo "$caddy_headers" | grep -qi "^${chdr}:"; then
+    pass "Caddy serves $chdr header"
+  else
+    fail "Caddy does NOT serve $chdr header — config may not be reloaded"
+    caddy_ok=false
+  fi
+done
+# Check for Caddy server identifier (confirms traffic flows through Caddy)
+if echo "$caddy_headers" | grep -qi "^server:.*caddy"; then
+  pass "Response served by Caddy (Server header present)"
+elif echo "$caddy_headers" | grep -qi "^server:"; then
+  server_val=$(echo "$caddy_headers" | grep -i "^server:" | head -1 | cut -d: -f2- | xargs)
+  warn "Server header present but not Caddy ($server_val)"
+else
+  warn "No Server header — cannot confirm Caddy is the reverse proxy"
+fi
+
+# ---------- 8. SSL Certificate ----------
 
 if [ "$SKIP_SSL" = "false" ]; then
   section "SSL Certificate"
@@ -207,7 +234,7 @@ if [ "$SKIP_SSL" = "false" ]; then
   fi
 fi
 
-# ---------- 8. Response Time Spot Check ----------
+# ---------- 9. Response Time Spot Check ----------
 
 section "Response Time"
 time_total=$(curl -s -o /dev/null -w "%{time_total}" --max-time "$TIMEOUT" "${SITE_URL}/health" 2>/dev/null || echo "0")
@@ -220,7 +247,7 @@ else
   fail "Health endpoint response time ${time_ms}ms exceeds 2000ms"
 fi
 
-# ---------- 9. Rollback Tag ----------
+# ---------- 10. Rollback Tag ----------
 
 if [ -n "$ROLLBACK_TAG" ]; then
   section "Rollback Tag"

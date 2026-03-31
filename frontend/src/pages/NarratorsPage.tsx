@@ -23,9 +23,9 @@ export default function NarratorsPage() {
 
   return (
     <div>
-      <h2>Narrators</h2>
+      <h2 className="page-heading">Narrators</h2>
 
-      <div className="flex-row" style={{ marginBottom: '1rem' }}>
+      <div className="flex-row" style={{ marginBottom: 'var(--spacing-4)' }}>
         <input
           type="text"
           placeholder="Search narrators..."
@@ -36,15 +36,36 @@ export default function NarratorsPage() {
           className="form-input"
           style={{ flex: 1, maxWidth: 400 }}
         />
-        <button onClick={handleSearch} className="btn">
+        <button onClick={handleSearch} className="btn-primary">
           Search
         </button>
       </div>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && (
+        <div>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="skeleton skeleton-row" style={{ width: `${90 - i * 5}%` }} />
+          ))}
+        </div>
+      )}
       {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
-      {data && (
+      {data && data.items.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </div>
+          <div className="empty-state-heading">No narrators found</div>
+          <div className="empty-state-body">
+            Try adjusting your search terms or clearing the filter.
+          </div>
+        </div>
+      )}
+
+      {data && data.items.length > 0 && (
         <>
           <table className="data-table">
             <thead>

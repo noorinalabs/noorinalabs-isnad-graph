@@ -175,16 +175,44 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6 rounded-xl border border-border bg-card p-8 shadow-lg">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold font-heading">Isnad Graph</h1>
-          <p className="text-sm text-muted-foreground">Sign in to continue</p>
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-card p-10 shadow-xl">
+        {/* Geometric accent line */}
+        <div className="geo-border-top" />
+
+        <div className="text-center space-y-3">
+          {/* Octagonal icon placeholder */}
+          <div
+            className="mx-auto flex items-center justify-center"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 'var(--radius-lg)',
+              background: 'var(--color-primary)',
+              color: 'var(--color-primary-foreground)',
+              transform: 'rotate(0deg)',
+            }}
+          >
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="10" cy="10" r="3" />
+              <circle cx="22" cy="10" r="3" />
+              <circle cx="16" cy="22" r="3" />
+              <line x1="13" y1="10" x2="19" y2="10" />
+              <line x1="11" y1="13" x2="15" y2="19" />
+              <line x1="21" y1="13" x2="17" y2="19" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-semibold" style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-foreground)' }}>
+            Isnad Graph
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Sign in to access the hadith analysis platform
+          </p>
         </div>
 
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-destructive bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive"
           >
             {error}
           </div>

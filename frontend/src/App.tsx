@@ -24,6 +24,7 @@ import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
 import ModerationPage from './pages/admin/ModerationPage'
 import ReportsPage from './pages/admin/ReportsPage'
 import ConfigPage from './pages/admin/ConfigPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +75,9 @@ export default function App() {
                 </Route>
               </Route>
             </Route>
+
+            {/* Catch-all 404 */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

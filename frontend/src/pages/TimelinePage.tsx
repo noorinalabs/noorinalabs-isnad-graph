@@ -132,8 +132,8 @@ export default function TimelinePage() {
 
   return (
     <div>
-      <h2>Timeline</h2>
-      <p className="muted-text" style={{ marginBottom: '1rem' }}>
+      <h2 className="page-heading">Timeline</h2>
+      <p className="muted-text" style={{ marginBottom: 'var(--spacing-4)' }}>
         Historical events and narrator activity periods (Anno Hegirae).
       </p>
 
@@ -158,7 +158,13 @@ export default function TimelinePage() {
         </label>
       </div>
 
-      {isLoading && <p>Loading timeline...</p>}
+      {isLoading && (
+        <div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="skeleton skeleton-row" style={{ width: `${80 - i * 10}%` }} />
+          ))}
+        </div>
+      )}
       {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       <div className="timeline-body">

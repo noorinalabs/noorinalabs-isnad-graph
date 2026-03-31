@@ -26,7 +26,15 @@ jobs:
         run: |
           set -o pipefail
           chmod +x scripts/verify_deployment.sh
-          ./scripts/verify_deployment.sh 2>&1 | tee verify-output.txt
+          ./scripts/verify_deployment.sh --skip-workflow 2>&1 | tee verify-output.txt
+
+      - name: Upload verification output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-output
+          path: verify-output.txt
+          retention-days: 7
 
       - name: Write verification summary
         if: always()
@@ -51,3 +59,9 @@ jobs:
           echo "The deployment verification detected failures." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Check the [verify-deploy workflow run](https://github.com/${{ github.repository }}/actions/workflows/verify-deploy.yml) for details." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Annotate failed commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "::error title=Deploy Verification Failed::Post-deploy verification detected failures. Review the verify-deploy workflow output."

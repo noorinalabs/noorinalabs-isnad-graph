@@ -16,12 +16,18 @@ export default function ComparativePage() {
 
   return (
     <div>
-      <h2>Comparative Analysis</h2>
-      <p className="muted-text" style={{ marginBottom: '1rem' }}>
+      <h2 className="page-heading">Comparative Analysis</h2>
+      <p className="muted-text" style={{ marginBottom: 'var(--spacing-4)' }}>
         Browse cross-sectarian parallel hadith pairs (PARALLEL_OF relationships).
       </p>
 
-      {isLoading && <p>Loading...</p>}
+      {isLoading && (
+        <div>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="skeleton skeleton-row" style={{ width: `${90 - i * 5}%` }} />
+          ))}
+        </div>
+      )}
       {error && <p className="error-text">Error: {(error as Error).message}</p>}
 
       {data && (
@@ -71,7 +77,7 @@ export default function ComparativePage() {
             </tbody>
           </table>
 
-          <div className="pagination" style={{ marginTop: '1.5rem' }}>
+          <div className="pagination">
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>
