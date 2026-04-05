@@ -381,7 +381,7 @@ export default function SearchPage() {
   )
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full max-w-7xl mx-auto">
       <h2 className="page-heading">Search</h2>
 
       {/* Search bar */}
