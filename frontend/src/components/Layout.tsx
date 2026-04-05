@@ -29,21 +29,13 @@ export default function Layout() {
             href="https://www.noorinalabs.com"
             target="_blank"
             rel="noopener noreferrer"
+            className="link-muted"
             style={{
               margin: 0,
               fontSize: 'var(--text-lg)',
               fontFamily: 'var(--font-heading)',
               fontWeight: 400,
-              color: 'var(--color-muted-foreground)',
               letterSpacing: 'var(--tracking-tight)',
-              textDecoration: 'none',
-              transition: 'color var(--duration-fast) var(--ease-default)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--color-primary)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--color-muted-foreground)'
             }}
           >
             NoorinaLabs

@@ -109,23 +109,7 @@ export default function HomePage() {
             <Link
               key={f.to}
               to={f.to}
-              style={{
-                textDecoration: 'none',
-                color: 'inherit',
-                padding: 'var(--spacing-5)',
-                borderRadius: 'var(--radius-lg)',
-                border: 'var(--border-width-thin) solid var(--color-border)',
-                background: 'var(--color-card)',
-                transition: 'border-color var(--duration-fast) var(--ease-default), box-shadow var(--duration-fast) var(--ease-default)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-primary)'
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-border)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
+              className="feature-card"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)', marginBottom: 'var(--spacing-2)' }}>
                 <f.Icon size={20} style={{ color: 'var(--color-primary)', opacity: 0.8 }} />
@@ -177,27 +161,7 @@ export default function HomePage() {
             <Link
               key={link.to}
               to={link.to}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 'var(--spacing-2)',
-                padding: 'var(--spacing-2) var(--spacing-4)',
-                borderRadius: 'var(--radius-md)',
-                border: 'var(--border-width-thin) solid var(--color-border)',
-                background: 'var(--color-card)',
-                fontFamily: 'var(--font-body)',
-                fontSize: 'var(--text-sm)',
-                fontWeight: 500,
-                color: 'var(--color-foreground)',
-                textDecoration: 'none',
-                transition: 'background var(--duration-fast) var(--ease-default)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--color-accent)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--color-card)'
-              }}
+              className="quick-link"
             >
               <link.Icon size={16} style={{ opacity: 0.7 }} />
               {link.label}

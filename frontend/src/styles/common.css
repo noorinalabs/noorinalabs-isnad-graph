@@ -492,6 +492,55 @@
   text-decoration: underline;
 }
 
+/* Muted link — default muted-foreground, primary on hover */
+.link-muted {
+  color: var(--color-muted-foreground);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.link-muted:hover {
+  color: var(--color-primary);
+}
+
+/* Feature card — border highlight and shadow on hover */
+.feature-card {
+  text-decoration: none;
+  color: inherit;
+  padding: var(--spacing-5);
+  border-radius: var(--radius-lg);
+  border: var(--border-width-thin) solid var(--color-border);
+  background: var(--color-card);
+  transition: border-color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
+}
+
+.feature-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Quick-link pill — accent background on hover */
+.quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-md);
+  border: var(--border-width-thin) solid var(--color-border);
+  background: var(--color-card);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-foreground);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.quick-link:hover {
+  background: var(--color-accent);
+}
+
 /* ============================================================
  * SECTION SPACING
  * ============================================================ */
