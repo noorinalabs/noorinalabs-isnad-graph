@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document describes the design for publishing container images to GitHub Container Registry (GHCR) via a GitHub Actions workflow. The workflow builds multi-architecture Docker images for the isnad-graph API service and publishes them to `ghcr.io/noorinalabs/isnad-graph`.
+This document describes the design for publishing container images to GitHub Container Registry (GHCR) via a GitHub Actions workflow. The workflow builds multi-architecture Docker images for the isnad-graph API service and publishes them to `ghcr.io/noorinalabs/noorinalabs-isnad-graph`.
 
 ## Architecture Decisions
 
@@ -134,7 +134,7 @@ To:
 
 ```yaml
 api:
-  image: ghcr.io/noorinalabs/isnad-graph:latest
+  image: ghcr.io/noorinalabs/noorinalabs-isnad-graph:latest
 ```
 
 This decouples build from deploy, providing:

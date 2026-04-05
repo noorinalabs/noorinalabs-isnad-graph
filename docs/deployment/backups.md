@@ -21,7 +21,7 @@ Backups are uploaded to Backblaze B2 via rclone with SHA256 checksum sidecar fil
 
 ## Environment Variables
 
-Add these to `/opt/isnad-graph/.env`:
+Add these to `/opt/noorinalabs-isnad-graph/.env`:
 
 ```bash
 # Backblaze B2 credentials
@@ -78,7 +78,7 @@ isnad-graph-backups/
 ### Manual backup
 
 ```bash
-cd /opt/isnad-graph
+cd /opt/noorinalabs-isnad-graph
 ./scripts/backup.sh
 ```
 

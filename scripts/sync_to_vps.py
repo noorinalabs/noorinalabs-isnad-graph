@@ -104,7 +104,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--remote-data-dir",
-        default="/opt/isnad-graph/data",
+        default="/opt/noorinalabs-isnad-graph/data",
         help="Remote data directory on VPS",
     )
     parser.add_argument("--ssh-key", default=None, help="Path to SSH private key")

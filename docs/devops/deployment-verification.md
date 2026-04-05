@@ -77,12 +77,12 @@ If verification fails:
 1. Check the deploy workflow logs: `gh run view --log`
 2. SSH to the VPS to inspect container logs:
    ```bash
-   ssh deploy@<VPS_HOST> 'docker compose -f /opt/isnad-graph/docker-compose.prod.yml logs --tail=100'
+   ssh deploy@<VPS_HOST> 'docker compose -f /opt/noorinalabs-isnad-graph/docker-compose.prod.yml logs --tail=100'
    ```
 3. If the issue is in new code, revert the merge to `main` and push — the deploy workflow will redeploy the previous state
 4. If infrastructure is broken, SSH in and restart services:
    ```bash
-   ssh deploy@<VPS_HOST> 'cd /opt/isnad-graph && docker compose -f docker-compose.prod.yml restart'
+   ssh deploy@<VPS_HOST> 'cd /opt/noorinalabs-isnad-graph && docker compose -f docker-compose.prod.yml restart'
    ```
 
 ## Neo4j Data Verification
