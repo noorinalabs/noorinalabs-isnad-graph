@@ -437,8 +437,12 @@ def _load_mentions(
 # Canonical ID generation
 # ---------------------------------------------------------------------------
 def _make_canonical_id(name_normalized: str) -> str:
-    """Deterministic canonical ID via uuid5 with fixed namespace."""
-    return str(uuid.uuid5(_CANONICAL_NAMESPACE, name_normalized))
+    """Deterministic canonical ID via uuid5 with fixed namespace.
+
+    Returns ``nar:<uuid5>`` to match the ``nar:`` prefix the graph
+    loader (``load_nodes._load_narrators``) validates on import.
+    """
+    return f"nar:{uuid.uuid5(_CANONICAL_NAMESPACE, name_normalized)}"
 
 
 # ---------------------------------------------------------------------------

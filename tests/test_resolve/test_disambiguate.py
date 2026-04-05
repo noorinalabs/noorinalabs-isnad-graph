@@ -220,13 +220,14 @@ class TestCanonicalId:
         id2 = _make_canonical_id("\u0639\u0644\u064a")
         assert id1 != id2
 
-    def test_is_valid_uuid5(self) -> None:
+    def test_has_nar_prefix_and_valid_uuid5(self) -> None:
         cid = _make_canonical_id("test_name")
-        parsed = uuid.UUID(cid)
+        assert cid.startswith("nar:")
+        parsed = uuid.UUID(cid.removeprefix("nar:"))
         assert parsed.version == 5
 
     def test_uses_fixed_namespace(self) -> None:
-        expected = str(uuid.uuid5(_CANONICAL_NAMESPACE, "test_input"))
+        expected = f"nar:{uuid.uuid5(_CANONICAL_NAMESPACE, 'test_input')}"
         assert _make_canonical_id("test_input") == expected
 
 

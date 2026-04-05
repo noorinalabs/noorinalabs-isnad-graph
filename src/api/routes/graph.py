@@ -38,12 +38,25 @@ def get_narrator_chains(
     if not exists:
         raise HTTPException(status_code=404, detail=f"Narrator '{narrator_id}' not found")
 
+    # Schema uses NARRATED (narrator->hadith) and TRANSMITTED_TO (narrator->narrator).
+    # A narrator appears in a hadith's chain if they directly NARRATED it or are
+    # connected via TRANSMITTED_TO edges to a narrator who NARRATED it.
+    # Chain nodes store narrator_ids lists, so we can also match via that property.
     rows = neo4j.execute_read(
         """
-        MATCH (n:Narrator {id: $id})<-[:HAS_LINK]-(c:Chain)-[:CHAIN_OF]->(h:Hadith)
+        MATCH (n:Narrator {id: $id})-[:NARRATED]->(h:Hadith)
+        OPTIONAL MATCH (c:Chain {hadith_id: h.id})
         RETURN c.id AS chain_id, h.id AS hadith_id, h.matn_ar AS matn_ar,
-               h.matn_en AS matn_en, h.grade_composite AS grade
-        ORDER BY c.id
+               h.matn_en AS matn_en, h.grade AS grade
+        ORDER BY h.id
+        LIMIT $limit
+        UNION
+        MATCH (n:Narrator {id: $id})-[:TRANSMITTED_TO*1..10]-(:Narrator)-[:NARRATED]->(h:Hadith)
+        WHERE NOT EXISTS { MATCH (n)-[:NARRATED]->(h) }
+        OPTIONAL MATCH (c:Chain {hadith_id: h.id})
+        RETURN c.id AS chain_id, h.id AS hadith_id, h.matn_ar AS matn_ar,
+               h.matn_en AS matn_en, h.grade AS grade
+        ORDER BY h.id
         LIMIT $limit
         """,
         {"id": narrator_id, "limit": limit},
@@ -77,12 +90,16 @@ def get_hadith_chain(
     if not exists:
         raise HTTPException(status_code=404, detail=f"Hadith '{hadith_id}' not found")
 
+    # Find all narrator TRANSMITTED_TO edges for narrators that are part of
+    # this hadith's chain.  A narrator belongs to the chain if they NARRATED
+    # the hadith or transmitted to someone who did.
     rows = neo4j.execute_read(
         """
-        MATCH (h:Hadith {id: $id})<-[:CHAIN_OF]-(c:Chain)-[:HAS_LINK]->(n:Narrator)
-        WITH c, collect(n) AS narrators
-        MATCH (c)-[:HAS_LINK]->(src:Narrator)-[:TRANSMITTED_TO]->(tgt:Narrator)
-        WHERE src IN narrators AND tgt IN narrators
+        MATCH (n:Narrator)-[:NARRATED]->(h:Hadith {id: $id})
+        OPTIONAL MATCH (c:Chain {hadith_id: h.id})
+        WITH h, c, collect(n) AS direct
+        OPTIONAL MATCH (src:Narrator)-[:TRANSMITTED_TO]->(tgt:Narrator)
+        WHERE tgt IN direct OR src IN direct
         RETURN c.id AS chain_id,
                src.id AS source_id, src.name_ar AS source_name_ar,
                src.name_en AS source_name_en, src.generation AS source_gen,
