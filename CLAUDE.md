@@ -176,21 +176,21 @@ Copy `.env.example` to `.env`. Key variables:
 ### Team Composition
 | Role | Level | Name | File |
 |------|-------|------|------|
-| Manager | Senior VP (Executive) | Fatima Okonkwo | `roster/manager_fatima.md` |
-| System Architect | Partner | Renaud Tremblay | `roster/architect_renaud.md` |
-| DevOps Architect | Staff | Sunita Krishnamurthy | `roster/devops_architect_sunita.md` |
-| DevOps Engineer | Senior | Tomasz Wójcik | `roster/devops_engineer_tomasz.md` |
-| Tech Lead | Staff | Dmitri Volkov | `roster/tech_lead_dmitri.md` |
-| Engineer | Principal | Kwame Asante | `roster/engineer_kwame.md` |
-| Engineer | Senior | Amara Diallo | `roster/engineer_amara.md` |
-| Engineer | Senior | Hiro Tanaka | `roster/engineer_hiro.md` |
-| Engineer | Senior | Carolina Méndez-Ríos | `roster/engineer_carolina.md` |
-| Security Engineer | Senior | Yara Hadid | `roster/security_engineer_yara.md` |
-| QA Engineer | Senior | Priya Nair | `roster/qa_engineer_priya.md` |
-| Data Engineer (Lead) | Staff | Elena Petrova | `roster/data_lead_elena.md` |
-| Data Engineer | Senior | Rashid Osei-Mensah | `roster/data_engineer_rashid.md` |
-| Data Scientist | Principal | Mei-Lin Chang | `roster/data_scientist_mei.md` |
-| UX Designer | Principal | Sable Nakamura-Whitfield | `roster/ux_designer_sable.md` |
+| Manager | Senior VP (Executive) | Nadia Boukhari | `roster/manager_nadia.md` |
+| System Architect | Partner | Arjun Raghavan | `roster/architect_arjun.md` |
+| DevOps Architect | Staff | Jelani Mwangi | `roster/devops_architect_jelani.md` |
+| DevOps Engineer | Senior | Linh Pham | `roster/devops_engineer_linh.md` |
+| Tech Lead | Staff | Anya Kowalczyk | `roster/tech_lead_anya.md` |
+| Engineer | Principal | Nneka Obi | `roster/engineer_nneka.md` |
+| Engineer | Senior | Mateo Salazar | `roster/engineer_mateo.md` |
+| Engineer | Senior | Ingrid Lindqvist | `roster/engineer_ingrid.md` |
+| Engineer | Senior | Jun-Seo Park | `roster/engineer_junseo.md` |
+| Security Engineer | Senior | Idris Yusuf | `roster/security_engineer_idris.md` |
+| QA Engineer | Senior | Marisol Vega-Cruz | `roster/qa_engineer_marisol.md` |
+| Data Engineer (Lead) | Staff | Farhan Malik | `roster/data_lead_farhan.md` |
+| Data Engineer | Senior | Aisling Brennan | `roster/data_engineer_aisling.md` |
+| Data Scientist | Principal | Thandiwe Moyo | `roster/data_scientist_thandiwe.md` |
+| UX Designer | Principal | Ravi Wickramasinghe | `roster/ux_designer_ravi.md` |
 
 ### Key Rules
 - **Commit identity:** Each team member commits using per-commit `-c` flags with their name and `parametrization+{FirstName}.{LastName}@gmail.com` email — **never** set global/repo git config. See `.claude/team/charter.md` § Commit Identity for the full table.
