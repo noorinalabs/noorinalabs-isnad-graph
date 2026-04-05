@@ -89,13 +89,13 @@ export function PageHeaderAccent({
 }: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      viewBox="0 0 32 24"
+      viewBox="-2 -2 36 28"
       fill="none"
       stroke="currentColor"
       strokeWidth="1"
       aria-hidden="true"
       className={className}
-      style={{ width: 32, height: 24, opacity: 0.35, ...style }}
+      style={{ width: 36, height: 28, opacity: 0.35, overflow: 'visible', ...style }}
       {...props}
     >
       {/* Interlocking squares forming 8-pointed star fragment */}
