@@ -9,8 +9,12 @@
 #
 # Options:
 #   --skip-acquire    Skip the acquire stage (use existing raw data)
+#   --skip-parse      Skip the parse stage (use existing staging data)
 #   --skip-resolve    Skip the resolve stage (NER + disambiguate + dedup)
+#   --skip-load       Skip the load stage (Neo4j import)
 #   --skip-enrich     Skip the enrich stage (metrics, topics, historical)
+#   --only-load       Only run load + enrich (VPS-side after B2 download)
+#   --generate-manifest  Generate manifest after pipeline completes
 #   --dry-run         Print what would be executed without running
 #   --help            Show this help message
 #
@@ -25,6 +29,7 @@
 # Environment:
 #   ACQUIRE_TIMEOUT   — per-source timeout in seconds (default: 600)
 #   PIPELINE_LOG_DIR  — directory for pipeline logs (default: data/logs)
+#   ENVIRONMENT       — set to "production" for VPS runs
 
 set -euo pipefail
 
@@ -35,8 +40,11 @@ ACQUIRE_TIMEOUT="${ACQUIRE_TIMEOUT:-600}"
 PIPELINE_LOG_DIR="${PIPELINE_LOG_DIR:-data/logs}"
 
 SKIP_ACQUIRE=false
+SKIP_PARSE=false
 SKIP_RESOLVE=false
+SKIP_LOAD=false
 SKIP_ENRICH=false
+GENERATE_MANIFEST=false
 DRY_RUN=false
 
 # ---------------------------------------------------------------------------
@@ -48,12 +56,30 @@ while [[ $# -gt 0 ]]; do
             SKIP_ACQUIRE=true
             shift
             ;;
+        --skip-parse)
+            SKIP_PARSE=true
+            shift
+            ;;
         --skip-resolve)
             SKIP_RESOLVE=true
             shift
             ;;
+        --skip-load)
+            SKIP_LOAD=true
+            shift
+            ;;
         --skip-enrich)
             SKIP_ENRICH=true
+            shift
+            ;;
+        --only-load)
+            SKIP_ACQUIRE=true
+            SKIP_PARSE=true
+            SKIP_RESOLVE=true
+            shift
+            ;;
+        --generate-manifest)
+            GENERATE_MANIFEST=true
             shift
             ;;
         --dry-run)
@@ -61,7 +87,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            head -n 22 "$0" | tail -n +2 | sed 's/^# \?//'
+            head -n 28 "$0" | tail -n +2 | sed 's/^# \?//'
             exit 0
             ;;
         *)
@@ -119,7 +145,8 @@ run_stage() {
 # Pipeline stages
 # ---------------------------------------------------------------------------
 log "Pipeline started at $(date)"
-log "Options: skip-acquire=$SKIP_ACQUIRE skip-resolve=$SKIP_RESOLVE skip-enrich=$SKIP_ENRICH dry-run=$DRY_RUN"
+log "Options: skip-acquire=$SKIP_ACQUIRE skip-parse=$SKIP_PARSE skip-resolve=$SKIP_RESOLVE skip-load=$SKIP_LOAD skip-enrich=$SKIP_ENRICH generate-manifest=$GENERATE_MANIFEST dry-run=$DRY_RUN"
+log "Environment: ${ENVIRONMENT:-development}"
 log ""
 
 FAILED_STAGES=()
@@ -135,16 +162,22 @@ else
 fi
 
 # Stage 2: Parse (no external services needed)
-if ! run_stage "parse" uv run isnad parse; then
-    FAILED_STAGES+=("parse")
-    log "ERROR: parse failed — cannot continue without staging data"
-    exit 1
+if [[ "$SKIP_PARSE" == "false" ]]; then
+    if ! run_stage "parse" uv run isnad parse; then
+        FAILED_STAGES+=("parse")
+        log "ERROR: parse failed — cannot continue without staging data"
+        exit 1
+    fi
+else
+    log "SKIP: parse (--skip-parse)"
 fi
 
 # Stage 3: Validate staging (no external services needed)
-if ! run_stage "validate-staging" uv run isnad validate-staging; then
-    FAILED_STAGES+=("validate-staging")
-    log "WARNING: staging validation reported issues — continuing anyway"
+if [[ "$SKIP_PARSE" == "false" ]]; then
+    if ! run_stage "validate-staging" uv run isnad validate-staging; then
+        FAILED_STAGES+=("validate-staging")
+        log "WARNING: staging validation reported issues — continuing anyway"
+    fi
 fi
 
 # Stage 4: Resolve — NER + disambiguate + dedup (no external services needed, CPU intensive)
@@ -159,10 +192,14 @@ else
 fi
 
 # Stage 5: Load (requires Neo4j)
-if ! run_stage "load" uv run isnad load; then
-    FAILED_STAGES+=("load")
-    log "ERROR: load failed — cannot enrich without loaded graph"
-    exit 1
+if [[ "$SKIP_LOAD" == "false" ]]; then
+    if ! run_stage "load" uv run isnad load; then
+        FAILED_STAGES+=("load")
+        log "ERROR: load failed — cannot enrich without loaded graph"
+        exit 1
+    fi
+else
+    log "SKIP: load (--skip-load)"
 fi
 
 # Stage 6: Enrich (requires Neo4j)
@@ -175,11 +212,28 @@ else
     log "SKIP: enrich (--skip-enrich)"
 fi
 
+# Stage 7: Generate manifest (optional, for tracking loaded state)
+if [[ "$GENERATE_MANIFEST" == "true" ]]; then
+    if ! run_stage "manifest" uv run python scripts/generate_manifest.py; then
+        FAILED_STAGES+=("manifest")
+        log "WARNING: manifest generation failed — pipeline data is loaded but not tracked"
+    else
+        # Copy manifest as last-loaded snapshot
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        DATA_DIR="${SCRIPT_DIR}/../data"
+        if [[ -f "${DATA_DIR}/.manifest.json" ]]; then
+            cp "${DATA_DIR}/.manifest.json" "${DATA_DIR}/.last_loaded_manifest.json"
+            log "Manifest saved and copied to .last_loaded_manifest.json"
+        fi
+    fi
+fi
+
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 log ""
 log "=== PIPELINE SUMMARY ==="
+log "Completed at: $(date)"
 if [[ ${#FAILED_STAGES[@]} -eq 0 ]]; then
     log "All stages completed successfully."
 else
