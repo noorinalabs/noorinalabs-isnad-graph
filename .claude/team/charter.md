@@ -25,11 +25,11 @@ Every newly created issue receives a review pass from each of the following role
 
 | Reviewer | Applies to |
 |----------|-----------|
-| DevOps Architect (Sunita) | All issues |
-| System Architect (Renaud) | All issues |
-| Data Lead (Elena) | All issues |
-| Tech Lead (Dmitri) | All issues |
-| QA Engineer (Priya) | Software engineering issues only (additional review) |
+| DevOps Architect (Jelani) | All issues |
+| System Architect (Arjun) | All issues |
+| Data Lead (Farhan) | All issues |
+| Tech Lead (Anya) | All issues |
+| QA Engineer (Marisol) | Software engineering issues only (additional review) |
 
 Reviews may include: architectural concerns, infrastructure requirements, data impact, testing strategy, security flags, or cross-team dependencies. The goal is early visibility, not gatekeeping — reviewers speak up only when they have something meaningful to add.
 
@@ -119,26 +119,26 @@ When a ticket needs clarification or feedback from another team member:
 
 ```mermaid
 graph TD
-    MGR["Manager<br/><small>Fatima Okonkwo · Senior VP</small>"]
+    MGR["Manager<br/><small>Nadia Boukhari · Senior VP</small>"]
 
-    MGR --> SA["System Architect<br/><small>Renaud Tremblay · Partner</small>"]
-    MGR --> DA["DevOps Architect<br/><small>Sunita Krishnamurthy · Staff</small>"]
-    MGR --> DE_LEAD["Staff Data Engineer<br/><small>Elena Petrova · Staff</small>"]
-    MGR --> TL["Tech Lead<br/><small>Dmitri Volkov · Staff</small>"]
+    MGR --> SA["System Architect<br/><small>Arjun Raghavan · Partner</small>"]
+    MGR --> DA["DevOps Architect<br/><small>Jelani Mwangi · Staff</small>"]
+    MGR --> DE_LEAD["Staff Data Engineer<br/><small>Farhan Malik · Staff</small>"]
+    MGR --> TL["Tech Lead<br/><small>Anya Kowalczyk · Staff</small>"]
 
-    DA --> DEVOPS["DevOps Engineer<br/><small>Tomasz Wójcik · Senior</small>"]
-    DA --> SEC["Security Engineer<br/><small>Yara Hadid · Senior</small>"]
+    DA --> DEVOPS["DevOps Engineer<br/><small>Linh Pham · Senior</small>"]
+    DA --> SEC["Security Engineer<br/><small>Idris Yusuf · Senior</small>"]
 
-    DE_LEAD --> D1["Data Engineer<br/><small>Rashid Osei-Mensah · Senior</small>"]
-    DE_LEAD --> D2["Data Scientist<br/><small>Mei-Lin Chang · Principal</small>"]
+    DE_LEAD --> D1["Data Engineer<br/><small>Aisling Brennan · Senior</small>"]
+    DE_LEAD --> D2["Data Scientist<br/><small>Thandiwe Moyo · Principal</small>"]
 
-    TL --> E1["Engineer<br/><small>Kwame Asante · Principal</small>"]
-    TL --> E2["Engineer<br/><small>Amara Diallo · Senior</small>"]
-    TL --> E3["Engineer<br/><small>Hiro Tanaka · Senior</small>"]
-    TL --> E4["Engineer<br/><small>Carolina Méndez-Ríos · Senior</small>"]
-    TL --> QA["QA Engineer<br/><small>Priya Nair · Senior</small>"]
+    TL --> E1["Engineer<br/><small>Nneka Obi · Principal</small>"]
+    TL --> E2["Engineer<br/><small>Mateo Salazar · Senior</small>"]
+    TL --> E3["Engineer<br/><small>Ingrid Lindqvist · Senior</small>"]
+    TL --> E4["Engineer<br/><small>Jun-Seo Park · Senior</small>"]
+    TL --> QA["QA Engineer<br/><small>Marisol Vega-Cruz · Senior</small>"]
 
-    MGR --> UX["UX Designer<br/><small>Sable Nakamura-Whitfield · Principal</small>"]
+    MGR --> UX["UX Designer<br/><small>Ravi Wickramasinghe · Principal</small>"]
 ```
 
 ## Role Definitions
@@ -239,7 +239,7 @@ graph TD
 
 ### UX Designer (Principal)
 - **Reports to:** Manager
-- **Coordinates with:** Tech Lead (Dmitri), System Architect (Renaud), Frontend Engineers (Hiro, Carolina)
+- **Coordinates with:** Tech Lead (Anya), System Architect (Arjun), Frontend Engineers (Mateo, Jun-Seo)
 - **Responsibilities:**
   - Designs wireframes, interaction patterns, and visual hierarchy for all user-facing views
   - Creates and maintains the design system (tokens, components, typography, color palette)
@@ -334,12 +334,12 @@ When agreement cannot be reached between parties, the decision escalates to the 
 
 | Disagreement between | LCA / Decision-maker |
 |----------------------|---------------------|
-| Two engineers under same Tech Lead | Tech Lead (Dmitri) |
-| Tech Lead ↔ Data Lead | Manager (Fatima) |
-| DevOps Architect ↔ System Architect | Manager (Fatima) |
-| Engineer ↔ Data Scientist | Manager (Fatima) |
-| DevOps Engineer ↔ Security Engineer | DevOps Architect (Sunita) |
-| Any two leads under Manager | Manager (Fatima) |
+| Two engineers under same Tech Lead | Tech Lead (Anya) |
+| Tech Lead ↔ Data Lead | Manager (Nadia) |
+| DevOps Architect ↔ System Architect | Manager (Nadia) |
+| Engineer ↔ Data Scientist | Manager (Nadia) |
+| DevOps Engineer ↔ Security Engineer | DevOps Architect (Jelani) |
+| Any two leads under Manager | Manager (Nadia) |
 
 ## Steady-State Goal
 
@@ -392,21 +392,21 @@ The orchestrating agent is responsible for running `git worktree prune` after sh
 
 - **Naming pattern:** `{firstname}-{task-description}` (e.g., `tomasz-ci-fix`, `fatima-issue-audit`)
 - The orchestrator determines the most appropriate team member for the task BEFORE spawning
-- Tasks are assigned based on role fit (DevOps tasks → Tomasz, security → Yara, tests → Carolina, etc.)
+- Tasks are assigned based on role fit (DevOps tasks → Linh, security → Idris, tests → Marisol, etc.)
 - **Violations:** Agents named with functional-only names (e.g., `ci-fixer`, `issue-closer`, `wave1-p7-launcher`) are NOT allowed
 
 **Mapping guide:**
 | Task Type | Assigned To |
 |-----------|-------------|
-| CI/CD, Docker, infrastructure | Tomasz Wójcik |
-| Security reviews, auth, OWASP | Yara Hadid |
-| Issue management, planning, retros | Fatima Okonkwo |
-| Architecture, diagrams, ADRs | Renaud Tremblay |
-| Code review, tech lead decisions | Dmitri Volkov |
-| Data quality, profiling, validation | Elena Petrova |
-| Test suites, QA | Priya Nair / Carolina Méndez-Ríos |
-| Feature implementation | Kwame / Amara / Hiro / Carolina |
-| UX design, wireframes, branding, accessibility | Sable Nakamura-Whitfield |
+| CI/CD, Docker, infrastructure | Linh Pham |
+| Security reviews, auth, OWASP | Idris Yusuf |
+| Issue management, planning, retros | Nadia Boukhari |
+| Architecture, diagrams, ADRs | Arjun Raghavan |
+| Code review, tech lead decisions | Anya Kowalczyk |
+| Data quality, profiling, validation | Farhan Malik |
+| Test suites, QA | Marisol Vega-Cruz |
+| Feature implementation | Nneka / Mateo / Ingrid / Jun-Seo |
+| UX design, wireframes, branding, accessibility | Ravi Wickramasinghe |
 
 ## Code Review & Tech Debt
 
@@ -536,21 +536,21 @@ EOF
 
 | Team Member | user.name | user.email |
 |---|---|---|
-| Fatima Okonkwo | `Fatima Okonkwo` | `parametrization+Fatima.Okonkwo@gmail.com` |
-| Renaud Tremblay | `Renaud Tremblay` | `parametrization+Renaud.Tremblay@gmail.com` |
-| Sunita Krishnamurthy | `Sunita Krishnamurthy` | `parametrization+Sunita.Krishnamurthy@gmail.com` |
-| Tomasz Wójcik | `Tomasz Wójcik` | `parametrization+Tomasz.Wojcik@gmail.com` |
-| Dmitri Volkov | `Dmitri Volkov` | `parametrization+Dmitri.Volkov@gmail.com` |
-| Kwame Asante | `Kwame Asante` | `parametrization+Kwame.Asante@gmail.com` |
-| Amara Diallo | `Amara Diallo` | `parametrization+Amara.Diallo@gmail.com` |
-| Hiro Tanaka | `Hiro Tanaka` | `parametrization+Hiro.Tanaka@gmail.com` |
-| Carolina Méndez-Ríos | `Carolina Méndez-Ríos` | `parametrization+Carolina.Mendez-Rios@gmail.com` |
-| Yara Hadid | `Yara Hadid` | `parametrization+Yara.Hadid@gmail.com` |
-| Priya Nair | `Priya Nair` | `parametrization+Priya.Nair@gmail.com` |
-| Elena Petrova | `Elena Petrova` | `parametrization+Elena.Petrova@gmail.com` |
-| Tariq Al-Rashidi | `Tariq Al-Rashidi` | `parametrization+Tariq.Al-Rashidi@gmail.com` |
-| Mei-Lin Chang | `Mei-Lin Chang` | `parametrization+Mei-Lin.Chang@gmail.com` |
-| Sable Nakamura-Whitfield | `Sable Nakamura-Whitfield` | `parametrization+Sable.Nakamura-Whitfield@gmail.com` |
+| Nadia Boukhari | `Nadia Boukhari` | `parametrization+Nadia.Boukhari@gmail.com` |
+| Arjun Raghavan | `Arjun Raghavan` | `parametrization+Arjun.Raghavan@gmail.com` |
+| Anya Kowalczyk | `Anya Kowalczyk` | `parametrization+Anya.Kowalczyk@gmail.com` |
+| Jelani Mwangi | `Jelani Mwangi` | `parametrization+Jelani.Mwangi@gmail.com` |
+| Linh Pham | `Linh Pham` | `parametrization+Linh.Pham@gmail.com` |
+| Idris Yusuf | `Idris Yusuf` | `parametrization+Idris.Yusuf@gmail.com` |
+| Marisol Vega-Cruz | `Marisol Vega-Cruz` | `parametrization+Marisol.Vega-Cruz@gmail.com` |
+| Nneka Obi | `Nneka Obi` | `parametrization+Nneka.Obi@gmail.com` |
+| Mateo Salazar | `Mateo Salazar` | `parametrization+Mateo.Salazar@gmail.com` |
+| Ingrid Lindqvist | `Ingrid Lindqvist` | `parametrization+Ingrid.Lindqvist@gmail.com` |
+| Jun-Seo Park | `Jun-Seo Park` | `parametrization+Jun-Seo.Park@gmail.com` |
+| Farhan Malik | `Farhan Malik` | `parametrization+Farhan.Malik@gmail.com` |
+| Aisling Brennan | `Aisling Brennan` | `parametrization+Aisling.Brennan@gmail.com` |
+| Thandiwe Moyo | `Thandiwe Moyo` | `parametrization+Thandiwe.Moyo@gmail.com` |
+| Ravi Wickramasinghe | `Ravi Wickramasinghe` | `parametrization+Ravi.Wickramasinghe@gmail.com` |
 
 When a new team member is hired (fire-and-replace), their roster card MUST include a `## Git Identity` section following the same pattern: `parametrization+{FirstName}.{LastName}@gmail.com` (diacritics removed from email, preserved in user.name).
 
@@ -662,7 +662,7 @@ This must be transparent. The user wants visibility into team lifecycle transiti
 4. Then `TeamDelete` will succeed.
 5. Proceed with `TeamCreate`.
 
-> **Small wave optimization:** For waves with ≤8 issues where all work is well-defined (bugs with clear fixes, straightforward chores), the orchestrator may skip spawning the lead layer (Sunita, Dmitri) and spawn engineers directly after the Manager provides the execution plan. For larger waves (>8 issues) or waves with architectural ambiguity, spawn leads as coordination-only agents to manage delegation and cross-team dependencies.
+> **Small wave optimization:** For waves with ≤8 issues where all work is well-defined (bugs with clear fixes, straightforward chores), the orchestrator may skip spawning the lead layer (Jelani, Anya) and spawn engineers directly after the Manager provides the execution plan. For larger waves (>8 issues) or waves with architectural ambiguity, spawn leads as coordination-only agents to manage delegation and cross-team dependencies.
 
 ## Wave Planning & Priority
 
@@ -741,14 +741,14 @@ When a deployments branch PR is merged to main, create a GitHub release:
 3. Report any deployment failures or regressions to the Manager immediately
 4. The Manager includes deployment verification status in the wave completion report to the user
 
-**No wave is considered complete until the deployment is verified in production.** If the deploy workflow fails, the DevOps Engineer (Tomasz) investigates and fixes before proceeding to the next wave.
+**No wave is considered complete until the deployment is verified in production.** If the deploy workflow fails, the DevOps Engineer (Linh) investigates and fixes before proceeding to the next wave.
 
 ### Documentation Maintenance
 
 After every wave completes and the deployments branch is PR'd to main:
 1. Scan `docs/`, `docs/diagrams/`, and `README.md` against the changes in the PR.
 2. Update any stale diagrams or documentation.
-3. The System Architect (Renaud) owns diagram accuracy; the Manager owns doc accuracy.
+3. The System Architect (Arjun) owns diagram accuracy; the Manager owns doc accuracy.
 
 ## Automated Enforcement (Git Hooks)
 
