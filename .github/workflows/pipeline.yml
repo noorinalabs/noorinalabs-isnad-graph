@@ -8,8 +8,9 @@
 #   - SUNNAH_API_KEY    — Sunnah.com API key for hadith acquisition
 #   - KAGGLE_USERNAME   — Kaggle account username for dataset downloads
 #   - KAGGLE_KEY        — Kaggle API key for dataset downloads
-#   - B2_APPLICATION_KEY_ID  — (future) Backblaze B2 key ID for artifact upload
-#   - B2_APPLICATION_KEY     — (future) Backblaze B2 application key for artifact upload
+#   - B2_APPLICATION_KEY_ID  — Backblaze B2 key ID for artifact upload
+#   - B2_APPLICATION_KEY     — Backblaze B2 application key for artifact upload
+#   - B2_BUCKET_NAME         — Backblaze B2 bucket name for artifact storage
 
 name: Pipeline
 
@@ -97,10 +98,9 @@ jobs:
           name: pipeline-manifest
           path: .manifest.json
 
-      # TODO: #685 will implement B2 upload
-      # This step will upload staging/curated data and the manifest to
-      # Backblaze B2 for durable storage and VPS-side restore.
-      # Required secrets: B2_APPLICATION_KEY_ID, B2_APPLICATION_KEY
-      - name: "Upload to Backblaze B2 (placeholder)"
-        if: false
-        run: echo "B2 upload not yet implemented — see issue #685"
+      - name: "Stage 6: Upload to Backblaze B2"
+        run: scripts/b2_upload.sh
+        env:
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
