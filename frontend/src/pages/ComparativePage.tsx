@@ -51,7 +51,7 @@ function HadithSearchSelect({
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 200)}
+            onBlur={() => setOpen(false)}
           />
           {open && hadithResults.length > 0 && (
             <div className="search-dropdown">
@@ -59,7 +59,7 @@ function HadithSearchSelect({
                 <div
                   key={r.id}
                   className="search-dropdown-item"
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     e.preventDefault()
                     onChange(r.id)
                     setQuery('')

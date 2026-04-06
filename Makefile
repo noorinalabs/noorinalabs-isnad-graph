@@ -1,4 +1,4 @@
-.PHONY: help setup setup-hooks hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean clean-worktrees pipeline pipeline-full pipeline-bootstrap pipeline-load validate validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check backup restore
+.PHONY: help setup setup-hooks hooks infra infra-down infra-reset acquire parse resolve load enrich test test-integration sample-data lint typecheck format clean clean-worktrees pipeline pipeline-ci pipeline-full pipeline-bootstrap pipeline-load validate validate-staging validate-pipeline profile-data test-e2e test-e2e-headed check backup restore
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -105,6 +105,12 @@ pipeline-full: ## Run full pipeline with orchestration, logging, and error handl
 
 pipeline-bootstrap: ## One-time VPS bootstrap: full pipeline with manifest generation
 	ENVIRONMENT=production bash scripts/run_full_pipeline.sh --generate-manifest
+
+pipeline-ci: ## Run CI pipeline stages (acquire, parse, validate-staging, resolve)
+	$(MAKE) acquire
+	$(MAKE) parse
+	$(MAKE) validate-staging
+	$(MAKE) resolve
 
 pipeline-load: ## VPS-side only: load + enrich from existing staging/curated data
 	ENVIRONMENT=production bash scripts/run_full_pipeline.sh --only-load --generate-manifest

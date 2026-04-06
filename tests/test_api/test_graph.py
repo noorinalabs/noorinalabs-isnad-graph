@@ -31,6 +31,60 @@ def test_narrator_chains_found(client: TestClient, mock_neo4j: MagicMock) -> Non
     assert body["chains"][0]["chain_id"] == "ch-001"
 
 
+def test_narrator_chains_with_max_depth(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/graph/narrator/{id}/chains respects max_depth parameter."""
+    mock_neo4j.execute_read.side_effect = [
+        # exists check
+        [{"id": "nar-001"}],
+        # chain rows
+        [
+            {
+                "chain_id": "ch-001",
+                "hadith_id": "had-001",
+                "matn_ar": "متن الحديث",
+                "matn_en": "Hadith text",
+                "grade": "sahih",
+            }
+        ],
+    ]
+    resp = client.get("/api/v1/graph/narrator/nar-001/chains?max_depth=3")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    # Verify the Cypher query used the custom depth
+    cypher = mock_neo4j.execute_read.call_args_list[1][0][0]
+    assert "TRANSMITTED_TO*1..3" in cypher
+
+
+def test_narrator_chains_default_max_depth(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/graph/narrator/{id}/chains uses default max_depth=5."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"id": "nar-001"}],
+        [
+            {
+                "chain_id": "ch-001",
+                "hadith_id": "had-001",
+                "matn_ar": "متن",
+                "matn_en": None,
+                "grade": None,
+            }
+        ],
+    ]
+    resp = client.get("/api/v1/graph/narrator/nar-001/chains")
+    assert resp.status_code == 200
+    cypher = mock_neo4j.execute_read.call_args_list[1][0][0]
+    assert "TRANSMITTED_TO*1..5" in cypher
+
+
+def test_narrator_chains_max_depth_validation(client: TestClient) -> None:
+    """GET /api/v1/graph/narrator/{id}/chains rejects invalid max_depth."""
+    resp = client.get("/api/v1/graph/narrator/nar-001/chains?max_depth=0")
+    assert resp.status_code == 422
+
+    resp = client.get("/api/v1/graph/narrator/nar-001/chains?max_depth=11")
+    assert resp.status_code == 422
+
+
 def test_narrator_chains_not_found(client: TestClient) -> None:
     """GET /api/v1/graph/narrator/{id}/chains returns 404 for unknown narrator."""
     resp = client.get("/api/v1/graph/narrator/nonexistent/chains")

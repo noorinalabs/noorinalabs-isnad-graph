@@ -15,6 +15,27 @@ SAMPLE_HADITH = {
 }
 
 
+def test_get_hadith_facets_empty(client: TestClient) -> None:
+    """GET /api/v1/hadiths/facets returns empty list when no data."""
+    resp = client.get("/api/v1/hadiths/facets")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["source_corpus"] == []
+
+
+def test_get_hadith_facets_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/hadiths/facets returns distinct corpus values."""
+    mock_neo4j.execute_read.return_value = [
+        {"corpus": "lk"},
+        {"corpus": "sunnah"},
+        {"corpus": "thaqalayn"},
+    ]
+    resp = client.get("/api/v1/hadiths/facets")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["source_corpus"] == ["lk", "sunnah", "thaqalayn"]
+
+
 def test_list_hadiths_empty(client: TestClient) -> None:
     """GET /api/v1/hadiths returns empty paginated response when no data."""
     resp = client.get("/api/v1/hadiths")

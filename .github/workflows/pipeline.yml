@@ -1,0 +1,106 @@
+# Data Pipeline — acquire, parse, validate, resolve, and generate manifest
+#
+# Triggers:
+#   - Manual dispatch (workflow_dispatch)
+#   - Tags matching data-v* (e.g., data-v1.0.0)
+#
+# Required secrets:
+#   - SUNNAH_API_KEY    — Sunnah.com API key for hadith acquisition
+#   - KAGGLE_USERNAME   — Kaggle account username for dataset downloads
+#   - KAGGLE_KEY        — Kaggle API key for dataset downloads
+#   - B2_APPLICATION_KEY_ID  — Backblaze B2 key ID for artifact upload
+#   - B2_APPLICATION_KEY     — Backblaze B2 application key for artifact upload
+#   - B2_BUCKET_NAME         — Backblaze B2 bucket name for artifact storage
+
+name: Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'data-v*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - run: uv sync --group ml
+
+      - name: "Stage 1: Acquire raw data"
+        run: uv run isnad acquire
+        env:
+          SUNNAH_API_KEY: ${{ secrets.SUNNAH_API_KEY }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+
+      - name: "Stage 2: Parse to staging Parquet"
+        run: uv run isnad parse
+
+      - name: "Stage 3: Validate staging data"
+        run: uv run isnad validate-staging
+
+      - name: "Stage 4: Entity resolution"
+        run: uv run isnad resolve
+
+      - name: "Stage 5: Generate manifest"
+        run: |
+          python3 -c "
+          import hashlib, json, pathlib, datetime
+
+          manifest = {
+              'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'git_sha': '${GITHUB_SHA}',
+              'git_ref': '${GITHUB_REF}',
+              'files': {}
+          }
+
+          for directory in ['data/staging', 'data/curated']:
+              base = pathlib.Path(directory)
+              if not base.exists():
+                  continue
+              for path in sorted(base.rglob('*')):
+                  if not path.is_file():
+                      continue
+                  sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+                  manifest['files'][str(path)] = {
+                      'sha256': sha256,
+                      'size_bytes': path.stat().st_size,
+                  }
+
+          pathlib.Path('.manifest.json').write_text(
+              json.dumps(manifest, indent=2) + '\n'
+          )
+          print(f'Manifest generated: {len(manifest[\"files\"])} files')
+          "
+
+      - name: Upload manifest as artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pipeline-manifest
+          path: .manifest.json
+
+      - name: "Stage 6: Upload to Backblaze B2"
+        run: scripts/b2_upload.sh
+        env:
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}

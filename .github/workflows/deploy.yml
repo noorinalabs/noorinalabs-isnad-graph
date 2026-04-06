@@ -1,0 +1,97 @@
+# Deploy Data — Pull new pipeline data from B2 and load into Neo4j on VPS
+#
+# Triggers:
+#   - After Pipeline workflow completes successfully
+#   - Manual dispatch
+#
+# Only pulls data when the remote manifest in B2 differs from the VPS copy.
+# After a successful download, runs load + enrich idempotently.
+#
+# Required secrets:
+#   - DEPLOY_SSH_PRIVATE_KEY  — SSH key for VPS access
+#   - B2_APPLICATION_KEY_ID   — Backblaze B2 key ID
+#   - B2_APPLICATION_KEY      — Backblaze B2 application key
+#   - B2_BUCKET_NAME          — Backblaze B2 bucket name
+#
+# Required vars:
+#   - VPS_HOST                — VPS hostname or IP
+
+name: Deploy Data
+
+on:
+  workflow_run:
+    workflows: ["Pipeline"]
+    types: [completed]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: deploy-data
+  cancel-in-progress: false
+
+jobs:
+  deploy-data:
+    runs-on: ubuntu-latest
+    # Only run on successful pipeline completion (or manual dispatch)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    environment: production
+    steps:
+      - name: Check manifest and pull data from B2
+        uses: appleboy/ssh-action@v1
+        env:
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          envs: B2_APPLICATION_KEY_ID,B2_APPLICATION_KEY,B2_BUCKET_NAME
+          script: |
+            set -euo pipefail
+            cd /opt/noorinalabs-isnad-graph
+
+            echo "==> Fetching latest source for scripts..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Checking manifest for data changes..."
+            # b2_download.sh compares remote manifest with local .manifest.json
+            # and exits 0 with "Nothing to download" if unchanged.
+            OUTPUT=$(B2_APPLICATION_KEY_ID="$B2_APPLICATION_KEY_ID" \
+                     B2_APPLICATION_KEY="$B2_APPLICATION_KEY" \
+                     B2_BUCKET_NAME="$B2_BUCKET_NAME" \
+                     bash scripts/b2_download.sh 2>&1) || {
+              echo "$OUTPUT"
+              echo "ERROR: B2 download failed"
+              exit 1
+            }
+            echo "$OUTPUT"
+
+            # Check if anything was actually downloaded
+            if echo "$OUTPUT" | grep -q "Nothing to download"; then
+              echo "==> Manifest unchanged — no data to load."
+              exit 0
+            fi
+
+            echo "==> New data downloaded — running load + enrich..."
+            ENVIRONMENT=production bash scripts/run_full_pipeline.sh --only-load --generate-manifest
+
+            echo "==> Data deploy complete."
+
+      - name: Report status
+        if: always()
+        run: |
+          echo "## Deploy Data: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "- **Triggered by:** Pipeline workflow run" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Pipeline conclusion:** ${{ github.event.workflow_run.conclusion }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- **Triggered by:** Manual dispatch" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- **Actor:** ${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

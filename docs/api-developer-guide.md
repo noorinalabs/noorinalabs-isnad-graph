@@ -101,7 +101,7 @@ curl -H "Authorization: Bearer eyJ..." \
 |-------|-----------|---------------|
 | Health | `GET /health` | No |
 | Auth | `POST /api/v1/auth/login/{provider}`, `GET /api/v1/auth/callback/{provider}`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me` | Varies |
-| Narrators | `GET /api/v1/narrators`, `GET /api/v1/narrators/{id}`, `GET /api/v1/narrators/{id}/chains`, `GET /api/v1/narrators/{id}/network` | Yes |
+| Narrators | `GET /api/v1/narrators`, `GET /api/v1/narrators/{id}`, `GET /api/v1/narrators/{id}/chains`, `GET /api/v1/narrators/{id}/network` | Yes (list supports `?q=` search) |
 | Hadiths | `GET /api/v1/hadiths`, `GET /api/v1/hadiths/{id}`, `GET /api/v1/hadiths/{id}/chain` | Yes |
 | Collections | `GET /api/v1/collections`, `GET /api/v1/collections/{id}` | Yes |
 | Graph | `GET /api/v1/graph/shortest-path`, `GET /api/v1/graph/subgraph` | Yes |
@@ -109,6 +109,50 @@ curl -H "Authorization: Bearer eyJ..." \
 | Parallels | `GET /api/v1/parallels/{hadith_id}`, `GET /api/v1/parallels` | Yes |
 | Timeline | `GET /api/v1/timeline`, `GET /api/v1/timeline/range` | Yes |
 | 2FA | `POST /api/v1/2fa/enroll`, `POST /api/v1/2fa/verify` | Yes |
+
+## Narrators
+
+### List Narrators
+
+```
+GET /api/v1/narrators?page=1&limit=20
+```
+
+Returns a paginated list of all narrators.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | `1` | Page number (≥ 1) |
+| `limit` | int | `20` | Items per page (1–100) |
+| `q` | string | — | Optional search query; filters narrators by name (Arabic or English) using the `narrator_search` full-text index. Results are ranked by relevance. |
+
+### Search Example
+
+```bash
+curl -H "Authorization: Bearer eyJ..." \
+     "http://localhost:8000/api/v1/narrators?q=bukhari"
+```
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "nar_001",
+      "name_ar": "محمد بن إسماعيل البخاري",
+      "name_en": "Muhammad ibn Ismail al-Bukhari",
+      "birth_year": 810,
+      "death_year": 870
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20
+}
+```
+
+When `q` is omitted the endpoint returns all narrators ordered by ID.
 
 ## Rate Limiting
 

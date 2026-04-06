@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
-from src.api.models import HadithResponse, PaginatedResponse
+from src.api.models import HadithFacetsResponse, HadithResponse, PaginatedResponse
 from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter()
@@ -87,6 +87,18 @@ def _build_hadith_response(props: dict[str, Any]) -> HadithResponse:
         has_shia_parallel=props.get("has_shia_parallel", False),
         has_sunni_parallel=props.get("has_sunni_parallel", False),
     )
+
+
+@router.get("/hadiths/facets", response_model=HadithFacetsResponse)
+def get_hadith_facets(
+    neo4j: Neo4jClient = Depends(get_neo4j),
+) -> HadithFacetsResponse:
+    """Return distinct facet values for filtering hadiths."""
+    rows = neo4j.execute_read(
+        "MATCH (h:Hadith) WHERE h.source_corpus IS NOT NULL "
+        "RETURN DISTINCT h.source_corpus AS corpus ORDER BY corpus"
+    )
+    return HadithFacetsResponse(source_corpus=[row["corpus"] for row in rows])
 
 
 @router.get("/hadiths", response_model=PaginatedResponse[HadithResponse])
