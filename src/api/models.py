@@ -106,6 +106,14 @@ class HadithResponse(BaseModel):
     has_sunni_parallel: bool = False
 
 
+class HadithFacetsResponse(BaseModel):
+    """Distinct facet values available for filtering hadiths."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source_corpus: list[str]
+
+
 class CollectionResponse(BaseModel):
     """Collection API response."""
 

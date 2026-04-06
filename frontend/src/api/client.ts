@@ -2,6 +2,7 @@ import type {
   PaginatedResponse,
   Narrator,
   Hadith,
+  HadithFacetsResponse,
   Collection,
   NarratorChainsResponse,
   SearchResultsResponse,
@@ -67,6 +68,10 @@ export async function fetchHadiths(
 
 export async function fetchHadith(id: string): Promise<Hadith> {
   return fetchJson(`${API_BASE}/hadiths/${encodeURIComponent(id)}`)
+}
+
+export async function fetchHadithFacets(): Promise<HadithFacetsResponse> {
+  return fetchJson(`${API_BASE}/hadiths/facets`)
 }
 
 export async function fetchHadithParallels(id: string): Promise<ParallelsResponse> {

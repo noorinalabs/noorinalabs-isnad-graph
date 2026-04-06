@@ -41,6 +41,10 @@ export interface Hadith {
   has_sunni_parallel: boolean
 }
 
+export interface HadithFacetsResponse {
+  source_corpus: string[]
+}
+
 export interface Collection {
   id: string
   name_ar: string
