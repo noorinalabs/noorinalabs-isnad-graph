@@ -1,8 +1,18 @@
-export { Button, buttonVariants } from "./Button"
-export type { ButtonProps } from "./Button"
+// Re-export all UI components from @noorinalabs/design-system.
+// Local component files are kept as fallbacks in case the design-system
+// versions diverge in API. To revert to local components, change the
+// import source back to "./ComponentName".
+//
+// TODO: Once @noorinalabs/design-system is published (requires a v* tag push
+// on noorinalabs-design-system to trigger the publish workflow), run
+// `npm install` to pull the package from the registry. Until then, the
+// package is installed from the local filesystem during development.
 
-export { Input } from "./Input"
-export type { InputProps } from "./Input"
+export { Button, buttonVariants } from "@noorinalabs/design-system"
+export type { ButtonProps } from "@noorinalabs/design-system"
+
+export { Input } from "@noorinalabs/design-system"
+export type { InputProps } from "@noorinalabs/design-system"
 
 export {
   Select,
@@ -13,7 +23,7 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "./Select"
+} from "@noorinalabs/design-system"
 
 export {
   Dialog,
@@ -26,7 +36,7 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
-} from "./Dialog"
+} from "@noorinalabs/design-system"
 
 export {
   Table,
@@ -37,11 +47,11 @@ export {
   TableHead,
   TableHeader,
   TableRow,
-} from "./Table"
+} from "@noorinalabs/design-system"
 
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./Card"
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@noorinalabs/design-system"
 
-export { Badge, badgeVariants } from "./Badge"
-export type { BadgeProps } from "./Badge"
+export { Badge, badgeVariants } from "@noorinalabs/design-system"
+export type { BadgeProps } from "@noorinalabs/design-system"
 
-export { Tabs, TabsContent, TabsList, TabsTrigger } from "./Tabs"
+export { Tabs, TabsContent, TabsList, TabsTrigger } from "@noorinalabs/design-system"
