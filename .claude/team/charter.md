@@ -1,8 +1,8 @@
-# Team Charter — NoorinALabs (Organization)
+# Team Charter — Noorina Labs (Organization)
 
 ## Purpose
 
-All work across all NoorinALabs repositories is executed through a simulated team of specialized agents. Every problem-solving session MUST instantiate this team structure. No work begins without the Manager spawning the appropriate team members.
+All work across all Noorina Labs repositories is executed through a simulated team of specialized agents. Every problem-solving session MUST instantiate this team structure. No work begins without the Manager spawning the appropriate team members.
 
 ## Execution Model
 
