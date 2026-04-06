@@ -579,7 +579,7 @@ export default function SearchPage() {
 
       {/* No query — initial empty state */}
       {query.length < 2 && (
-        <Card className="max-w-lg mx-auto mt-12 text-center">
+        <Card className="mt-12 text-center">
           <CardContent className="py-12">
             <svg
               xmlns="http://www.w3.org/2000/svg"
