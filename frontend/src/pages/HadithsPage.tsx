@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { fetchHadiths, fetchCollections } from '../api/client'
+import { fetchHadiths, fetchCollections, fetchHadithFacets } from '../api/client'
 
 const PAGE_SIZES = [25, 50, 100] as const
 
@@ -72,11 +72,16 @@ export default function HadithsPage() {
 
   const hasActiveFilters = collection || sourceCorpus || grade || searchQuery
 
+  // Fetch source corpus options from API
+  const { data: facetsData, isLoading: facetsLoading } = useQuery({
+    queryKey: ['hadith-facets'],
+    queryFn: fetchHadithFacets,
+    staleTime: 5 * 60 * 1000,
+  })
+
   // Determine which columns have data
   const hasGrades = data?.items.some((h) => h.grade_composite) ?? false
   const hasTopics = data?.items.some((h) => h.topic_tags && h.topic_tags.length > 0) ?? false
-
-  const sourceCorpusOptions = ['lk', 'sunnah', 'thaqalayn', 'fawaz', 'sanadset', 'open_hadith', 'muhaddithat']
 
   return (
     <div>
@@ -141,6 +146,7 @@ export default function HadithsPage() {
         <select
           value={sourceCorpus}
           onChange={handleFilterChange(setSourceCorpus)}
+          disabled={facetsLoading}
           style={{
             padding: '0.5rem 0.75rem',
             border: '1px solid var(--color-border)',
@@ -149,8 +155,8 @@ export default function HadithsPage() {
             color: 'var(--color-foreground)',
           }}
         >
-          <option value="">All Sources</option>
-          {sourceCorpusOptions.map((s) => (
+          <option value="">{facetsLoading ? 'Loading sources...' : 'All Sources'}</option>
+          {facetsData?.source_corpus.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
