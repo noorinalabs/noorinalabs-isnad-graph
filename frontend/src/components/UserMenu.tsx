@@ -14,7 +14,7 @@ function providerLabel(provider: string): string {
 }
 
 export default function UserMenu() {
-  const { user, logout } = useAuth()
+  const { user, logout, signOutAll } = useAuth()
   const { resolvedTheme, toggle } = useTheme()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -194,8 +194,9 @@ export default function UserMenu() {
               cursor: 'pointer',
               fontFamily: 'var(--font-body)',
               fontSize: 'var(--text-sm)',
-              color: 'var(--color-destructive, #ef4444)',
+              color: 'var(--color-foreground)',
               textAlign: 'left',
+              borderBottom: 'var(--border-width-thin) solid var(--color-border)',
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -204,6 +205,38 @@ export default function UserMenu() {
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
             Sign out
+          </button>
+
+          {/* Sign out everywhere */}
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              signOutAll()
+            }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--spacing-3)',
+              padding: 'var(--spacing-3) var(--spacing-4)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--color-destructive, #ef4444)',
+              textAlign: 'left',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+              <line x1="16" y1="4" x2="16" y2="8" />
+              <line x1="14" y1="6" x2="18" y2="6" />
+            </svg>
+            Sign out everywhere
           </button>
         </div>
       )}

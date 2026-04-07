@@ -78,7 +78,49 @@ def verify_token(token: str) -> dict[str, object]:
     if isinstance(jti, str) and _is_token_revoked(jti):
         raise ValueError("Token has been revoked")
 
+    # Check user-level revocation (logout-all / token reuse detection)
+    sub = payload.get("sub")
+    iat = payload.get("iat")
+    if isinstance(sub, str) and isinstance(iat, int | float):
+        if _is_user_revoked(sub, iat):
+            raise ValueError("Token has been revoked")
+
     return payload
+
+
+def revoke_all_user_tokens(user_id: str) -> None:
+    """Revoke all tokens for a user by adding a user-level revocation marker.
+
+    Any token issued before this timestamp will be considered revoked.
+    Uses Redis with a long TTL; falls back to in-memory set.
+    """
+    settings = get_settings().auth
+    now = int(datetime.now(UTC).timestamp())
+    ttl_seconds = settings.refresh_token_expire_days * 86400
+
+    redis_client = get_redis_client()
+    if redis_client is not None:
+        try:
+            redis_client.setex(f"revoked_user:{user_id}", ttl_seconds, str(now))
+            return
+        except (redis_lib.ConnectionError, redis_lib.TimeoutError, OSError):  # fmt: skip
+            logger.warning("Redis revoke-all failed, falling back to in-memory")
+
+    _revoked_tokens.add(f"user:{user_id}")
+
+
+def _is_user_revoked(user_id: str, issued_at: int | float) -> bool:
+    """Check if all tokens for a user have been revoked after a given timestamp."""
+    redis_client = get_redis_client()
+    if redis_client is not None:
+        try:
+            revoked_at = redis_client.get(f"revoked_user:{user_id}")
+            if revoked_at is not None:
+                return issued_at <= int(revoked_at)
+            return False
+        except (redis_lib.ConnectionError, redis_lib.TimeoutError, OSError):  # fmt: skip
+            logger.warning("Redis user-revoked check failed, falling back to in-memory")
+    return f"user:{user_id}" in _revoked_tokens
 
 
 def revoke_token(token: str) -> None:

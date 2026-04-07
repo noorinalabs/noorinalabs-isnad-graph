@@ -26,6 +26,7 @@ import ReportsPage from './pages/admin/ReportsPage'
 import ConfigPage from './pages/admin/ConfigPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
+import SessionExpiredModal from './components/SessionExpiredModal'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <SessionExpiredModal />
         <BrowserRouter>
           <Routes>
             {/* Public routes */}

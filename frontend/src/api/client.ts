@@ -15,6 +15,8 @@ import type {
   SystemReport,
 } from '../types/api'
 
+import { emitSessionExpired } from '../hooks/useAuth'
+
 const API_BASE = '/api/v1'
 
 function getAuthHeaders(): HeadersInit {
@@ -25,6 +27,9 @@ function getAuthHeaders(): HeadersInit {
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: getAuthHeaders() })
   if (!res.ok) {
+    if (res.status === 401) {
+      emitSessionExpired()
+    }
     throw new Error(`API error: ${res.status} ${res.statusText}`)
   }
   return res.json() as Promise<T>

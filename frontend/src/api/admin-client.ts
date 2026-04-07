@@ -6,6 +6,7 @@ import type {
   UsageAnalytics,
 } from '../types/admin'
 import type { PaginatedResponse } from '../types/api'
+import { emitSessionExpired } from '../hooks/useAuth'
 
 const API_BASE = '/api/v1/admin'
 
@@ -19,7 +20,11 @@ async function fetchAdminJson<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { ...getAuthHeaders(), ...init?.headers },
   })
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
+    emitSessionExpired()
+    throw new Error('Unauthorized: admin access required')
+  }
+  if (res.status === 403) {
     throw new Error('Unauthorized: admin access required')
   }
   if (!res.ok) {
