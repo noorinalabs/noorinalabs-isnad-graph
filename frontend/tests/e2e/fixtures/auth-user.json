@@ -1,0 +1,7 @@
+{
+  "id": "test-user-001",
+  "email": "test@example.com",
+  "name": "Test User",
+  "is_admin": false,
+  "provider": "email"
+}

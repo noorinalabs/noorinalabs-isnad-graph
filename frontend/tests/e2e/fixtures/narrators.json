@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "id": "narrator-001",
+      "name_en": "Abu Hurayra",
+      "name_ar": "أبو هريرة",
+      "birth_year": null,
+      "death_year": 59,
+      "reliability_grade": "Sahih",
+      "hadith_count": 5374
+    },
+    {
+      "id": "narrator-002",
+      "name_en": "Aisha bint Abi Bakr",
+      "name_ar": "عائشة بنت أبي بكر",
+      "birth_year": null,
+      "death_year": 58,
+      "reliability_grade": "Sahih",
+      "hadith_count": 2210
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "limit": 20
+}

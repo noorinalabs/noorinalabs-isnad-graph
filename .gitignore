@@ -17,6 +17,10 @@ node_modules/
 .coverage
 .hypothesis/
 
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+
 # Terraform
 terraform/.terraform/
 terraform/terraform.tfstate

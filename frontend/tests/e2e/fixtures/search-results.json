@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "type": "narrator",
+      "id": "narrator-001",
+      "title": "Abu Hurayra",
+      "title_ar": "أبو هريرة",
+      "score": 0.95
+    },
+    {
+      "type": "hadith",
+      "id": "hadith-001",
+      "title": "Actions are judged by intentions",
+      "title_ar": "إنما الأعمال بالنيات",
+      "score": 0.88
+    },
+    {
+      "type": "collection",
+      "id": "collection-001",
+      "title": "Sahih al-Bukhari",
+      "title_ar": "صحيح البخاري",
+      "score": 0.72
+    }
+  ],
+  "total": 3
+}
