@@ -49,9 +49,7 @@ def get_dashboard_stats(
     active_result = neo4j.execute_read(active_query, {})
     active_users = active_result[0]["active"] if active_result else 0
 
-    suspended_query = (
-        "MATCH (u:USER) WHERE u.is_suspended = true RETURN count(u) AS suspended"
-    )
+    suspended_query = "MATCH (u:USER) WHERE u.is_suspended = true RETURN count(u) AS suspended"
     suspended_result = neo4j.execute_read(suspended_query, {})
     suspended_users = suspended_result[0]["suspended"] if suspended_result else 0
 
@@ -61,9 +59,7 @@ def get_dashboard_stats(
         ORDER BY cnt DESC
     """
     role_records = neo4j.execute_read(role_query, {})
-    users_by_role = [
-        RoleCount(role=r["role"], count=r["cnt"]) for r in role_records
-    ]
+    users_by_role = [RoleCount(role=r["role"], count=r["cnt"]) for r in role_records]
 
     new_query = """
         MATCH (u:USER)
