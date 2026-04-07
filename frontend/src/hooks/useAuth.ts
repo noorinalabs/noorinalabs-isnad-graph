@@ -18,8 +18,11 @@ interface AuthContextValue {
   isAdmin: boolean
   role: UserRole
   hasRole: (minRole: UserRole) => boolean
+  sessionExpired: boolean
   logout: () => void
   signOut: () => Promise<void>
+  signOutAll: () => Promise<void>
+  dismissSessionExpired: () => void
 }
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -60,17 +63,25 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Event emitted when an API call receives a 401 mid-session.
+ * The AuthProvider listens for this to show the re-auth modal.
+ */
+export const SESSION_EXPIRED_EVENT = 'auth:session-expired'
+
+export function emitSessionExpired() {
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
-  const clearTokensAndRedirect = useCallback(() => {
+  const clearTokens = useCallback(() => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     setUser(null)
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login'
-    }
   }, [])
 
   const logout = useCallback(() => {
@@ -81,8 +92,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {})
     }
-    clearTokensAndRedirect()
-  }, [clearTokensAndRedirect])
+    clearTokens()
+    window.location.href = '/login'
+  }, [clearTokens])
+
+  // Listen for session-expired events from API clients
+  useEffect(() => {
+    function handleSessionExpired() {
+      // Only show re-auth modal if user was previously authenticated
+      if (user) {
+        setSessionExpired(true)
+      }
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
+  }, [user])
 
   useEffect(() => {
     async function loadUser() {
@@ -100,7 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.status === 401) {
         token = await refreshAccessToken()
         if (!token) {
-          clearTokensAndRedirect()
+          // Initial load — no user was shown yet, so redirect normally
+          clearTokens()
           setLoading(false)
           return
         }
@@ -119,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     loadUser()
-  }, [clearTokensAndRedirect])
+  }, [clearTokens])
 
   const signOut = useCallback(async () => {
     const token = localStorage.getItem('access_token')
@@ -136,12 +161,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    setUser(null)
-
+    clearTokens()
+    setSessionExpired(false)
     window.location.href = '/login'
-  }, [])
+  }, [clearTokens])
+
+  const signOutAll = useCallback(async () => {
+    const token = localStorage.getItem('access_token')
+
+    if (token) {
+      try {
+        await fetch(`${API_BASE}/auth/logout-all`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      } catch {
+        // Ignore network errors — we still clear local state
+      }
+    }
+
+    clearTokens()
+    setSessionExpired(false)
+    window.location.href = '/login'
+  }, [clearTokens])
+
+  const dismissSessionExpired = useCallback(() => {
+    // User clicks "Sign In" on the re-auth modal — store current URL and redirect to login
+    sessionStorage.setItem('oauth_return_url', window.location.pathname + window.location.search)
+    clearTokens()
+    setSessionExpired(false)
+    window.location.href = '/login'
+  }, [clearTokens])
 
   const userRole: UserRole = user?.role ?? 'viewer'
 
@@ -158,8 +208,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: user?.is_admin ?? false,
     role: userRole,
     hasRole,
+    sessionExpired,
     logout,
     signOut,
+    signOutAll,
+    dismissSessionExpired,
   }
 
   return createElement(AuthContext.Provider, { value }, children)

@@ -76,3 +76,55 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+
+  e2e:
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: noorinalabs/noorinalabs-design-system
+          path: noorinalabs-design-system
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build and pack design-system dependency
+        working-directory: noorinalabs-design-system
+        run: |
+          npm install
+          npm run build
+          npm pack --pack-destination /tmp/
+      - name: Fix design-system lockfile integrity
+        run: |
+          node -e "
+            const fs = require('fs');
+            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+            const pkg = lock.packages['node_modules/@noorinalabs/design-system'];
+            if (pkg) { delete pkg.integrity; }
+            fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+          "
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Start preview server
+        run: npx vite preview --port 4173 &
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:4173 > /dev/null && exit 0
+            sleep 1
+          done
+          echo "Server failed to start" && exit 1
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14

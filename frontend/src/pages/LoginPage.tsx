@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs'
 import { Input } from '../components/ui/Input'
@@ -64,6 +64,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [formLoading, setFormLoading] = useState(false)
+  const [providers, setProviders] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    fetch(`${API_BASE}/auth/providers`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data: string[]) => setProviders(data))
+      .catch(() => setProviders(['google', 'github']))
+  }, [])
 
   // Sign-in form state
   const [loginEmail, setLoginEmail] = useState('')
@@ -75,7 +83,7 @@ export default function LoginPage() {
   const [regPassword, setRegPassword] = useState('')
   const [regConfirm, setRegConfirm] = useState('')
 
-  async function handleOAuth(provider: 'google' | 'github') {
+  async function handleOAuth(provider: string) {
     setError(null)
     setOauthLoading(provider)
 
@@ -219,32 +227,44 @@ export default function LoginPage() {
         )}
 
         {/* OAuth Buttons */}
-        <div className="space-y-3">
-          <button
-            onClick={() => handleOAuth('google')}
-            disabled={isLoading}
-            className="flex w-full items-center justify-center gap-3 rounded-md border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4285f4] transition-colors disabled:opacity-50 dark:border-[#5f6368] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f1f]"
-          >
-            <GoogleIcon />
-            {oauthLoading === 'google' ? 'Redirecting...' : 'Sign in with Google'}
-          </button>
+        {providers === null ? (
+          <div className="flex justify-center py-4">
+            <span className="text-sm text-muted-foreground">Loading sign-in options...</span>
+          </div>
+        ) : providers.length > 0 ? (
+          <div className="space-y-3">
+            {providers.includes('google') && (
+              <button
+                onClick={() => handleOAuth('google')}
+                disabled={isLoading}
+                className="flex w-full items-center justify-center gap-3 rounded-md border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4285f4] transition-colors disabled:opacity-50 dark:border-[#5f6368] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f1f]"
+              >
+                <GoogleIcon />
+                {oauthLoading === 'google' ? 'Redirecting...' : 'Sign in with Google'}
+              </button>
+            )}
 
-          <button
-            onClick={() => handleOAuth('github')}
-            disabled={isLoading}
-            className="flex w-full items-center justify-center gap-3 rounded-md bg-[#24292f] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#32383f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#24292f] transition-colors disabled:opacity-50 dark:bg-[#f0f0f0] dark:text-[#24292f] dark:hover:bg-[#d4d4d4]"
-          >
-            <GitHubIcon className="dark:text-[#24292f]" />
-            {oauthLoading === 'github' ? 'Redirecting...' : 'Sign in with GitHub'}
-          </button>
-        </div>
+            {providers.includes('github') && (
+              <button
+                onClick={() => handleOAuth('github')}
+                disabled={isLoading}
+                className="flex w-full items-center justify-center gap-3 rounded-md bg-[#24292f] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#32383f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#24292f] transition-colors disabled:opacity-50 dark:bg-[#f0f0f0] dark:text-[#24292f] dark:hover:bg-[#d4d4d4]"
+              >
+                <GitHubIcon className="dark:text-[#24292f]" />
+                {oauthLoading === 'github' ? 'Redirecting...' : 'Sign in with GitHub'}
+              </button>
+            )}
+          </div>
+        ) : null}
 
         {/* Divider */}
-        <div className="relative flex items-center">
-          <div className="flex-1 border-t border-border" />
-          <span className="px-3 text-xs text-muted-foreground uppercase">or</span>
-          <div className="flex-1 border-t border-border" />
-        </div>
+        {providers && providers.length > 0 && (
+          <div className="relative flex items-center">
+            <div className="flex-1 border-t border-border" />
+            <span className="px-3 text-xs text-muted-foreground uppercase">or</span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+        )}
 
         {/* Email/Password Tabs */}
         <Tabs defaultValue="signin" className="w-full">

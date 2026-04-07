@@ -18,12 +18,35 @@ from src.auth.providers import (
     retrieve_pkce_verifier,
     store_pkce_verifier,
 )
-from src.auth.tokens import create_access_token, create_refresh_token, revoke_token, verify_token
+from src.auth.tokens import (
+    create_access_token,
+    create_refresh_token,
+    revoke_all_user_tokens,
+    revoke_token,
+    verify_token,
+)
 from src.config import get_settings
 
 log = structlog.get_logger(logger_name=__name__)
 
 router = APIRouter()
+
+
+@router.get("/auth/providers")
+def list_providers() -> list[str]:
+    """Return names of OAuth providers that have credentials configured."""
+    settings = get_settings().auth
+    credential_fields = {
+        "google": (settings.google_client_id, settings.google_client_secret),
+        "github": (settings.github_client_id, settings.github_client_secret),
+        "apple": (settings.apple_client_id, settings.apple_client_secret),
+        "facebook": (settings.facebook_client_id, settings.facebook_client_secret),
+    }
+    return [
+        name
+        for name, (client_id, client_secret) in credential_fields.items()
+        if client_id and client_secret
+    ]
 
 
 def _build_redirect_uri(provider: str) -> str:
@@ -160,7 +183,27 @@ def refresh(request: Request) -> TokenResponse:
 
     try:
         payload = verify_token(refresh_token)
-    except ValueError:
+    except ValueError as exc:
+        # Token reuse detection: if a revoked refresh token is presented,
+        # it indicates the token family has been compromised. Revoke all
+        # tokens for the user as a safety measure.
+        if "revoked" in str(exc):
+            from jose import jwt as jose_jwt
+
+            try:
+                settings = get_settings().auth
+                raw = jose_jwt.decode(
+                    refresh_token,
+                    settings.jwt_secret,
+                    algorithms=[settings.jwt_algorithm],
+                    options={"verify_exp": False},
+                )
+                compromised_user = raw.get("sub")
+                if isinstance(compromised_user, str):
+                    log.warning("token_reuse_detected", user_id=compromised_user)
+                    revoke_all_user_tokens(compromised_user)
+            except Exception:  # noqa: BLE001
+                pass
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")  # noqa: B904
 
     if payload.get("type") != "refresh":
@@ -202,6 +245,14 @@ def logout(user: User = Depends(require_auth)) -> None:
     """Invalidate the current session (revoke tokens)."""
     # In a full implementation, we'd revoke the refresh token from a store.
     # The access token is short-lived and will expire naturally.
+    return None
+
+
+@router.post("/auth/logout-all", status_code=204)
+def logout_all(user: User = Depends(require_auth)) -> None:
+    """Invalidate all sessions for the current user across all devices."""
+    revoke_all_user_tokens(user.id)
+    log.info("logout_all_devices", user_id=user.id)
     return None
 
 
