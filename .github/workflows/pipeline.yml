@@ -43,7 +43,7 @@ jobs:
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-${{ runner.os }}-
 
-      - run: uv sync --group ml
+      - run: uv sync
 
       - name: "Stage 1: Acquire raw data"
         run: uv run isnad acquire
