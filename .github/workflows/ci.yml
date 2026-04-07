@@ -97,7 +97,7 @@ jobs:
       - name: Pack design-system dependency
         working-directory: noorinalabs-design-system
         run: npm pack --pack-destination /tmp/
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: Start preview server
