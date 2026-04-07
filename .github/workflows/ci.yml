@@ -94,9 +94,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Pack design-system dependency
+      - name: Build and pack design-system dependency
         working-directory: noorinalabs-design-system
-        run: npm pack --pack-destination /tmp/
+        run: |
+          npm install
+          npm run build
+          npm pack --pack-destination /tmp/
       - name: Fix design-system lockfile integrity
         run: |
           node -e "
