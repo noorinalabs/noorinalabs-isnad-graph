@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from src.config import Neo4jSettings, Settings, get_settings
@@ -30,26 +28,9 @@ class TestSettingsDefaults:
     def test_log_format(self, settings: Settings) -> None:
         assert settings.log_format == "console"
 
-    def test_data_dirs_are_paths(self, settings: Settings) -> None:
-        assert isinstance(settings.data_raw_dir, Path)
-        assert isinstance(settings.data_staging_dir, Path)
-        assert isinstance(settings.data_curated_dir, Path)
-
 
 class TestSettingsEnvOverride:
     """Environment variables override Settings fields."""
-
-    def test_override_sunnah_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("SUNNAH_API_KEY", "my-secret-key")
-        get_settings.cache_clear()
-        s = Settings()
-        assert s.sunnah_api_key == "my-secret-key"
-
-    def test_override_data_raw_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("DATA_RAW_DIR", "/tmp/test-raw")
-        get_settings.cache_clear()
-        s = Settings()
-        assert s.data_raw_dir == Path("/tmp/test-raw")
 
     def test_override_neo4j_password(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("NEO4J_PASSWORD", "supersecret")

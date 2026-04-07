@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -59,64 +59,14 @@ class TestSystemReports:
         assert "graph_validation" in data
         assert "topic_coverage" in data
 
-    def test_reports_sections_nullable(self, admin_client: TestClient) -> None:
+    def test_ingestion_sections_always_null(self, admin_client: TestClient) -> None:
+        """Pipeline, disambiguation, and dedup are always null after ingestion extraction."""
         resp = admin_client.get("/api/v1/admin/reports")
         assert resp.status_code == 200
         data = resp.json()
-        # disambiguation and dedup are null without resolved/parallel data
+        assert data["pipeline"] is None
         assert data["disambiguation"] is None
         assert data["dedup"] is None
-
-    @patch("src.api.routes.admin.reports._pipeline_metrics")
-    def test_reports_with_pipeline_data(
-        self, mock_pipeline: MagicMock, admin_client: TestClient
-    ) -> None:
-        from src.api.models import PipelineMetrics
-
-        mock_pipeline.return_value = PipelineMetrics(total_files=5, total_rows=1000, files=[])
-        resp = admin_client.get("/api/v1/admin/reports")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["pipeline"] is not None
-        assert data["pipeline"]["total_files"] == 5
-        assert data["pipeline"]["total_rows"] == 1000
-
-    @patch("src.api.routes.admin.reports._disambiguation_metrics")
-    def test_reports_with_disambiguation_data(
-        self, mock_disambig: MagicMock, admin_client: TestClient
-    ) -> None:
-        from src.api.models import DisambiguationMetrics
-
-        mock_disambig.return_value = DisambiguationMetrics(
-            ner_mention_count=500,
-            canonical_narrator_count=200,
-            ambiguous_count=50,
-            resolution_rate_pct=90.0,
-            ambiguous_pct=10.0,
-        )
-        resp = admin_client.get("/api/v1/admin/reports")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["disambiguation"] is not None
-        assert data["disambiguation"]["ner_mention_count"] == 500
-        assert data["disambiguation"]["resolution_rate_pct"] == 90.0
-
-    @patch("src.api.routes.admin.reports._dedup_metrics")
-    def test_reports_with_dedup_data(self, mock_dedup: MagicMock, admin_client: TestClient) -> None:
-        from src.api.models import DedupMetrics
-
-        mock_dedup.return_value = DedupMetrics(
-            parallel_links_count=100,
-            parallel_verbatim=40,
-            parallel_close_paraphrase=30,
-            parallel_thematic=20,
-            parallel_cross_sect=10,
-        )
-        resp = admin_client.get("/api/v1/admin/reports")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["dedup"] is not None
-        assert data["dedup"]["parallel_links_count"] == 100
 
     def test_reports_graph_validation(
         self, admin_client: TestClient, mock_neo4j: MagicMock

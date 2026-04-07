@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -92,31 +91,6 @@ class Settings(BaseSettings):
     rate_limit: RateLimitSettings = RateLimitSettings()
     auth: AuthSettings = AuthSettings()
     security_headers: SecurityHeaderSettings = SecurityHeaderSettings()
-
-    sunnah_api_key: str = ""
-    kaggle_username: str = ""
-    kaggle_key: str = ""
-
-    data_raw_dir: Path = Path("./data/raw")
-    data_staging_dir: Path = Path("./data/staging")
-    data_curated_dir: Path = Path("./data/curated")
-
-    topic_labels: list[str] = [
-        "theology",
-        "jurisprudence",
-        "eschatology",
-        "succession/imamate",
-        "ritual/worship",
-        "ethics/conduct",
-        "history/sira",
-        "commerce/trade",
-        "warfare/jihad",
-        "family_law",
-        "food/drink",
-        "medicine",
-        "dreams/visions",
-        "end_times",
-    ]
 
     cors_origins: list[str] = ["http://localhost:3000"]
 
