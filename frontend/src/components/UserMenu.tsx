@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
 
@@ -14,10 +15,11 @@ function providerLabel(provider: string): string {
 }
 
 export default function UserMenu() {
-  const { user, logout, signOutAll } = useAuth()
+  const { user, logout, signOutAll, role } = useAuth()
   const { resolvedTheme, toggle } = useTheme()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   // Close on outside click
   useEffect(() => {
@@ -118,21 +120,27 @@ export default function UserMenu() {
             >
               {user.email}
             </div>
-            <span
-              style={{
-                display: 'inline-block',
-                marginTop: 'var(--spacing-2)',
-                padding: 'var(--spacing-0_5) var(--spacing-2)',
-                fontSize: 'var(--text-xs)',
-                fontWeight: 500,
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--color-accent)',
-                color: 'var(--color-primary)',
-              }}
-            >
-              {providerLabel(user.provider)}
-            </span>
+            <div style={{ display: 'flex', gap: 'var(--spacing-2)', marginTop: 'var(--spacing-2)' }}>
+              <span style={{ display: 'inline-block', padding: 'var(--spacing-0_5) var(--spacing-2)', fontSize: 'var(--text-xs)', fontWeight: 500, borderRadius: 'var(--radius-full)', background: 'var(--color-accent)', color: 'var(--color-primary)' }}>
+                {providerLabel(user.provider)}
+              </span>
+              <span style={{ display: 'inline-block', padding: 'var(--spacing-0_5) var(--spacing-2)', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: 'var(--radius-full)', background: 'var(--color-accent)', color: 'var(--color-primary)', textTransform: 'capitalize' }}>
+                {role}
+              </span>
+            </div>
           </div>
+
+          {/* My Profile */}
+          <button role="menuitem" onClick={() => { setOpen(false); navigate('/profile') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--spacing-3)', padding: 'var(--spacing-3) var(--spacing-4)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--color-foreground)', textAlign: 'left', borderBottom: 'var(--border-width-thin) solid var(--color-border)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+            My Profile
+          </button>
+
+          {/* Preferences */}
+          <button role="menuitem" onClick={() => { setOpen(false); navigate('/profile') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--spacing-3)', padding: 'var(--spacing-3) var(--spacing-4)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--color-foreground)', textAlign: 'left', borderBottom: 'var(--border-width-thin) solid var(--color-border)' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+            Preferences
+          </button>
 
           {/* Theme toggle */}
           <button

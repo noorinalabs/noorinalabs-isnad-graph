@@ -4,10 +4,12 @@ import ThemeToggle from './ThemeToggle'
 import styles from './AdminLayout.module.css'
 
 const adminNavItems = [
+  { to: '/admin/dashboard', label: 'Dashboard' },
   { to: '/admin/users', label: 'User Management' },
   { to: '/admin/health', label: 'System Health' },
   { to: '/admin/stats', label: 'Content Stats' },
   { to: '/admin/analytics', label: 'Usage Analytics' },
+  { to: '/admin/audit', label: 'Audit Log' },
 ]
 
 export default function AdminLayout() {

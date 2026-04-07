@@ -142,7 +142,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID"],
     )
     from src.api.routes import (
@@ -202,6 +202,15 @@ def create_app() -> FastAPI:
         timeline.router,
         prefix="/api/v1",
         tags=["timeline"],
+        dependencies=[Depends(require_auth)],
+    )
+
+    from src.api.routes.profile import router as profile_router
+
+    app.include_router(
+        profile_router,
+        prefix="/api/v1",
+        tags=["auth"],
         dependencies=[Depends(require_auth)],
     )
 

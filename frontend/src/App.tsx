@@ -24,6 +24,9 @@ import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
 import ModerationPage from './pages/admin/ModerationPage'
 import ReportsPage from './pages/admin/ReportsPage'
 import ConfigPage from './pages/admin/ConfigPage'
+import AuditLogPage from './pages/admin/AuditLogPage'
+import DashboardPage from './pages/admin/DashboardPage'
+import ProfilePage from './pages/ProfilePage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
 import SessionExpiredModal from './components/SessionExpiredModal'
@@ -62,12 +65,14 @@ export default function App() {
                 <Route path="timeline" element={<TimelinePage />} />
                 <Route path="compare" element={<ComparativePage />} />
                 <Route path="graph" element={<GraphExplorerPage />} />
+                <Route path="profile" element={<ProfilePage />} />
               </Route>
 
               {/* Admin routes — require isAdmin */}
               <Route element={<AdminRoute />}>
                 <Route path="admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/users" replace />} />
+                  <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                  <Route path="dashboard" element={<DashboardPage />} />
                   <Route path="users" element={<UserManagementPage />} />
                   <Route path="health" element={<SystemHealthPage />} />
                   <Route path="stats" element={<ContentStatsPage />} />
@@ -75,6 +80,7 @@ export default function App() {
                   <Route path="moderation" element={<ModerationPage />} />
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="config" element={<ConfigPage />} />
+                  <Route path="audit" element={<AuditLogPage />} />
                 </Route>
               </Route>
             </Route>
