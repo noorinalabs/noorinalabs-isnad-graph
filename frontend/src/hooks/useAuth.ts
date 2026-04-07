@@ -19,10 +19,12 @@ interface AuthContextValue {
   role: UserRole
   hasRole: (minRole: UserRole) => boolean
   sessionExpired: boolean
+  isNewUser: boolean
   logout: () => void
   signOut: () => Promise<void>
   signOutAll: () => Promise<void>
   dismissSessionExpired: () => void
+  dismissOnboarding: () => void
 }
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -36,17 +38,19 @@ const API_BASE = '/api/v1'
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem('refresh_token')
-  if (!refreshToken) return null
+function getCsrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+  return match ? match[1] : ''
+}
 
+async function refreshAccessToken(): Promise<string | null> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${refreshToken}`,
+        'X-CSRF-Token': getCsrfToken(),
       },
     })
 
@@ -54,9 +58,6 @@ async function refreshAccessToken(): Promise<string | null> {
 
     const data = await res.json()
     localStorage.setItem('access_token', data.access_token)
-    if (data.refresh_token) {
-      localStorage.setItem('refresh_token', data.refresh_token)
-    }
     return data.access_token as string
   } catch {
     return null
@@ -77,11 +78,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [isNewUser, setIsNewUser] = useState(false)
 
-  const clearTokens = useCallback(() => {
+  const clearAuth = useCallback(() => {
     localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
     setUser(null)
+    setIsNewUser(false)
+  }, [])
+
+  // Check for new-user flag set by AuthCallbackPage
+  useEffect(() => {
+    const flag = sessionStorage.getItem('is_new_user')
+    if (flag === '1') {
+      setIsNewUser(true)
+      sessionStorage.removeItem('is_new_user')
+    }
   }, [])
 
   const logout = useCallback(() => {
@@ -89,12 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
+        credentials: 'include',
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {})
     }
-    clearTokens()
+    clearAuth()
     window.location.href = '/login'
-  }, [clearTokens])
+  }, [clearAuth])
 
   // Listen for session-expired events from API clients
   useEffect(() => {
@@ -120,12 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       })
 
-      // If access token expired, try refreshing
+      // If access token expired, try refreshing via httpOnly cookie
       if (res.status === 401) {
         token = await refreshAccessToken()
         if (!token) {
           // Initial load — no user was shown yet, so redirect normally
-          clearTokens()
+          clearAuth()
           setLoading(false)
           return
         }
@@ -144,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     loadUser()
-  }, [clearTokens])
+  }, [clearAuth])
 
   const signOut = useCallback(async () => {
     const token = localStorage.getItem('access_token')
@@ -154,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await fetch(`${API_BASE}/auth/logout`, {
           method: 'POST',
+          credentials: 'include',
           headers: { Authorization: `Bearer ${token}` },
         })
       } catch {
@@ -161,10 +174,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    clearTokens()
+    clearAuth()
     setSessionExpired(false)
     window.location.href = '/login'
-  }, [clearTokens])
+  }, [clearAuth])
 
   const signOutAll = useCallback(async () => {
     const token = localStorage.getItem('access_token')
@@ -173,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await fetch(`${API_BASE}/auth/logout-all`, {
           method: 'POST',
+          credentials: 'include',
           headers: { Authorization: `Bearer ${token}` },
         })
       } catch {
@@ -180,18 +194,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    clearTokens()
+    clearAuth()
     setSessionExpired(false)
     window.location.href = '/login'
-  }, [clearTokens])
+  }, [clearAuth])
 
   const dismissSessionExpired = useCallback(() => {
     // User clicks "Sign In" on the re-auth modal — store current URL and redirect to login
     sessionStorage.setItem('oauth_return_url', window.location.pathname + window.location.search)
-    clearTokens()
+    clearAuth()
     setSessionExpired(false)
     window.location.href = '/login'
-  }, [clearTokens])
+  }, [clearAuth])
+
+  const dismissOnboarding = useCallback(() => {
+    setIsNewUser(false)
+  }, [])
 
   const userRole: UserRole = user?.role ?? 'viewer'
 
@@ -209,10 +227,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: userRole,
     hasRole,
     sessionExpired,
+    isNewUser,
     logout,
     signOut,
     signOutAll,
     dismissSessionExpired,
+    dismissOnboarding,
   }
 
   return createElement(AuthContext.Provider, { value }, children)

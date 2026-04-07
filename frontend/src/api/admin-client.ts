@@ -18,6 +18,7 @@ function getAuthHeaders(): HeadersInit {
 async function fetchAdminJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
+    credentials: 'include',
     headers: { ...getAuthHeaders(), ...init?.headers },
   })
   if (res.status === 401) {

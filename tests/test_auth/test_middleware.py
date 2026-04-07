@@ -73,27 +73,68 @@ class TestAuthMeEndpoint:
 
 
 class TestRefreshEndpoint:
+    CSRF_TOKEN = "test-csrf-token-value"
+
+    def _set_csrf(self, client: TestClient) -> dict[str, str]:
+        """Set CSRF cookie and return the header for the request."""
+        client.cookies.set("csrf_token", self.CSRF_TOKEN)
+        return {"X-CSRF-Token": self.CSRF_TOKEN}
+
     def test_refresh_returns_new_tokens(self, client: TestClient) -> None:
         refresh = create_refresh_token("my-user-id")
         client.cookies.set("refresh_token", refresh)
-        resp = client.post("/api/v1/auth/refresh")
+        headers = self._set_csrf(client)
+        resp = client.post("/api/v1/auth/refresh", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
         assert "access_token" in data
-        assert "refresh_token" in data
         assert data["token_type"] == "bearer"
+        # Refresh token is now in httpOnly cookie, not in response body
+        assert data["refresh_token"] == ""
+
+    def test_refresh_sets_httponly_cookie(self, client: TestClient) -> None:
+        refresh = create_refresh_token("my-user-id")
+        client.cookies.set("refresh_token", refresh)
+        headers = self._set_csrf(client)
+        resp = client.post("/api/v1/auth/refresh", headers=headers)
+        assert resp.status_code == 200
+        # The Set-Cookie header should contain the new refresh token
+        cookies = resp.headers.get_list("set-cookie")
+        refresh_cookie = [c for c in cookies if "refresh_token=" in c]
+        assert len(refresh_cookie) > 0
+        assert "httponly" in refresh_cookie[0].lower()
+
+    def test_refresh_requires_csrf(self, client: TestClient) -> None:
+        refresh = create_refresh_token("my-user-id")
+        client.cookies.set("refresh_token", refresh)
+        # No CSRF token — should be rejected
+        resp = client.post("/api/v1/auth/refresh")
+        assert resp.status_code == 403
+
+    def test_refresh_rejects_csrf_mismatch(self, client: TestClient) -> None:
+        refresh = create_refresh_token("my-user-id")
+        client.cookies.set("refresh_token", refresh)
+        client.cookies.set("csrf_token", "cookie-value")
+        resp = client.post(
+            "/api/v1/auth/refresh",
+            headers={"X-CSRF-Token": "different-value"},
+        )
+        assert resp.status_code == 403
 
     def test_refresh_missing_cookie(self, client: TestClient) -> None:
-        resp = client.post("/api/v1/auth/refresh")
+        headers = self._set_csrf(client)
+        resp = client.post("/api/v1/auth/refresh", headers=headers)
         assert resp.status_code == 401
 
     def test_refresh_with_invalid_token(self, client: TestClient) -> None:
         client.cookies.set("refresh_token", "garbage")
-        resp = client.post("/api/v1/auth/refresh")
+        headers = self._set_csrf(client)
+        resp = client.post("/api/v1/auth/refresh", headers=headers)
         assert resp.status_code == 401
 
     def test_refresh_with_access_token_rejected(self, client: TestClient) -> None:
         access = create_access_token("my-user-id")
         client.cookies.set("refresh_token", access)
-        resp = client.post("/api/v1/auth/refresh")
+        headers = self._set_csrf(client)
+        resp = client.post("/api/v1/auth/refresh", headers=headers)
         assert resp.status_code == 401

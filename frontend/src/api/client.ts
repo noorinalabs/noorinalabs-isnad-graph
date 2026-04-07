@@ -25,7 +25,7 @@ function getAuthHeaders(): HeadersInit {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: getAuthHeaders() })
+  const res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
   if (!res.ok) {
     if (res.status === 401) {
       emitSessionExpired()

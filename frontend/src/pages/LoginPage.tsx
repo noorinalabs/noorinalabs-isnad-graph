@@ -63,6 +63,21 @@ export default function LoginPage() {
 
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
+
+  // Check for error passed back from failed OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const oauthError = params.get('error')
+    if (oauthError) {
+      const messages: Record<string, string> = {
+        oauth_exchange_failed: 'Sign-in with the provider failed. Please try again.',
+        account_suspended: 'Your account has been suspended. Contact support.',
+      }
+      setError(messages[oauthError] || `Authentication error: ${oauthError}`)
+      // Clean URL without reloading
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [])
   const [formLoading, setFormLoading] = useState(false)
   const [providers, setProviders] = useState<string[] | null>(null)
 
@@ -131,7 +146,7 @@ export default function LoginPage() {
 
       const data = await res.json()
       localStorage.setItem('access_token', data.access_token)
-      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
+      // Refresh token is set as httpOnly cookie by the server
       navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
@@ -170,7 +185,7 @@ export default function LoginPage() {
 
       const data = await res.json()
       localStorage.setItem('access_token', data.access_token)
-      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
+      // Refresh token is set as httpOnly cookie by the server
       navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')

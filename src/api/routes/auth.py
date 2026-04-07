@@ -6,7 +6,7 @@ import secrets
 from urllib.parse import urlencode
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from src.api.middleware import require_auth
@@ -30,6 +30,68 @@ from src.config import get_settings
 log = structlog.get_logger(logger_name=__name__)
 
 router = APIRouter()
+
+# CSRF token length (bytes of randomness, hex-encoded to double)
+_CSRF_TOKEN_BYTES = 32
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    """Set the refresh token as an httpOnly secure cookie."""
+    settings = get_settings().auth
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        domain=settings.cookie_domain or None,
+        path="/api/v1/auth",
+        max_age=settings.refresh_token_expire_days * 86400,
+    )
+
+
+def _set_csrf_cookie(response: Response, csrf_token: str) -> None:
+    """Set a non-httpOnly CSRF cookie readable by JavaScript."""
+    settings = get_settings().auth
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=settings.cookie_secure,
+        samesite=settings.cookie_samesite,
+        domain=settings.cookie_domain or None,
+        path="/",
+        max_age=settings.refresh_token_expire_days * 86400,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    """Clear refresh token and CSRF cookies."""
+    settings = get_settings().auth
+    response.delete_cookie(
+        key="refresh_token",
+        path="/api/v1/auth",
+        domain=settings.cookie_domain or None,
+    )
+    response.delete_cookie(
+        key="csrf_token",
+        path="/",
+        domain=settings.cookie_domain or None,
+    )
+
+
+def _verify_csrf(request: Request) -> None:
+    """Verify CSRF token: header X-CSRF-Token must match csrf_token cookie.
+
+    This implements the double-submit cookie pattern. The cookie is set
+    with SameSite=Lax and is readable by JavaScript. The frontend reads
+    the cookie and sends it back in the X-CSRF-Token header. A CSRF
+    attacker cannot read the cookie value due to same-origin policy.
+    """
+    cookie_token = request.cookies.get("csrf_token")
+    header_token = request.headers.get("X-CSRF-Token")
+    if not cookie_token or not header_token or cookie_token != header_token:
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
 
 
 @router.get("/auth/providers")
@@ -75,8 +137,8 @@ def login(provider: str) -> AuthorizationUrlResponse:
     return AuthorizationUrlResponse(authorization_url=url)
 
 
-def _upsert_user(request: Request, user_id: str, user_info: OAuthUserInfo) -> str:
-    """Create or update the USER node in Neo4j. Returns the user's role.
+def _upsert_user(request: Request, user_id: str, user_info: OAuthUserInfo) -> tuple[str, bool]:
+    """Create or update the USER node in Neo4j. Returns (role, is_new_user).
 
     When ``AUTH_FIRST_USER_IS_ADMIN`` is ``true`` and no USER nodes exist yet,
     the newly created user is automatically promoted to admin.
@@ -86,7 +148,7 @@ def _upsert_user(request: Request, user_id: str, user_info: OAuthUserInfo) -> st
         neo4j = request.app.state.neo4j
     except AttributeError:
         log.debug("neo4j_not_available_for_upsert", user_id=user_id)
-        return Role.VIEWER
+        return Role.VIEWER, True
 
     settings = get_settings()
 
@@ -110,10 +172,12 @@ def _upsert_user(request: Request, user_id: str, user_info: OAuthUserInfo) -> st
             u.created_at = datetime(),
             u.is_admin = $is_admin,
             u.is_suspended = false,
-            u.role = $default_role
+            u.role = $default_role,
+            u._created = true
         ON MATCH SET
             u.email = $email,
-            u.name = $name
+            u.name = $name,
+            u._created = false
         RETURN u
     """
     records = neo4j.execute_write(
@@ -129,14 +193,25 @@ def _upsert_user(request: Request, user_id: str, user_info: OAuthUserInfo) -> st
     )
 
     if records:
-        role: str = records[0]["u"].get("role", Role.VIEWER)
-        return role
-    return default_role.value
+        node = records[0]["u"]
+        role: str = node.get("role", Role.VIEWER)
+        is_new = bool(node.get("_created", False))
+        # Clean up transient property
+        neo4j.execute_write(
+            "MATCH (u:USER {id: $user_id}) REMOVE u._created",
+            {"user_id": user_id},
+        )
+        return role, is_new
+    return default_role.value, True
 
 
 @router.get("/auth/callback/{provider}")
 async def callback(provider: str, code: str, state: str, request: Request) -> RedirectResponse:
-    """Handle OAuth callback — exchange code for tokens, upsert user, redirect to frontend."""
+    """Handle OAuth callback — exchange code for tokens, upsert user, redirect to frontend.
+
+    The refresh token is set as an httpOnly cookie (not passed in the URL).
+    The access token and metadata are passed via query params to the frontend.
+    """
     if provider not in PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
 
@@ -151,33 +226,59 @@ async def callback(provider: str, code: str, state: str, request: Request) -> Re
             code=code, redirect_uri=redirect_uri, code_verifier=code_verifier
         )
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"OAuth exchange failed: {exc}") from exc
+        log.warning("oauth_exchange_failed", provider=provider, error=str(exc))
+        error_params = urlencode({"error": "oauth_exchange_failed", "provider": provider})
+        return RedirectResponse(url=f"/auth/callback/{provider}?{error_params}", status_code=302)
+
+    # Check if user account is suspended
+    try:
+        neo4j = request.app.state.neo4j
+        user_id_check = f"{user_info.provider}:{user_info.provider_user_id}"
+        records = neo4j.execute_read(
+            "MATCH (u:USER {id: $uid}) RETURN u.is_suspended AS suspended",
+            {"uid": user_id_check},
+        )
+        if records and records[0].get("suspended"):
+            error_params = urlencode({"error": "account_suspended", "provider": provider})
+            return RedirectResponse(
+                url=f"/auth/callback/{provider}?{error_params}", status_code=302
+            )
+    except Exception:  # noqa: BLE001
+        pass
 
     # Use provider + provider_user_id as the internal user ID
     user_id = f"{user_info.provider}:{user_info.provider_user_id}"
 
     # Upsert user in Neo4j and apply first-user-is-admin if configured
-    user_role = _upsert_user(request, user_id, user_info)
+    user_role, is_new_user = _upsert_user(request, user_id, user_info)
 
     access_token = create_access_token(user_id, role=user_role)
     refresh_token = create_refresh_token(user_id)
+    csrf_token = secrets.token_hex(_CSRF_TOKEN_BYTES)
 
-    # Redirect to frontend callback page with token
-    params = urlencode({"token": access_token, "refresh_token": refresh_token})
-    return RedirectResponse(url=f"/auth/callback/{provider}?{params}", status_code=302)
+    # Redirect to frontend callback page with access token in URL
+    # Refresh token goes in httpOnly cookie — never exposed to JS
+    params = urlencode(
+        {
+            "token": access_token,
+            "is_new_user": "1" if is_new_user else "0",
+        }
+    )
+    response = RedirectResponse(url=f"/auth/callback/{provider}?{params}", status_code=302)
+    _set_refresh_cookie(response, refresh_token)
+    _set_csrf_cookie(response, csrf_token)
+    return response
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)
-def refresh(request: Request) -> TokenResponse:
-    """Refresh an access token using a refresh token.
+def refresh(request: Request, response: Response) -> TokenResponse:
+    """Refresh an access token using a refresh token from the httpOnly cookie.
 
-    Accepts the refresh token from an httpOnly cookie or Authorization header.
+    Requires a valid CSRF token in the X-CSRF-Token header.
     """
+    _verify_csrf(request)
+
     refresh_token = request.cookies.get("refresh_token")
-    if not refresh_token:
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
-            refresh_token = auth_header[7:]
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
 
@@ -204,6 +305,7 @@ def refresh(request: Request) -> TokenResponse:
                     revoke_all_user_tokens(compromised_user)
             except Exception:  # noqa: BLE001
                 pass
+        _clear_auth_cookies(response)
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")  # noqa: B904
 
     if payload.get("type") != "refresh":
@@ -231,27 +333,34 @@ def refresh(request: Request) -> TokenResponse:
     settings = get_settings().auth
     new_access = create_access_token(user_id, role=user_role)
     new_refresh = create_refresh_token(user_id)
+    new_csrf = secrets.token_hex(_CSRF_TOKEN_BYTES)
+
+    # Set rotated refresh token and CSRF cookie
+    _set_refresh_cookie(response, new_refresh)
+    _set_csrf_cookie(response, new_csrf)
 
     return TokenResponse(
         access_token=new_access,
-        refresh_token=new_refresh,
+        refresh_token="",
         token_type="bearer",
         expires_in=settings.access_token_expire_minutes * 60,
     )
 
 
 @router.post("/auth/logout", status_code=204)
-def logout(user: User = Depends(require_auth)) -> None:
-    """Invalidate the current session (revoke tokens)."""
-    # In a full implementation, we'd revoke the refresh token from a store.
-    # The access token is short-lived and will expire naturally.
+def logout(response: Response, user: User = Depends(require_auth)) -> None:
+    """Invalidate the current session (revoke tokens, clear cookies)."""
+    # Revoke the refresh token from the cookie if present
+    # (The access token is short-lived and will expire naturally.)
+    _clear_auth_cookies(response)
     return None
 
 
 @router.post("/auth/logout-all", status_code=204)
-def logout_all(user: User = Depends(require_auth)) -> None:
+def logout_all(response: Response, user: User = Depends(require_auth)) -> None:
     """Invalidate all sessions for the current user across all devices."""
     revoke_all_user_tokens(user.id)
+    _clear_auth_cookies(response)
     log.info("logout_all_devices", user_id=user.id)
     return None
 

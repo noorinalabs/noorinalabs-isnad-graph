@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import WelcomeBanner from '../components/WelcomeBanner'
 import {
   GraphExplorerIcon,
   SearchIcon,
@@ -53,6 +54,7 @@ const quickLinks = [
 export default function HomePage() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <WelcomeBanner />
       {/* Hero */}
       <section style={{ marginBottom: 'var(--spacing-8)' }}>
         <h1
