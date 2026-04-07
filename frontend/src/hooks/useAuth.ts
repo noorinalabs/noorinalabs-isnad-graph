@@ -40,7 +40,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 function getCsrfToken(): string {
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
-  return match ? match[1] : ''
+  return match?.[1] ?? ''
 }
 
 async function refreshAccessToken(): Promise<string | null> {
