@@ -70,24 +70,6 @@ class AuthSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="AUTH_")
 
 
-class EmailSettings(BaseSettings):
-    """Email service configuration for transactional emails."""
-
-    provider: str = "smtp"  # "smtp" or "sendgrid"
-    api_key: str = ""  # SendGrid API key
-    smtp_host: str = "localhost"
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_use_tls: bool = True
-    from_address: str = "noreply@noorinalabs.com"
-    from_name: str = "Noorina Labs"
-    verification_token_ttl_hours: int = 24
-    resend_rate_limit: int = 3  # max resends per hour
-
-    model_config = SettingsConfigDict(env_prefix="EMAIL_")
-
-
 class SecurityHeaderSettings(BaseSettings):
     """Configurable security headers. Production defaults; override for dev."""
 
@@ -115,7 +97,6 @@ class Settings(BaseSettings):
     redis: RedisSettings = RedisSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     auth: AuthSettings = AuthSettings()
-    email: EmailSettings = EmailSettings()
     security_headers: SecurityHeaderSettings = SecurityHeaderSettings()
 
     cors_origins: list[str] = ["http://localhost:3000"]

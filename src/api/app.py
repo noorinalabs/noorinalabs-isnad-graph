@@ -9,7 +9,6 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.middleware import (
-    EmailVerificationMiddleware,
     RateLimitMiddleware,
     RequestLoggingMiddleware,
     RequestSizeLimitMiddleware,
@@ -132,7 +131,6 @@ def create_app() -> FastAPI:
         openapi_tags=OPENAPI_TAGS,
     )
     app.add_middleware(SecurityHeadersMiddleware)
-    app.add_middleware(EmailVerificationMiddleware)
     app.add_middleware(SessionTrackingMiddleware)
     app.add_middleware(RequestSizeLimitMiddleware, max_body_size=1_048_576)
     app.add_middleware(
