@@ -373,31 +373,6 @@ class TimelineRangeResponse(BaseModel):
 # --- Admin models ---
 
 
-class UserAdminResponse(BaseModel):
-    """Admin view of a user."""
-
-    model_config = ConfigDict(frozen=True)
-
-    id: str
-    email: str
-    name: str
-    provider: str
-    is_admin: bool = False
-    is_suspended: bool = False
-    created_at: str
-    role: str | None = None
-
-
-class UserUpdateRequest(BaseModel):
-    """Request body for updating a user via admin endpoint."""
-
-    model_config = ConfigDict(frozen=True)
-
-    is_admin: bool | None = None
-    is_suspended: bool | None = None
-    role: str | None = None
-
-
 class SystemHealthResponse(BaseModel):
     """System health response with per-service status."""
 

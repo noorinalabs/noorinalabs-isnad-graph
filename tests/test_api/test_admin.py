@@ -188,91 +188,23 @@ class TestAdminAnalytics:
 
 
 class TestAdminUsers:
-    def test_list_users_empty(self, admin_client: TestClient) -> None:
+    """User management endpoints now return 501 (moved to user-service)."""
+
+    def test_list_users_returns_501(self, admin_client: TestClient) -> None:
         resp = admin_client.get("/api/v1/admin/users")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["items"] == []
-        assert data["total"] == 0
+        assert resp.status_code == 501
 
-    def test_list_users_with_results(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.side_effect = [
-            [{"total": 1}],
-            [
-                {
-                    "u": {
-                        "id": "u1",
-                        "email": "a@b.com",
-                        "name": "Test",
-                        "provider": "google",
-                        "is_admin": False,
-                        "is_suspended": False,
-                        "created_at": "2025-01-01T00:00:00",
-                        "role": "user",
-                    }
-                }
-            ],
-        ]
-        resp = admin_client.get("/api/v1/admin/users")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total"] == 1
-        assert len(data["items"]) == 1
-        assert data["items"][0]["email"] == "a@b.com"
-
-    def test_get_user_not_found(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = []
-        resp = admin_client.get("/api/v1/admin/users/nonexistent")
-        assert resp.status_code == 404
-
-    def test_get_user(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_read.return_value = [
-            {
-                "u": {
-                    "id": "u1",
-                    "email": "a@b.com",
-                    "name": "Test",
-                    "provider": "google",
-                    "is_admin": False,
-                    "is_suspended": False,
-                    "created_at": "2025-01-01T00:00:00",
-                    "role": None,
-                }
-            }
-        ]
+    def test_get_user_returns_501(self, admin_client: TestClient) -> None:
         resp = admin_client.get("/api/v1/admin/users/u1")
-        assert resp.status_code == 200
-        assert resp.json()["id"] == "u1"
+        assert resp.status_code == 501
 
-    def test_update_user(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_write.return_value = [
-            {
-                "u": {
-                    "id": "u1",
-                    "email": "a@b.com",
-                    "name": "Test",
-                    "provider": "google",
-                    "is_admin": True,
-                    "is_suspended": False,
-                    "created_at": "2025-01-01T00:00:00",
-                    "role": "admin",
-                }
-            }
-        ]
-        resp = admin_client.patch(
-            "/api/v1/admin/users/u1", json={"is_admin": True, "role": "admin"}
-        )
-        assert resp.status_code == 200
-        assert resp.json()["is_admin"] is True
+    def test_update_user_returns_501(self, admin_client: TestClient) -> None:
+        resp = admin_client.patch("/api/v1/admin/users/u1", json={"is_admin": True})
+        assert resp.status_code == 501
 
-    def test_update_user_no_fields(self, admin_client: TestClient) -> None:
-        resp = admin_client.patch("/api/v1/admin/users/u1", json={})
-        assert resp.status_code == 400
-
-    def test_update_user_not_found(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
-        mock_neo4j.execute_write.return_value = []
-        resp = admin_client.patch("/api/v1/admin/users/nonexistent", json={"is_admin": True})
-        assert resp.status_code == 404
+    def test_update_user_role_returns_501(self, admin_client: TestClient) -> None:
+        resp = admin_client.patch("/api/v1/admin/users/u1/role", json={"role": "admin"})
+        assert resp.status_code == 501
 
 
 # --- Config endpoints ---
