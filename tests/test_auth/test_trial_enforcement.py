@@ -17,9 +17,12 @@ class TestTrialEnforcement:
         """Expired trial user gets 403 on regular API endpoints."""
         token = create_access_token("test-user", role="viewer")
 
-        # Mock Neo4j to return expired trial
+        # Mock Neo4j: (1) email verification check, (2) trial enforcement check
         expired = datetime.now(UTC) - timedelta(days=1)
-        mock_neo4j.execute_read.return_value = [{"status": "expired", "expires": expired}]
+        mock_neo4j.execute_read.side_effect = [
+            [{"verified": True}],  # EmailVerificationMiddleware
+            [{"status": "expired", "expires": expired}],  # TrialEnforcementMiddleware
+        ]
 
         resp = client.get(
             "/api/v1/narrators",
@@ -45,9 +48,10 @@ class TestTrialEnforcement:
         token = create_access_token("test-user", role="viewer")
 
         active_expires = datetime.now(UTC) + timedelta(days=5)
-        # Call sequence: (1) middleware trial check, (2) require_auth user lookup,
-        # (3) narrators count query, (4) narrators list query
+        # Call sequence: (1) email verification check, (2) middleware trial check,
+        # (3) require_auth user lookup, (4) narrators count query, (5) narrators list query
         mock_neo4j.execute_read.side_effect = [
+            [{"verified": True}],  # EmailVerificationMiddleware
             [{"status": "trial", "expires": active_expires}],
             [
                 {
@@ -59,6 +63,7 @@ class TestTrialEnforcement:
                         "provider_user_id": "test-user",
                         "created_at": "2026-01-01T00:00:00",
                         "is_admin": False,
+                        "email_verified": True,
                         "subscription_tier": "free",
                         "subscription_status": "trial",
                         "trial_start": None,
