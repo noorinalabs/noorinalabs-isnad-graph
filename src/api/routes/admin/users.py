@@ -170,6 +170,13 @@ def update_user_role(
     if not records:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Invalidate all sessions and tokens when role changes (#728)
+    from src.auth.sessions import destroy_all_user_sessions
+    from src.auth.tokens import revoke_all_user_tokens
+
+    revoke_all_user_tokens(user_id)
+    destroy_all_user_sessions(user_id)
+
     r = records[0]
     return UserAdminResponse(
         id=r["u"]["id"],

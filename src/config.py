@@ -63,8 +63,29 @@ class AuthSettings(BaseSettings):
     cookie_domain: str = ""
     cookie_secure: bool = False
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    session_idle_timeout_minutes: int = 30
+    session_idle_warning_seconds: int = 60
+    max_concurrent_sessions: int = 5
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
+
+
+class EmailSettings(BaseSettings):
+    """Email service configuration for transactional emails."""
+
+    provider: str = "smtp"  # "smtp" or "sendgrid"
+    api_key: str = ""  # SendGrid API key
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    from_address: str = "noreply@noorinalabs.com"
+    from_name: str = "Noorina Labs"
+    verification_token_ttl_hours: int = 24
+    resend_rate_limit: int = 3  # max resends per hour
+
+    model_config = SettingsConfigDict(env_prefix="EMAIL_")
 
 
 class SecurityHeaderSettings(BaseSettings):
@@ -94,6 +115,7 @@ class Settings(BaseSettings):
     redis: RedisSettings = RedisSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     auth: AuthSettings = AuthSettings()
+    email: EmailSettings = EmailSettings()
     security_headers: SecurityHeaderSettings = SecurityHeaderSettings()
 
     cors_origins: list[str] = ["http://localhost:3000"]
