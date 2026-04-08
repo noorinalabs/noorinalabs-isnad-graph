@@ -6,6 +6,8 @@ data/test_samples/
 *.parquet
 .env
 __pycache__/
+*.pyc
+*.pyo
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
@@ -16,6 +18,7 @@ build/
 node_modules/
 .coverage
 .hypothesis/
+coverage/
 
 # Playwright
 frontend/test-results/
@@ -26,4 +29,30 @@ terraform/.terraform/
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/*.tfvars
+terraform/**/*.tfvars
 terraform/.terraform.lock.hcl
+terraform/**/crash.log
+*.tfplan
+
+# Docker
+docker-compose.override.yml
+
+# Neo4j
+data/neo4j/
+
+# Node.js
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+
+# Logs
+*.log
+
+# Temp / Cache
+tmp/
+temp/
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
