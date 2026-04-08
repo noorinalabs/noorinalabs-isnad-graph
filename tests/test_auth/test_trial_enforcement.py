@@ -17,12 +17,10 @@ class TestTrialEnforcement:
         """Expired trial user gets 403 on regular API endpoints."""
         token = create_access_token("test-user", role="viewer")
 
-        # Mock Neo4j: (1) email verification check, (2) trial enforcement check
+        # TrialEnforcementMiddleware runs first (LIFO middleware stack)
+        # and returns 403 before EmailVerificationMiddleware runs
         expired = datetime.now(UTC) - timedelta(days=1)
-        mock_neo4j.execute_read.side_effect = [
-            [{"verified": True}],  # EmailVerificationMiddleware
-            [{"status": "expired", "expires": expired}],  # TrialEnforcementMiddleware
-        ]
+        mock_neo4j.execute_read.return_value = [{"status": "expired", "expires": expired}]
 
         resp = client.get(
             "/api/v1/narrators",
@@ -48,11 +46,12 @@ class TestTrialEnforcement:
         token = create_access_token("test-user", role="viewer")
 
         active_expires = datetime.now(UTC) + timedelta(days=5)
-        # Call sequence: (1) email verification check, (2) middleware trial check,
-        # (3) require_auth user lookup, (4) narrators count query, (5) narrators list query
+        # Call sequence (LIFO middleware stack): (1) trial enforcement check,
+        # (2) email verification check, (3) require_auth user lookup,
+        # (4) narrators count query, (5) narrators list query
         mock_neo4j.execute_read.side_effect = [
+            [{"status": "trial", "expires": active_expires}],  # TrialEnforcementMiddleware
             [{"verified": True}],  # EmailVerificationMiddleware
-            [{"status": "trial", "expires": active_expires}],
             [
                 {
                     "u": {
