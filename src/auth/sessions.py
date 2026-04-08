@@ -72,9 +72,7 @@ def create_session(
     redis_client = get_redis_client()
     if redis_client is not None:
         try:
-            _create_session_redis(
-                redis_client, session_id, user_id, session_data, settings, now
-            )
+            _create_session_redis(redis_client, session_id, user_id, session_data, settings, now)
             return session_id
         except (redis_lib.ConnectionError, redis_lib.TimeoutError, OSError):
             logger.warning("Redis session create failed, falling back to in-memory")
@@ -141,9 +139,7 @@ def _create_session_memory(
 
     # Enforce concurrent session limit
     user_sessions = [
-        (sid, sdata)
-        for sid, sdata in _sessions.items()
-        if sdata.get("user_id") == user_id
+        (sid, sdata) for sid, sdata in _sessions.items() if sdata.get("user_id") == user_id
     ]
     if max_sessions > 0 and len(user_sessions) > max_sessions:
         user_sessions.sort(key=lambda x: float(x[1].get("created_at", "0")))
@@ -221,9 +217,7 @@ def touch_session(session_id: str) -> bool:
     return _touch_session_memory(session_id, idle_timeout, now)
 
 
-def _touch_session_redis(
-    client: Any, session_id: str, idle_timeout: int, now: float
-) -> bool:
+def _touch_session_redis(client: Any, session_id: str, idle_timeout: int, now: float) -> bool:
     key = _session_key(session_id)
     if not client.exists(key):
         return False
@@ -234,9 +228,7 @@ def _touch_session_redis(
     return True
 
 
-def _touch_session_memory(
-    session_id: str, idle_timeout: int, now: float
-) -> bool:
+def _touch_session_memory(session_id: str, idle_timeout: int, now: float) -> bool:
     data = _sessions.get(session_id)
     if data is None:
         return False
@@ -298,9 +290,7 @@ def _destroy_all_redis(client: Any, user_id: str) -> int:
 
 
 def _destroy_all_memory(user_id: str) -> int:
-    to_remove = [
-        sid for sid, data in _sessions.items() if data.get("user_id") == user_id
-    ]
+    to_remove = [sid for sid, data in _sessions.items() if data.get("user_id") == user_id]
     for sid in to_remove:
         _sessions.pop(sid, None)
     return len(to_remove)

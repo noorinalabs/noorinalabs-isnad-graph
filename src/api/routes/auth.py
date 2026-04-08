@@ -16,8 +16,6 @@ from src.auth.models import (
     Role,
     TokenResponse,
     User,
-    VerifyEmailRequest,
-    VerifyEmailResponse,
 )
 from src.auth.providers import (
     PROVIDERS,
@@ -40,12 +38,6 @@ from src.auth.tokens import (
     revoke_all_user_tokens,
     revoke_token,
     verify_token,
-)
-from src.auth.verification import (
-    check_resend_rate_limit,
-    generate_and_store_verification,
-    send_verification_email,
-    validate_verification,
 )
 from src.config import get_settings
 
@@ -194,7 +186,6 @@ def _upsert_user(request: Request, user_id: str, user_info: OAuthUserInfo) -> tu
             u.created_at = datetime(),
             u.is_admin = $is_admin,
             u.is_suspended = false,
-            u.email_verified = false,
             u.role = $default_role,
             u._created = true
         ON MATCH SET
@@ -284,19 +275,6 @@ async def callback(provider: str, code: str, state: str, request: Request) -> Re
     user_agent = request.headers.get("User-Agent", "unknown")
     session_id = create_session(user_id, ip_address, user_agent, role=user_role)
 
-    # For new users, send verification email
-    needs_verification = "0"
-    if is_new_user:
-        needs_verification = "1"
-        try:
-            code, verification_token = generate_and_store_verification(user_id)
-            send_verification_email(
-                user_info.email, user_info.name, code, verification_token
-            )
-            log.info("verification_email_sent_on_signup", user_id=user_id)
-        except Exception:  # noqa: BLE001
-            log.exception("verification_email_send_failed", user_id=user_id)
-
     # Redirect to frontend callback page with access token in URL
     # Refresh token goes in httpOnly cookie — never exposed to JS
     params = urlencode(
@@ -304,7 +282,6 @@ async def callback(provider: str, code: str, state: str, request: Request) -> Re
             "token": access_token,
             "session_id": session_id,
             "is_new_user": "1" if is_new_user else "0",
-            "needs_verification": needs_verification,
         }
     )
     response = RedirectResponse(url=f"/auth/callback/{provider}?{params}", status_code=302)
@@ -414,88 +391,6 @@ def logout_all(response: Response, user: User = Depends(require_auth)) -> None:
 def me(user: User = Depends(require_auth)) -> User:
     """Return the current authenticated user."""
     return user
-
-
-# --- Email verification endpoints ---
-
-
-@router.post("/auth/send-verification", status_code=200)
-def send_verification(request: Request, user: User = Depends(require_auth)) -> dict[str, str]:
-    """Generate and send a verification email to the current user.
-
-    Called when a new user needs to verify their email after first sign-in.
-    """
-    if user.email_verified:
-        return {"message": "Email already verified"}
-
-    if not check_resend_rate_limit(user.id):
-        raise HTTPException(
-            status_code=429, detail="Too many verification emails. Please try again later."
-        )
-
-    code, token = generate_and_store_verification(user.id)
-    try:
-        send_verification_email(user.email, user.name, code, token)
-    except Exception as exc:
-        log.exception("verification_email_send_failed", user_id=user.id)
-        raise HTTPException(
-            status_code=500, detail="Failed to send verification email"
-        ) from exc
-
-    log.info("verification_email_sent", user_id=user.id)
-    return {"message": "Verification email sent"}
-
-
-@router.post("/auth/verify-email", response_model=VerifyEmailResponse)
-def verify_email(body: VerifyEmailRequest, request: Request) -> VerifyEmailResponse:
-    """Verify the user's email with both the signed token and 6-digit code.
-
-    This endpoint does not require authentication — the token itself
-    identifies the user.
-    """
-    try:
-        user_id = validate_verification(body.token, body.code)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # Set email_verified = true in Neo4j
-    try:
-        neo4j = request.app.state.neo4j
-        neo4j.execute_write(
-            "MATCH (u:USER {id: $user_id}) SET u.email_verified = true",
-            {"user_id": user_id},
-        )
-    except Exception:  # noqa: BLE001
-        log.warning("neo4j_email_verify_update_failed", user_id=user_id)
-
-    log.info("email_verified", user_id=user_id)
-    return VerifyEmailResponse(verified=True, message="Email verified successfully")
-
-
-@router.post("/auth/resend-verification", status_code=200)
-def resend_verification(
-    request: Request, user: User = Depends(require_auth)
-) -> dict[str, str]:
-    """Resend the verification email (rate-limited to 3 per hour)."""
-    if user.email_verified:
-        return {"message": "Email already verified"}
-
-    if not check_resend_rate_limit(user.id):
-        raise HTTPException(
-            status_code=429, detail="Too many verification emails. Please try again later."
-        )
-
-    code, token = generate_and_store_verification(user.id)
-    try:
-        send_verification_email(user.email, user.name, code, token)
-    except Exception as exc:
-        log.exception("resend_verification_failed", user_id=user.id)
-        raise HTTPException(
-            status_code=500, detail="Failed to send verification email"
-        ) from exc
-
-    log.info("verification_email_resent", user_id=user.id)
-    return {"message": "Verification email sent"}
 
 
 # --- Session management endpoints ---

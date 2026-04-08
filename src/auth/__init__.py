@@ -19,12 +19,6 @@ from src.auth.tokens import (
     revoke_token,
     verify_token,
 )
-from src.auth.verification import (
-    check_resend_rate_limit,
-    generate_and_store_verification,
-    send_verification_email,
-    validate_verification,
-)
 
 __all__ = [
     "PROVIDERS",
@@ -43,11 +37,7 @@ __all__ = [
     "get_provider",
     "get_session",
     "list_user_sessions",
-    "check_resend_rate_limit",
-    "generate_and_store_verification",
     "revoke_token",
-    "send_verification_email",
     "touch_session",
-    "validate_verification",
     "verify_token",
 ]
