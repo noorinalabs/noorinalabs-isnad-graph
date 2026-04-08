@@ -75,38 +75,12 @@ def _cmd_info() -> None:
         print("  postgres : unavailable")
 
 
-def _cmd_admin_promote(email: str) -> None:
-    """Promote a user to admin by email address."""
-    from src.utils.neo4j_client import Neo4jClient
-
-    _check_neo4j()
-
-    with Neo4jClient() as client:
-        query = """
-            MATCH (u:USER {email: $email})
-            SET u.is_admin = true
-            RETURN u.id AS id, u.email AS email, u.name AS name
-        """
-        records = client.execute_write(query, {"email": email})
-
-    if not records:
-        print(f"ERROR: No user found with email '{email}'.")
-        sys.exit(1)
-
-    r = records[0]
-    print(f"User promoted to admin: {r['name']} ({r['email']}) [id={r['id']}]")
-
-
 def main() -> None:
     """Run the isnad-graph CLI."""
     parser = argparse.ArgumentParser(description="isnad-graph: Hadith Analysis Platform")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("info", help="Show configuration and database status")
-    admin_parser = subparsers.add_parser("admin", help="Admin management commands")
-    admin_sub = admin_parser.add_subparsers(dest="admin_command")
-    promote_parser = admin_sub.add_parser("promote", help="Promote a user to admin by email")
-    promote_parser.add_argument("email", help="Email address of the user to promote")
 
     args = parser.parse_args()
 
@@ -116,11 +90,6 @@ def main() -> None:
 
     if args.command == "info":
         _cmd_info()
-    elif args.command == "admin":
-        if args.admin_command == "promote":
-            _cmd_admin_promote(args.email)
-        else:
-            admin_parser.print_help()
 
 
 if __name__ == "__main__":

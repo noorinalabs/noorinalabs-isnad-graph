@@ -73,9 +73,8 @@ class TestAdminUserUpdate:
 class TestRoleManipulationInJWT:
     """Injecting role claims in the JWT must not bypass server-side role checks.
 
-    The server resolves roles from the database (Neo4j), NOT from JWT claims.
-    A token with a spoofed role claim should still be rejected if the database
-    says the user is not an admin.
+    The server validates roles from the user-service JWT. A token with a
+    spoofed role claim should still be rejected if the user is not an admin.
     """
 
     def test_spoofed_admin_role_in_jwt_rejected(self, client: TestClient) -> None:
