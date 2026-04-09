@@ -47,17 +47,17 @@ def session_heartbeat() -> JSONResponse:
 
 @router.post("/auth/send-verification")
 def send_verification() -> JSONResponse:
-    return _gone("/api/v1/auth/send-verification")
+    return _gone("/api/v1/verification/send")
 
 
 @router.post("/auth/verify-email")
 def verify_email() -> JSONResponse:
-    return _gone("/api/v1/auth/verify-email")
+    return _gone("/api/v1/verification/confirm")
 
 
 @router.post("/auth/resend-verification")
 def resend_verification() -> JSONResponse:
-    return _gone("/api/v1/auth/resend-verification")
+    return _gone("/api/v1/verification/send")
 
 
 # --- Subscription stub (migrated to user-service) ---
@@ -65,4 +65,4 @@ def resend_verification() -> JSONResponse:
 
 @router.get("/auth/subscription")
 def get_subscription() -> JSONResponse:
-    return _gone("/api/v1/subscriptions")
+    return _gone("/api/v1/subscriptions/me")
