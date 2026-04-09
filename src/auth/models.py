@@ -24,15 +24,6 @@ ROLE_HIERARCHY: dict[Role, int] = {
 }
 
 
-class SubscriptionStatus(StrEnum):
-    """Subscription lifecycle states."""
-
-    TRIAL = "trial"
-    ACTIVE = "active"
-    EXPIRED = "expired"
-    CANCELLED = "cancelled"
-
-
 class User(BaseModel):
     """Authenticated user context built from user-service JWT claims."""
 

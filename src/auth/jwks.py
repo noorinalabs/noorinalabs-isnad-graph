@@ -52,6 +52,9 @@ def invalidate_jwks_cache() -> None:
 def verify_user_service_token(token: str) -> dict[str, object]:
     """Validate an RS256 JWT issued by user-service using its JWKS.
 
+    On signature failure, invalidates the JWKS cache and retries once to
+    handle key rotation gracefully (see RFC 7517 section 5).
+
     Returns the decoded payload on success.
 
     Raises:
@@ -65,6 +68,17 @@ def verify_user_service_token(token: str) -> dict[str, object]:
             jwks,
             algorithms=["RS256"],
         )
-    except JWTError as exc:
-        raise ValueError(f"Invalid token: {exc}") from exc
+    except JWTError:
+        # Key rotation may have occurred — invalidate cache and retry once
+        logger.info("JWKS verification failed, invalidating cache and retrying")
+        invalidate_jwks_cache()
+        jwks = fetch_jwks()
+        try:
+            payload = jwt.decode(
+                token,
+                jwks,
+                algorithms=["RS256"],
+            )
+        except JWTError as exc:
+            raise ValueError(f"Invalid token: {exc}") from exc
     return payload

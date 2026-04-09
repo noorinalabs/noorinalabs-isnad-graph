@@ -528,8 +528,8 @@ class SystemReportResponse(BaseModel):
 
 FORBIDDEN_CONFIG_KEYS = frozenset(
     {
-        "jwt_secret",
         "neo4j_password",
+        "user_service_url",
         "pg_dsn",
         "sunnah_api_key",
         "kaggle_key",

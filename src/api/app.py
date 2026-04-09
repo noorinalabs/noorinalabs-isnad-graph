@@ -13,8 +13,6 @@ from src.api.middleware import (
     RequestLoggingMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
-    SessionTrackingMiddleware,
-    TrialEnforcementMiddleware,
     require_admin,
     require_auth,
 )
@@ -132,9 +130,6 @@ def create_app() -> FastAPI:
         openapi_tags=OPENAPI_TAGS,
     )
     app.add_middleware(SecurityHeadersMiddleware)
-    # EmailVerificationMiddleware removed — user-service owns email verification
-    app.add_middleware(SessionTrackingMiddleware)
-    app.add_middleware(TrialEnforcementMiddleware)
     app.add_middleware(RequestSizeLimitMiddleware, max_body_size=1_048_576)
     app.add_middleware(
         RateLimitMiddleware,

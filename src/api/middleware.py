@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response
 
-from src.auth.models import ROLE_HIERARCHY, Role, SubscriptionStatus, User
+from src.auth.models import ROLE_HIERARCHY, Role, User
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -237,127 +237,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         response.headers["X-Request-ID"] = request_id
         structlog.contextvars.clear_contextvars()
         return response
-
-
-class SessionTrackingMiddleware(BaseHTTPMiddleware):
-    """Validate server-side sessions and enforce idle timeout.
-
-    On each authenticated request, checks that the session is still active
-    and refreshes its last_active timestamp. Returns 401 with an
-    ``X-Session-Idle-Timeout`` header if the session has expired, and
-    includes ``X-Session-Warning-Seconds`` when the session is approaching
-    its idle timeout so the frontend can display a warning.
-    """
-
-    _EXEMPT_PREFIXES = (
-        "/api/v1/auth/",
-        "/health",
-        "/metrics",
-        "/docs",
-        "/openapi.json",
-    )
-
-    async def dispatch(
-        self, request: StarletteRequest, call_next: RequestResponseEndpoint
-    ) -> Response:
-        path = request.url.path
-
-        if not path.startswith("/api/") or any(path.startswith(p) for p in self._EXEMPT_PREFIXES):
-            return await call_next(request)
-
-        session_id = request.headers.get("X-Session-ID")
-        if not session_id:
-            return await call_next(request)
-
-        from src.auth.sessions import get_idle_timeout_warning_seconds, get_session, touch_session
-
-        session = get_session(session_id)
-        if session is None:
-            import json
-
-            return Response(
-                status_code=401,
-                content=json.dumps(
-                    {
-                        "detail": "Session has expired due to inactivity.",
-                        "code": "session_idle_timeout",
-                    }
-                ),
-                media_type="application/json",
-                headers={"X-Session-Idle-Timeout": "true"},
-            )
-
-        touch_session(session_id)
-
-        response = await call_next(request)
-
-        # Add warning header if session is approaching idle timeout
-        from src.config import get_settings
-
-        settings = get_settings().auth
-        idle_timeout = settings.session_idle_timeout_minutes * 60
-        elapsed = time.time() - session.last_active
-        remaining = idle_timeout - elapsed
-        warning_threshold = get_idle_timeout_warning_seconds()
-        if remaining <= warning_threshold:
-            response.headers["X-Session-Warning-Seconds"] = str(int(remaining))
-
-        return response
-
-
-class TrialEnforcementMiddleware(BaseHTTPMiddleware):
-    """Check subscription status from JWT claims on authenticated requests.
-
-    If the user's subscription_status claim is "expired", return 403 for all
-    endpoints except auth and billing-related paths so users can still upgrade.
-    Subscription state is owned by user-service — no Neo4j queries needed.
-    """
-
-    _EXEMPT_PREFIXES = (
-        "/api/v1/auth/",
-        "/api/v1/billing",
-        "/health",
-        "/metrics",
-        "/docs",
-        "/openapi.json",
-    )
-
-    async def dispatch(
-        self, request: StarletteRequest, call_next: RequestResponseEndpoint
-    ) -> Response:
-        path = request.url.path
-
-        if not path.startswith("/api/") or any(path.startswith(p) for p in self._EXEMPT_PREFIXES):
-            return await call_next(request)
-
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return await call_next(request)
-
-        from src.auth.jwks import verify_user_service_token
-
-        token = auth_header.removeprefix("Bearer ")
-        try:
-            payload = verify_user_service_token(token)
-        except (ValueError, httpx.HTTPError):
-            return await call_next(request)
-
-        status = payload.get("subscription_status")
-        if status == SubscriptionStatus.EXPIRED.value:
-            import json
-
-            return Response(
-                status_code=403,
-                content=json.dumps(
-                    {
-                        "detail": "Your free trial has expired. Please upgrade to continue.",
-                        "code": "trial_expired",
-                    }
-                ),
-                media_type="application/json",
-            )
-
-        return await call_next(request)
 
 
 _USER_SERVICE_ROLE_MAP: dict[str, Role] = {

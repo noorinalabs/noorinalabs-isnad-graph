@@ -54,7 +54,6 @@ def _patch_settings(test_settings: Settings) -> Iterator[None]:
     targets = [
         "src.config.get_settings",
         "src.auth.jwks.get_settings",
-        "src.api.routes.auth.get_settings",
     ]
     patches = [patch(t, return_value=test_settings) for t in targets]
     for p in patches:
