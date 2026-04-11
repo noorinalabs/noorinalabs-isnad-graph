@@ -77,6 +77,62 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
+  frontend-lint-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: noorinalabs/noorinalabs-design-system
+          path: noorinalabs-design-system
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build and pack design-system dependency
+        working-directory: noorinalabs-design-system
+        run: |
+          npm install
+          npm run build
+          npm pack --pack-destination /tmp/
+      - name: Fix design-system lockfile integrity
+        run: |
+          node -e "
+            const fs = require('fs');
+            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+            const pkg = lock.packages['node_modules/@noorinalabs/design-system'];
+            if (pkg) { delete pkg.integrity; }
+            fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+          "
+      - run: npm install
+      - run: npx eslint src/
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+
+  hooks-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+      - run: uvx ruff check .claude/hooks/
+      - run: uvx ruff format --check .claude/hooks/
+
+  scripts-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+      - run: uvx ruff check scripts/
+      - run: uvx ruff format --check scripts/
+
   e2e:
     needs: lint-and-typecheck
     runs-on: ubuntu-latest
