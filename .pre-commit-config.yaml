@@ -82,6 +82,17 @@ repos:
       # Integration tests require Docker (Neo4j, PostgreSQL) — run in CI only.
       # To run locally: make infra && ENVIRONMENT=test uv run pytest tests/integration/ -m integration
 
+  # --- Lockfile validation ---
+  - repo: local
+    hooks:
+      - id: lockfile-no-local-paths
+        name: lockfile-no-local-paths
+        entry: bash -c 'if grep -qE "\"resolved\":\s*\"file://((/tmp/|/home/|/Users/|/var/))" frontend/package-lock.json; then echo "ERROR: package-lock.json contains absolute local paths (file:///tmp/, /home/, etc.)"; echo "These break CI. Run npm install with the correct dependency source."; grep -nE "\"resolved\":\s*\"file://((/tmp/|/home/|/Users/|/var/))" frontend/package-lock.json | head -5; exit 1; fi'
+        language: system
+        pass_filenames: false
+        files: ^frontend/package-lock\.json$
+        stages: [pre-commit]
+
   # --- Frontend (React/TypeScript) ---
   - repo: local
     hooks:
