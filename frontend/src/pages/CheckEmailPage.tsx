@@ -4,8 +4,10 @@ import { useAuth } from '../hooks/useAuth'
 
 const API_BASE = '/api/v1'
 
+const POLL_INTERVAL_MS = 30_000
+
 export default function CheckEmailPage() {
-  const { user, loading, signOut } = useAuth()
+  const { user, loading, signOut, refreshUser } = useAuth()
   const navigate = useNavigate()
   const [resending, setResending] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -17,6 +19,13 @@ export default function CheckEmailPage() {
       navigate('/', { replace: true })
     }
   }, [user, loading, navigate])
+
+  // Poll for verification status changes (e.g. verified in another tab)
+  useEffect(() => {
+    if (loading || !user || user.email_verified) return
+    const id = setInterval(refreshUser, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [loading, user, refreshUser])
 
   useEffect(() => {
     if (cooldown <= 0) return

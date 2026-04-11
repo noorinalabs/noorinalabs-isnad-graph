@@ -26,6 +26,7 @@ interface AuthContextValue {
   signOutAll: () => Promise<void>
   dismissSessionExpired: () => void
   dismissOnboarding: () => void
+  refreshUser: () => Promise<void>
 }
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -233,6 +234,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsNewUser(false)
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    const token = localStorage.getItem('access_token')
+    if (!token) return
+    try {
+      const res = await fetch(`${USER_BASE}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data: AuthUser = await res.json()
+        setUser(data)
+      }
+    } catch {
+      // Silently ignore — this is a background refresh
+    }
+  }, [])
+
   const userRole: UserRole = user?.role ?? 'viewer'
 
   const hasRole = useCallback(
@@ -255,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOutAll,
     dismissSessionExpired,
     dismissOnboarding,
+    refreshUser,
   }
 
   return createElement(AuthContext.Provider, { value }, children)
