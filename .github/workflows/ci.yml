@@ -133,6 +133,19 @@ jobs:
       - run: uvx ruff check scripts/
       - run: uvx ruff format --check scripts/
 
+  lockfile-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check package-lock.json for local paths
+        run: |
+          if grep -qE '"resolved":\s*"file://((/tmp/|/home/|/Users/|/var/))' frontend/package-lock.json; then
+            echo "::error::package-lock.json contains absolute local paths that break CI"
+            grep -nE '"resolved":\s*"file://((/tmp/|/home/|/Users/|/var/))' frontend/package-lock.json | head -10
+            exit 1
+          fi
+          echo "No local paths found in package-lock.json"
+
   e2e:
     needs: lint-and-typecheck
     runs-on: ubuntu-latest
