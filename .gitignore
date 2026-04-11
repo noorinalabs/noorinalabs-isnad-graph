@@ -53,6 +53,11 @@ tmp/
 temp/
 .cache/
 
+# Claude Code project data (session-local)
+.claude/projects/
+.claude/annunaki/errors.jsonl
+.claude/annunaki/errors.jsonl.bak.*
+
 # OS
 .DS_Store
 Thumbs.db
