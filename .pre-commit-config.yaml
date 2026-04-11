@@ -9,7 +9,9 @@
 #   4. pip-audit (CVE scan)
 #   5. mypy type checking
 #   6. Unit tests
-#   7. Integration tests
+#   7. Integration tests (CI only)
+#   8. Frontend ESLint
+#   9. Frontend TypeScript type checking
 #
 # Prerequisites:
 #   - Python 3.14+ with uv
@@ -79,3 +81,24 @@ repos:
 
       # Integration tests require Docker (Neo4j, PostgreSQL) — run in CI only.
       # To run locally: make infra && ENVIRONMENT=test uv run pytest tests/integration/ -m integration
+
+  # --- Frontend (React/TypeScript) ---
+  - repo: local
+    hooks:
+      - id: frontend-eslint
+        name: frontend-eslint
+        entry: bash -c 'cd frontend && npx eslint src/'
+        language: system
+        pass_filenames: false
+        files: ^frontend/
+        types_or: [ts, tsx, javascript, jsx]
+        stages: [pre-commit]
+
+      - id: frontend-typecheck
+        name: frontend-typecheck
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        pass_filenames: false
+        files: ^frontend/
+        types_or: [ts, tsx]
+        stages: [pre-commit]
