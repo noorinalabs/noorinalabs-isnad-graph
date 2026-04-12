@@ -19,21 +19,21 @@ def _graph_validation_metrics(neo4j: Neo4jClient) -> GraphValidationMetrics | No
     """Query Neo4j for graph validation results."""
     try:
         query = """
-            OPTIONAL MATCH (n:NARRATOR)
+            OPTIONAL MATCH (n:Narrator)
             WHERE NOT (n)-[:TRANSMITTED_TO]-() AND NOT (n)-[:NARRATED]-()
             WITH count(n) AS orphan_narrators
-            OPTIONAL MATCH (h:HADITH)
-            WHERE NOT (h)-[:APPEARS_IN]->(:COLLECTION)
+            OPTIONAL MATCH (h:Hadith)
+            WHERE NOT (h)-[:APPEARS_IN]->(:Collection)
             WITH orphan_narrators, count(h) AS orphan_hadiths
-            OPTIONAL MATCH (c:CHAIN)
+            OPTIONAL MATCH (c:Chain)
             WITH orphan_narrators, orphan_hadiths, count(c) AS total_chains
-            OPTIONAL MATCH (c2:CHAIN) WHERE c2.is_complete = true
+            OPTIONAL MATCH (c2:Chain) WHERE c2.is_complete = true
             WITH orphan_narrators, orphan_hadiths, total_chains,
                  count(c2) AS complete_chains
-            OPTIONAL MATCH (h2:HADITH)
+            OPTIONAL MATCH (h2:Hadith)
             WITH orphan_narrators, orphan_hadiths, total_chains, complete_chains,
                  count(h2) AS total_hadiths
-            OPTIONAL MATCH (h3:HADITH)-[:APPEARS_IN]->(:COLLECTION)
+            OPTIONAL MATCH (h3:Hadith)-[:APPEARS_IN]->(:Collection)
             WITH orphan_narrators, orphan_hadiths, total_chains, complete_chains,
                  total_hadiths, count(DISTINCT h3) AS linked_hadiths
             RETURN orphan_narrators, orphan_hadiths,
@@ -62,9 +62,9 @@ def _topic_coverage_metrics(neo4j: Neo4jClient) -> TopicCoverageMetrics | None:
     """Query Neo4j for topic classification coverage."""
     try:
         query = """
-            OPTIONAL MATCH (h:HADITH)
+            OPTIONAL MATCH (h:Hadith)
             WITH count(h) AS total_hadiths
-            OPTIONAL MATCH (h2:HADITH)
+            OPTIONAL MATCH (h2:Hadith)
             WHERE size(h2.topic_tags) > 0
             RETURN total_hadiths, count(h2) AS classified_count,
                    CASE WHEN total_hadiths > 0

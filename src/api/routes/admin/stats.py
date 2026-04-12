@@ -17,11 +17,11 @@ def content_stats(
 ) -> ContentStatsResponse:
     """Return content statistics: hadith count, narrator count, collection count, coverage %."""
     query = """
-        OPTIONAL MATCH (h:HADITH) WITH count(h) AS hadith_count
-        OPTIONAL MATCH (n:NARRATOR) WITH hadith_count, count(n) AS narrator_count
-        OPTIONAL MATCH (c:COLLECTION)
+        OPTIONAL MATCH (h:Hadith) WITH count(h) AS hadith_count
+        OPTIONAL MATCH (n:Narrator) WITH hadith_count, count(n) AS narrator_count
+        OPTIONAL MATCH (c:Collection)
         WITH hadith_count, narrator_count, count(c) AS collection_count
-        OPTIONAL MATCH (h2:HADITH)-[:APPEARS_IN]->(:COLLECTION)
+        OPTIONAL MATCH (h2:Hadith)-[:APPEARS_IN]->(:Collection)
         WITH hadith_count, narrator_count, collection_count,
              count(DISTINCT h2) AS linked_hadiths
         RETURN hadith_count, narrator_count, collection_count,
