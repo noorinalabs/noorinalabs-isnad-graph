@@ -1,368 +1,57 @@
 @import "tailwindcss";
+@import "@noorinalabs/design-system/styles.css";
 
 /*
- * Isnad Graph Design Token System
- * ================================
- * Tokens organized by category: color, typography, spacing, borders, shadows,
- * z-index, transitions. Default palette: Proposal A (Qalam).
+ * Isnad Graph — App-Specific Overrides
+ * =====================================
+ * All design tokens (colors, typography, spacing, radii, shadows, z-index,
+ * transitions, dark mode, utility classes) are imported from the design system.
  *
- * Color space: OKLCH (perceptually uniform) with hex fallbacks.
- * All color combinations verified for WCAG 2.2 AA contrast.
- *
- * Usage:
- *   - Semantic tokens (--color-primary, --color-surface) for UI elements
- *   - Domain tokens (--color-sahih, --color-sunni) for data encoding
- *   - Use logical properties (margin-inline, padding-block) for RTL support
+ * This file contains ONLY isnad-graph-specific additions that do not belong
+ * in the shared design system.
  */
 
 /* ============================================================
- * COLOR TOKENS — Light Mode (Qalam / Proposal A)
- * ============================================================ */
-@theme {
-  /* --- Semantic colors --- */
-  --color-primary: oklch(0.55 0.14 45);
-  --color-primary-hover: oklch(0.60 0.14 45);
-  --color-primary-foreground: #ffffff;
-  --color-secondary: oklch(0.85 0.01 85);
-  --color-secondary-foreground: oklch(0.25 0.02 260);
-  --color-muted: oklch(0.93 0.005 85);
-  --color-muted-foreground: oklch(0.45 0.01 260);
-  --color-accent: oklch(0.90 0.03 45);
-  --color-accent-foreground: oklch(0.40 0.12 45);
-  --color-destructive: oklch(0.60 0.18 30);
-  --color-destructive-foreground: #ffffff;
-  --color-success: oklch(0.55 0.10 175);
-  --color-success-foreground: #ffffff;
-  --color-warning: oklch(0.65 0.14 75);
-  --color-warning-foreground: oklch(0.25 0.02 260);
-  --color-info: oklch(0.45 0.12 260);
-  --color-info-foreground: #ffffff;
-
-  /* --- Surface colors --- */
-  --color-background: oklch(0.96 0.01 85);
-  --color-foreground: oklch(0.25 0.02 260);
-  --color-card: oklch(0.99 0.005 85);
-  --color-card-foreground: oklch(0.25 0.02 260);
-  --color-popover: oklch(0.99 0.005 85);
-  --color-popover-foreground: oklch(0.25 0.02 260);
-
-  /* --- Interactive --- */
-  --color-border: oklch(0.85 0.01 85);
-  --color-input: oklch(0.85 0.01 85);
-  --color-ring: oklch(0.55 0.14 45);
-
-  /* --- Domain: hadith grading --- */
-  --color-sahih: oklch(0.55 0.10 175);
-  --color-sahih-bg: oklch(0.93 0.03 175);
-  --color-hasan: oklch(0.65 0.14 75);
-  --color-hasan-bg: oklch(0.95 0.04 75);
-  --color-daif: oklch(0.60 0.18 30);
-  --color-daif-bg: oklch(0.95 0.03 30);
-  --color-mawdu: oklch(0.50 0.15 15);
-  --color-mawdu-bg: oklch(0.94 0.03 15);
-
-  /* --- Domain: sect indicators --- */
-  --color-sunni: oklch(0.55 0.10 175);
-  --color-sunni-bg: oklch(0.93 0.03 175);
-  --color-shia: oklch(0.45 0.12 260);
-  --color-shia-bg: oklch(0.93 0.03 260);
-
-  /* --- Domain: narrator reliability tiers --- */
-  --color-tier-thiqah: oklch(0.55 0.10 175);
-  --color-tier-saduq: oklch(0.60 0.10 45);
-  --color-tier-daif-narrator: oklch(0.65 0.14 75);
-  --color-tier-matruk: oklch(0.60 0.18 30);
-  --color-tier-kadhdhab: oklch(0.50 0.15 15);
-
-  /* --- Radii --- */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
-  --radius-full: 9999px;
-
-  /* --- Spacing scale (4px base) --- */
-  --spacing-px: 1px;
-  --spacing-0: 0;
-  --spacing-0_5: 0.125rem;
-  --spacing-1: 0.25rem;
-  --spacing-1_5: 0.375rem;
-  --spacing-2: 0.5rem;
-  --spacing-2_5: 0.625rem;
-  --spacing-3: 0.75rem;
-  --spacing-4: 1rem;
-  --spacing-5: 1.25rem;
-  --spacing-6: 1.5rem;
-  --spacing-8: 2rem;
-  --spacing-10: 2.5rem;
-  --spacing-12: 3rem;
-  --spacing-16: 4rem;
-  --spacing-20: 5rem;
-  --spacing-24: 6rem;
-
-  /* Semantic spacing aliases */
-  --spacing-xs: var(--spacing-1);
-  --spacing-sm: var(--spacing-2);
-  --spacing-md: var(--spacing-4);
-  --spacing-lg: var(--spacing-6);
-  --spacing-xl: var(--spacing-8);
-
-  /* --- Z-index scale --- */
-  --z-base: 0;
-  --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-overlay: 300;
-  --z-modal: 400;
-  --z-popover: 500;
-  --z-toast: 600;
-  --z-tooltip: 700;
-}
-
-/* ============================================================
- * TYPOGRAPHY TOKENS
+ * OAUTH PROVIDER BRAND TOKENS
+ * Brand colors for third-party OAuth buttons. These are provider-
+ * mandated values and intentionally not part of the shared DS.
  * ============================================================ */
 :root {
-  /* Font families */
-  --font-arabic: 'Noto Naskh Arabic', serif;
-  --font-heading: 'IBM Plex Serif', 'Georgia', serif;
-  --font-body: 'IBM Plex Sans', 'Inter', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  /* Google */
+  --color-oauth-google-border: #dadce0;
+  --color-oauth-google-bg: #ffffff;
+  --color-oauth-google-text: #3c4043;
+  --color-oauth-google-bg-hover: #f8f9fa;
+  --color-oauth-google-ring: #4285f4;
 
-  /* Modular type scale (1.25 ratio) */
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
-  --text-4xl: 2.25rem;
-
-  /* Line heights */
-  --leading-tight: 1.25;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.625;
-  --leading-loose: 2;
-
-  /* Font weights */
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-
-  /* Letter spacing */
-  --tracking-tight: -0.025em;
-  --tracking-normal: 0;
-  --tracking-wide: 0.025em;
-
-  /* Arabic-specific adjustments */
-  --arabic-line-height: 2;
-  --arabic-body-size: 1.125rem;
-  --arabic-heading-size: 1.5rem;
-
-  /* --- Shadow scale --- */
-  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.05);
-  --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.06);
-  --shadow-md: 0 4px 6px oklch(0 0 0 / 0.1), 0 2px 4px oklch(0 0 0 / 0.06);
-  --shadow-lg: 0 10px 15px oklch(0 0 0 / 0.1), 0 4px 6px oklch(0 0 0 / 0.05);
-  --shadow-xl: 0 20px 25px oklch(0 0 0 / 0.1), 0 8px 10px oklch(0 0 0 / 0.04);
-
-  /* --- Transition tokens --- */
-  --duration-fast: 100ms;
-  --duration-normal: 200ms;
-  --duration-slow: 300ms;
-  --duration-slower: 500ms;
-  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* --- Border tokens --- */
-  --border-width-thin: 1px;
-  --border-width-medium: 2px;
-  --border-width-thick: 4px;
+  /* GitHub */
+  --color-oauth-github-bg: #24292f;
+  --color-oauth-github-bg-hover: #32383f;
+  --color-oauth-github-text: #ffffff;
 }
 
-/* ============================================================
- * DARK MODE
- * Applied via prefers-color-scheme OR data-theme="dark" attribute.
- * The JS toggle sets data-theme on <html> and persists to localStorage.
- * ============================================================ */
-@media (prefers-color-scheme: dark) {
-  @theme {
-    /* Surface colors */
-    --color-background: oklch(0.20 0.015 260);
-    --color-foreground: oklch(0.92 0.01 85);
-    --color-card: oklch(0.25 0.015 260);
-    --color-card-foreground: oklch(0.92 0.01 85);
-    --color-popover: oklch(0.25 0.015 260);
-    --color-popover-foreground: oklch(0.92 0.01 85);
-
-    /* Semantic colors */
-    --color-primary: oklch(0.65 0.14 45);
-    --color-primary-hover: oklch(0.70 0.14 45);
-    --color-primary-foreground: oklch(0.20 0.015 260);
-    --color-secondary: oklch(0.30 0.01 260);
-    --color-secondary-foreground: oklch(0.90 0.01 85);
-    --color-muted: oklch(0.25 0.01 260);
-    --color-muted-foreground: oklch(0.60 0.01 260);
-    --color-accent: oklch(0.28 0.03 45);
-    --color-accent-foreground: oklch(0.75 0.12 45);
-    --color-destructive: oklch(0.70 0.16 30);
-    --color-destructive-foreground: oklch(0.20 0.015 260);
-    --color-success: oklch(0.65 0.10 175);
-    --color-success-foreground: oklch(0.20 0.015 260);
-    --color-warning: oklch(0.75 0.12 75);
-    --color-warning-foreground: oklch(0.20 0.015 260);
-    --color-info: oklch(0.55 0.10 260);
-    --color-info-foreground: #ffffff;
-
-    /* Interactive */
-    --color-border: oklch(0.35 0.01 260);
-    --color-input: oklch(0.35 0.01 260);
-    --color-ring: oklch(0.65 0.14 45);
-
-    /* Domain: hadith grading (dark) */
-    --color-sahih: oklch(0.65 0.10 175);
-    --color-sahih-bg: oklch(0.25 0.03 175);
-    --color-hasan: oklch(0.75 0.12 75);
-    --color-hasan-bg: oklch(0.28 0.04 75);
-    --color-daif: oklch(0.70 0.16 30);
-    --color-daif-bg: oklch(0.25 0.03 30);
-    --color-mawdu: oklch(0.60 0.14 15);
-    --color-mawdu-bg: oklch(0.24 0.03 15);
-
-    /* Domain: sect indicators (dark) */
-    --color-sunni: oklch(0.65 0.10 175);
-    --color-sunni-bg: oklch(0.25 0.03 175);
-    --color-shia: oklch(0.55 0.10 260);
-    --color-shia-bg: oklch(0.25 0.03 260);
-
-    /* Domain: narrator reliability tiers (dark) */
-    --color-tier-thiqah: oklch(0.65 0.10 175);
-    --color-tier-saduq: oklch(0.70 0.10 45);
-    --color-tier-daif-narrator: oklch(0.75 0.12 75);
-    --color-tier-matruk: oklch(0.70 0.16 30);
-    --color-tier-kadhdhab: oklch(0.60 0.14 15);
-  }
-
-  :root {
-    --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.2);
-    --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
-    --shadow-md: 0 4px 6px oklch(0 0 0 / 0.3), 0 2px 4px oklch(0 0 0 / 0.2);
-    --shadow-lg: 0 10px 15px oklch(0 0 0 / 0.3), 0 4px 6px oklch(0 0 0 / 0.2);
-    --shadow-xl: 0 20px 25px oklch(0 0 0 / 0.3), 0 8px 10px oklch(0 0 0 / 0.2);
-  }
-}
-
-/* ============================================================
- * DARK MODE — JS TOGGLE OVERRIDE
- * When data-theme="dark" is set on <html>, force dark regardless
- * of prefers-color-scheme. When data-theme="light", force light.
- * ============================================================ */
 [data-theme="dark"] {
-  --color-background: oklch(0.20 0.015 260);
-  --color-foreground: oklch(0.92 0.01 85);
-  --color-card: oklch(0.25 0.015 260);
-  --color-card-foreground: oklch(0.92 0.01 85);
-  --color-popover: oklch(0.25 0.015 260);
-  --color-popover-foreground: oklch(0.92 0.01 85);
-  --color-primary: oklch(0.65 0.14 45);
-  --color-primary-hover: oklch(0.70 0.14 45);
-  --color-primary-foreground: oklch(0.20 0.015 260);
-  --color-secondary: oklch(0.30 0.01 260);
-  --color-secondary-foreground: oklch(0.90 0.01 85);
-  --color-muted: oklch(0.25 0.01 260);
-  --color-muted-foreground: oklch(0.60 0.01 260);
-  --color-accent: oklch(0.28 0.03 45);
-  --color-accent-foreground: oklch(0.75 0.12 45);
-  --color-destructive: oklch(0.70 0.16 30);
-  --color-destructive-foreground: oklch(0.20 0.015 260);
-  --color-success: oklch(0.65 0.10 175);
-  --color-success-foreground: oklch(0.20 0.015 260);
-  --color-warning: oklch(0.75 0.12 75);
-  --color-warning-foreground: oklch(0.20 0.015 260);
-  --color-info: oklch(0.55 0.10 260);
-  --color-info-foreground: #ffffff;
-  --color-border: oklch(0.35 0.01 260);
-  --color-input: oklch(0.35 0.01 260);
-  --color-ring: oklch(0.65 0.14 45);
-  --color-sahih: oklch(0.65 0.10 175);
-  --color-sahih-bg: oklch(0.25 0.03 175);
-  --color-hasan: oklch(0.75 0.12 75);
-  --color-hasan-bg: oklch(0.28 0.04 75);
-  --color-daif: oklch(0.70 0.16 30);
-  --color-daif-bg: oklch(0.25 0.03 30);
-  --color-mawdu: oklch(0.60 0.14 15);
-  --color-mawdu-bg: oklch(0.24 0.03 15);
-  --color-sunni: oklch(0.65 0.10 175);
-  --color-sunni-bg: oklch(0.25 0.03 175);
-  --color-shia: oklch(0.55 0.10 260);
-  --color-shia-bg: oklch(0.25 0.03 260);
-  --color-tier-thiqah: oklch(0.65 0.10 175);
-  --color-tier-saduq: oklch(0.70 0.10 45);
-  --color-tier-daif-narrator: oklch(0.75 0.12 75);
-  --color-tier-matruk: oklch(0.70 0.16 30);
-  --color-tier-kadhdhab: oklch(0.60 0.14 15);
-  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.2);
-  --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.3), 0 1px 2px oklch(0 0 0 / 0.2);
-  --shadow-md: 0 4px 6px oklch(0 0 0 / 0.3), 0 2px 4px oklch(0 0 0 / 0.2);
-  --shadow-lg: 0 10px 15px oklch(0 0 0 / 0.3), 0 4px 6px oklch(0 0 0 / 0.2);
-  --shadow-xl: 0 20px 25px oklch(0 0 0 / 0.3), 0 8px 10px oklch(0 0 0 / 0.2);
-  color-scheme: dark;
+  --color-oauth-google-border: #5f6368;
+  --color-oauth-google-bg: #131314;
+  --color-oauth-google-text: #e3e3e3;
+  --color-oauth-google-bg-hover: #1f1f1f;
+
+  --color-oauth-github-bg: #f0f0f0;
+  --color-oauth-github-bg-hover: #d4d4d4;
+  --color-oauth-github-text: #24292f;
 }
 
-[data-theme="light"] {
-  --color-background: oklch(0.96 0.01 85);
-  --color-foreground: oklch(0.25 0.02 260);
-  --color-card: oklch(0.99 0.005 85);
-  --color-card-foreground: oklch(0.25 0.02 260);
-  --color-popover: oklch(0.99 0.005 85);
-  --color-popover-foreground: oklch(0.25 0.02 260);
-  --color-primary: oklch(0.55 0.14 45);
-  --color-primary-hover: oklch(0.60 0.14 45);
-  --color-primary-foreground: #ffffff;
-  --color-secondary: oklch(0.85 0.01 85);
-  --color-secondary-foreground: oklch(0.25 0.02 260);
-  --color-muted: oklch(0.93 0.005 85);
-  --color-muted-foreground: oklch(0.45 0.01 260);
-  --color-accent: oklch(0.90 0.03 45);
-  --color-accent-foreground: oklch(0.40 0.12 45);
-  --color-destructive: oklch(0.60 0.18 30);
-  --color-destructive-foreground: #ffffff;
-  --color-success: oklch(0.55 0.10 175);
-  --color-success-foreground: #ffffff;
-  --color-warning: oklch(0.65 0.14 75);
-  --color-warning-foreground: oklch(0.25 0.02 260);
-  --color-info: oklch(0.45 0.12 260);
-  --color-info-foreground: #ffffff;
-  --color-border: oklch(0.85 0.01 85);
-  --color-input: oklch(0.85 0.01 85);
-  --color-ring: oklch(0.55 0.14 45);
-  --color-sahih: oklch(0.55 0.10 175);
-  --color-sahih-bg: oklch(0.93 0.03 175);
-  --color-hasan: oklch(0.65 0.14 75);
-  --color-hasan-bg: oklch(0.95 0.04 75);
-  --color-daif: oklch(0.60 0.18 30);
-  --color-daif-bg: oklch(0.95 0.03 30);
-  --color-mawdu: oklch(0.50 0.15 15);
-  --color-mawdu-bg: oklch(0.94 0.03 15);
-  --color-sunni: oklch(0.55 0.10 175);
-  --color-sunni-bg: oklch(0.93 0.03 175);
-  --color-shia: oklch(0.45 0.12 260);
-  --color-shia-bg: oklch(0.93 0.03 260);
-  --color-tier-thiqah: oklch(0.55 0.10 175);
-  --color-tier-saduq: oklch(0.60 0.10 45);
-  --color-tier-daif-narrator: oklch(0.65 0.14 75);
-  --color-tier-matruk: oklch(0.60 0.18 30);
-  --color-tier-kadhdhab: oklch(0.50 0.15 15);
-  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.05);
-  --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.06);
-  --shadow-md: 0 4px 6px oklch(0 0 0 / 0.1), 0 2px 4px oklch(0 0 0 / 0.06);
-  --shadow-lg: 0 10px 15px oklch(0 0 0 / 0.1), 0 4px 6px oklch(0 0 0 / 0.05);
-  --shadow-xl: 0 20px 25px oklch(0 0 0 / 0.1), 0 8px 10px oklch(0 0 0 / 0.04);
-  color-scheme: light;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-oauth-google-border: #5f6368;
+    --color-oauth-google-bg: #131314;
+    --color-oauth-google-text: #e3e3e3;
+    --color-oauth-google-bg-hover: #1f1f1f;
+
+    --color-oauth-github-bg: #f0f0f0;
+    --color-oauth-github-bg-hover: #d4d4d4;
+    --color-oauth-github-text: #24292f;
+  }
 }
 
 /* ============================================================

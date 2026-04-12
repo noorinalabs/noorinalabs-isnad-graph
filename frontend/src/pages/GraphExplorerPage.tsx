@@ -187,12 +187,12 @@ export default function GraphExplorerPage() {
       <div
         style={{
           padding: '0.5rem 1rem',
-          borderBottom: '1px solid var(--color-border, #e0e0e0)',
+          borderBottom: '1px solid var(--color-border)',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: '0.75rem',
-          background: 'var(--color-card, #fff)',
+          background: 'var(--color-card)',
         }}
       >
         {/* Search */}
@@ -242,13 +242,13 @@ export default function GraphExplorerPage() {
                 top: '100%',
                 left: 0,
                 right: 0,
-                zIndex: 'var(--z-dropdown, 100)',
-                background: 'var(--color-card, #fff)',
-                border: '1px solid var(--color-border, #ddd)',
-                borderRadius: 'var(--radius-md, 6px)',
+                zIndex: 'var(--z-dropdown)',
+                background: 'var(--color-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
                 maxHeight: 240,
                 overflowY: 'auto',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
               {searchResults.items.map((n) => (
@@ -276,7 +276,7 @@ export default function GraphExplorerPage() {
 
         {/* Depth control */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground, #555)' }}>Depth:</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Depth:</span>
           {[1, 2, 3].map((d) => (
             <button
               key={d}
@@ -284,11 +284,11 @@ export default function GraphExplorerPage() {
               title="Number of transmission steps from selected narrator"
               style={{
                 padding: '0.25rem 0.625rem',
-                border: '1px solid var(--color-border, #ccc)',
-                borderRadius: 'var(--radius-sm, 4px)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
                 background:
                   d === depth ? 'var(--color-primary, oklch(0.55 0.14 45))' : 'transparent',
-                color: d === depth ? '#fff' : 'inherit',
+                color: d === depth ? 'var(--color-primary-foreground)' : 'inherit',
                 cursor: 'pointer',
                 fontWeight: d === depth ? 600 : 400,
                 fontSize: '0.875rem',
@@ -301,20 +301,20 @@ export default function GraphExplorerPage() {
 
         {/* Layout toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground, #555)' }}>Layout:</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Layout:</span>
           {(['force', 'hierarchy', 'radial'] as LayoutMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setLayoutMode(mode)}
               style={{
                 padding: '0.25rem 0.5rem',
-                border: '1px solid var(--color-border, #ccc)',
-                borderRadius: 'var(--radius-sm, 4px)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
                 background:
                   mode === layoutMode
                     ? 'var(--color-primary, oklch(0.55 0.14 45))'
                     : 'transparent',
-                color: mode === layoutMode ? '#fff' : 'inherit',
+                color: mode === layoutMode ? 'var(--color-primary-foreground)' : 'inherit',
                 cursor: 'pointer',
                 fontSize: '0.8rem',
                 textTransform: 'capitalize',
@@ -353,7 +353,7 @@ export default function GraphExplorerPage() {
           <button
             onClick={() => setHighlightedChainNodeIds(null)}
             className="btn"
-            style={{ fontSize: '0.875rem', color: 'var(--color-primary, #1a73e8)' }}
+            style={{ fontSize: '0.875rem', color: 'var(--color-primary)' }}
           >
             Clear highlight
           </button>
@@ -367,8 +367,8 @@ export default function GraphExplorerPage() {
         <div
           style={{
             padding: '0.5rem 1rem',
-            background: 'var(--color-warning, #ffa726)',
-            color: '#333',
+            background: 'var(--color-warning)',
+            color: 'var(--color-warning-foreground)',
             fontSize: '0.875rem',
           }}
         >
@@ -392,7 +392,7 @@ export default function GraphExplorerPage() {
           style={{
             flex: 1,
             position: 'relative',
-            background: 'var(--graph-bg, #fafafa)',
+            background: 'var(--color-background)',
           }}
           role="application"
           aria-label="Narrator transmission network graph"
@@ -457,15 +457,15 @@ export default function GraphExplorerPage() {
                 position: 'absolute',
                 top: 12,
                 left: 12,
-                background: 'var(--color-card, #fff)',
-                border: '1px solid var(--color-border, #ddd)',
-                borderRadius: 'var(--radius-md, 6px)',
+                background: 'var(--color-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
                 padding: '0.5rem 0.75rem',
                 fontSize: '0.8rem',
                 pointerEvents: 'none',
                 zIndex: 10,
                 maxWidth: 280,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
               <div style={{ fontWeight: 600 }}>
@@ -494,14 +494,14 @@ export default function GraphExplorerPage() {
                 position: 'absolute',
                 top: 12,
                 right: detailOpen ? 340 : 12,
-                background: 'var(--color-card, #fff)',
-                border: '1px solid var(--color-border, #ddd)',
-                borderRadius: 'var(--radius-md, 6px)',
+                background: 'var(--color-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
                 padding: '0.75rem',
                 fontSize: '0.8rem',
                 zIndex: 10,
                 width: 220,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
               <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Legend</div>
@@ -510,15 +510,15 @@ export default function GraphExplorerPage() {
                 <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Node size: degree</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <svg width="8" height="8">
-                    <circle cx="4" cy="4" r="3" fill="#999" />
+                    <circle cx="4" cy="4" r="3" fill="var(--color-muted-foreground)" />
                   </svg>
                   1-5
                   <svg width="16" height="16">
-                    <circle cx="8" cy="8" r="6" fill="#999" />
+                    <circle cx="8" cy="8" r="6" fill="var(--color-muted-foreground)" />
                   </svg>
                   6-20
                   <svg width="24" height="24">
-                    <circle cx="12" cy="12" r="9" fill="#999" />
+                    <circle cx="12" cy="12" r="9" fill="var(--color-muted-foreground)" />
                   </svg>
                   21+
                 </div>
@@ -579,9 +579,9 @@ export default function GraphExplorerPage() {
                   style={{
                     width: 32,
                     height: 32,
-                    border: '1px solid var(--color-border, #ccc)',
-                    borderRadius: 'var(--radius-sm, 4px)',
-                    background: 'var(--color-card, #fff)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-card)',
                     cursor: 'pointer',
                     fontSize: '1rem',
                   }}
@@ -598,8 +598,8 @@ export default function GraphExplorerPage() {
           <div
             style={{
               width: 320,
-              borderLeft: '1px solid var(--color-border, #e0e0e0)',
-              background: 'var(--color-card, #fff)',
+              borderLeft: '1px solid var(--color-border)',
+              background: 'var(--color-card)',
               overflowY: 'auto',
               padding: '1rem',
               flexShrink: 0,
@@ -659,12 +659,12 @@ export default function GraphExplorerPage() {
       <div
         style={{
           padding: '0.25rem 1rem',
-          borderTop: '1px solid var(--color-border, #e0e0e0)',
+          borderTop: '1px solid var(--color-border)',
           fontSize: '0.75rem',
           color: 'var(--color-muted-foreground)',
           display: 'flex',
           gap: '1.5rem',
-          background: 'var(--color-card, #fff)',
+          background: 'var(--color-card)',
         }}
       >
         <span>
@@ -753,7 +753,7 @@ function NarratorDetailPanel({
       {/* Network statistics */}
       <div
         style={{
-          borderTop: '1px solid var(--color-border, #e0e0e0)',
+          borderTop: '1px solid var(--color-border)',
           paddingTop: '0.75rem',
           marginBottom: '1rem',
         }}
@@ -808,7 +808,7 @@ function NarratorDetailPanel({
       {/* Chains */}
       <div
         style={{
-          borderTop: '1px solid var(--color-border, #e0e0e0)',
+          borderTop: '1px solid var(--color-border)',
           paddingTop: '0.75rem',
           marginBottom: '1rem',
         }}
@@ -882,8 +882,8 @@ function NarratorDetailPanel({
           fontSize: '0.85rem',
           textDecoration: 'none',
           padding: '0.5rem',
-          border: '1px solid var(--color-border, #ddd)',
-          borderRadius: 'var(--radius-md, 6px)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
         }}
       >
         View Full Profile

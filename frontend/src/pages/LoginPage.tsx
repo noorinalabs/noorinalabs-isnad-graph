@@ -249,7 +249,14 @@ export default function LoginPage() {
               <button
                 onClick={() => handleOAuth('google')}
                 disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-md border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4285f4] transition-colors disabled:opacity-50 dark:border-[#5f6368] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f1f]"
+                className="flex w-full items-center justify-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
+                style={{
+                  border: `1px solid var(--color-oauth-google-border)`,
+                  backgroundColor: 'var(--color-oauth-google-bg)',
+                  color: 'var(--color-oauth-google-text)',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-google-bg-hover)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-google-bg)')}
               >
                 <GoogleIcon />
                 {oauthLoading === 'google' ? 'Redirecting...' : 'Sign in with Google'}
@@ -260,9 +267,15 @@ export default function LoginPage() {
               <button
                 onClick={() => handleOAuth('github')}
                 disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-md bg-[#24292f] px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-[#32383f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#24292f] transition-colors disabled:opacity-50 dark:bg-[#f0f0f0] dark:text-[#24292f] dark:hover:bg-[#d4d4d4]"
+                className="flex w-full items-center justify-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--color-oauth-github-bg)',
+                  color: 'var(--color-oauth-github-text)',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-github-bg-hover)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-github-bg)')}
               >
-                <GitHubIcon className="dark:text-[#24292f]" />
+                <GitHubIcon />
                 {oauthLoading === 'github' ? 'Redirecting...' : 'Sign in with GitHub'}
               </button>
             )}
