@@ -20,7 +20,7 @@ log = structlog.get_logger(logger_name=__name__)
 # Redis key prefixes for analytics counters
 _SEARCH_COUNTER_KEY = "analytics:search_count"
 _API_CALL_COUNTER_KEY = "analytics:api_call_count"
-_NARRATOR_QUERY_ZSET_KEY = "analytics:narrator_queries"
+_Narrator_QUERY_ZSET_KEY = "analytics:narrator_queries"
 
 # Time-range lookback windows in seconds
 _TIME_RANGE_SECONDS: dict[str, int] = {
@@ -61,13 +61,13 @@ def _get_popular_narrators(neo4j: Neo4jClient, limit: int = 10) -> list[PopularN
     if client is not None:
         try:
             # zrevrange returns [(member, score), ...] with withscores=True
-            top_entries = client.zrevrange(_NARRATOR_QUERY_ZSET_KEY, 0, limit - 1, withscores=True)
+            top_entries = client.zrevrange(_Narrator_QUERY_ZSET_KEY, 0, limit - 1, withscores=True)
             if top_entries:
                 narrators: list[PopularNarrator] = []
                 for narrator_id, score in top_entries:
                     # Look up name from Neo4j
                     records = neo4j.execute_read(
-                        "MATCH (n:NARRATOR {id: $nid}) RETURN n.name_en AS name",
+                        "MATCH (n:Narrator {id: $nid}) RETURN n.name_en AS name",
                         {"nid": narrator_id},
                     )
                     name = records[0]["name"] if records else narrator_id
@@ -86,7 +86,7 @@ def _get_popular_narrators(neo4j: Neo4jClient, limit: int = 10) -> list[PopularN
     try:
         records = neo4j.execute_read(
             """
-            MATCH (n:NARRATOR)<-[r:TRANSMITTED_TO]-()
+            MATCH (n:Narrator)<-[r:TRANSMITTED_TO]-()
             WITH n, count(r) AS degree
             ORDER BY degree DESC
             LIMIT $limit
