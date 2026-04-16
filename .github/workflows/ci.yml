@@ -106,18 +106,14 @@ jobs:
         # frontend/package-lock.json pins @noorinalabs/design-system to
         # `file:../../noorinalabs-design-system-0.0.1.tgz`. From `frontend/`,
         # that resolves to `${{ github.workspace }}/..` (the parent of the
-        # checkout root, e.g. /home/runner/work/<repo>/). We pack there and
-        # rename to the lockfile-expected filename (`-0.0.1.tgz`) regardless
-        # of the design-system's current version — the lockfile's integrity
-        # field is stripped in the next step, so npm accepts any contents.
-        # See noorinalabs/noorinalabs-isnad-graph#810 for the proper migration
-        # to a published npm package, which removes this whole workaround.
+        # checkout root, e.g. /home/runner/work/<repo>/). The design-system
+        # is checked out at the matching `v0.0.1` tag in the step above, so
+        # `npm pack` produces exactly that filename. See #810 for the proper
+        # migration to a published npm package.
         run: |
           npm install
           npm run build
           npm pack --pack-destination "${{ github.workspace }}/.."
-          mv "${{ github.workspace }}/.."/noorinalabs-design-system-*.tgz \
-             "${{ github.workspace }}/../noorinalabs-design-system-0.0.1.tgz"
       - name: Fix design-system lockfile integrity
         run: |
           node -e "
@@ -204,18 +200,14 @@ jobs:
         # frontend/package-lock.json pins @noorinalabs/design-system to
         # `file:../../noorinalabs-design-system-0.0.1.tgz`. From `frontend/`,
         # that resolves to `${{ github.workspace }}/..` (the parent of the
-        # checkout root, e.g. /home/runner/work/<repo>/). We pack there and
-        # rename to the lockfile-expected filename (`-0.0.1.tgz`) regardless
-        # of the design-system's current version — the lockfile's integrity
-        # field is stripped in the next step, so npm accepts any contents.
-        # See noorinalabs/noorinalabs-isnad-graph#810 for the proper migration
-        # to a published npm package, which removes this whole workaround.
+        # checkout root, e.g. /home/runner/work/<repo>/). The design-system
+        # is checked out at the matching `v0.0.1` tag in the step above, so
+        # `npm pack` produces exactly that filename. See #810 for the proper
+        # migration to a published npm package.
         run: |
           npm install
           npm run build
           npm pack --pack-destination "${{ github.workspace }}/.."
-          mv "${{ github.workspace }}/.."/noorinalabs-design-system-*.tgz \
-             "${{ github.workspace }}/../noorinalabs-design-system-0.0.1.tgz"
       - name: Fix design-system lockfile integrity
         run: |
           node -e "
