@@ -59,7 +59,7 @@ def _load_config(pg: PgClient) -> SystemConfig:
     for field_name, default_value in defaults.items():
         if field_name in db_values:
             raw = db_values[field_name]
-            if isinstance(default_value, (dict, list)):
+            if isinstance(default_value, dict | list):
                 merged[field_name] = json.loads(raw)
             elif isinstance(default_value, int):
                 merged[field_name] = int(raw)
@@ -73,7 +73,7 @@ def _load_config(pg: PgClient) -> SystemConfig:
 
 def _serialize_value(value: object) -> str:
     """Serialize a config value for storage."""
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         return json.dumps(value)
     return str(value)
 

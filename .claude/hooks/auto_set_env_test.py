@@ -27,10 +27,7 @@ def main() -> None:
     command = input_data.get("tool_input", {}).get("command", "")
 
     # Match pytest, uv run pytest, or make test commands
-    is_test_cmd = bool(
-        re.search(r"\bpytest\b", command)
-        or re.search(r"\bmake\s+test\b", command)
-    )
+    is_test_cmd = bool(re.search(r"\bpytest\b", command) or re.search(r"\bmake\s+test\b", command))
 
     if not is_test_cmd:
         sys.exit(0)
