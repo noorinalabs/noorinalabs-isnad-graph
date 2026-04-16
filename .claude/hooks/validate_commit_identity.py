@@ -50,7 +50,7 @@ def main() -> None:
             "reason": (
                 "BLOCKED: git commit missing `-c user.name=` flag. "
                 "Charter § Commit Identity requires per-commit identity via -c flags. "
-                "Example: git -c user.name=\"Kwame Asante\" -c user.email=\"parametrization+Kwame.Asante@gmail.com\" commit -m \"...\""
+                'Example: git -c user.name="Kwame Asante" -c user.email="parametrization+Kwame.Asante@gmail.com" commit -m "..."'
             ),
         }
         print(json.dumps(result))
@@ -62,7 +62,7 @@ def main() -> None:
             "reason": (
                 "BLOCKED: git commit missing `-c user.email=` flag. "
                 "Charter § Commit Identity requires per-commit identity via -c flags. "
-                "Example: git -c user.name=\"Kwame Asante\" -c user.email=\"parametrization+Kwame.Asante@gmail.com\" commit -m \"...\""
+                'Example: git -c user.name="Kwame Asante" -c user.email="parametrization+Kwame.Asante@gmail.com" commit -m "..."'
             ),
         }
         print(json.dumps(result))
@@ -76,7 +76,7 @@ def main() -> None:
         result = {
             "decision": "block",
             "reason": (
-                f"BLOCKED: user.name=\"{name}\" is not a recognized roster member. "
+                f'BLOCKED: user.name="{name}" is not a recognized roster member. '
                 f"Valid names: {', '.join(sorted(ROSTER.keys()))}"
             ),
         }
@@ -88,7 +88,7 @@ def main() -> None:
         result = {
             "decision": "block",
             "reason": (
-                f"BLOCKED: user.email=\"{email}\" does not match roster for {name}. "
+                f'BLOCKED: user.email="{email}" does not match roster for {name}. '
                 f"Expected: {expected_email}"
             ),
         }

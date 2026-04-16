@@ -19,15 +19,19 @@
 
 repos:
   # --- Ruff formatter & linter ---
+  # ruff-format runs first so format fixes don't trigger re-lint.
+  # `.claude/worktrees/` is excluded because it contains scratch checkouts of
+  # other branches; reformatting them would silently overwrite work in progress.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.6
     hooks:
       - id: ruff-format
-        args: [--check]
         name: ruff-format
+        exclude: ^\.claude/worktrees/
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix]
         name: ruff-lint
+        exclude: ^\.claude/worktrees/
 
   # --- Secret detection ---
   - repo: https://github.com/gitleaks/gitleaks
@@ -87,7 +91,7 @@ repos:
     hooks:
       - id: lockfile-no-local-paths
         name: lockfile-no-local-paths
-        entry: bash -c 'if grep -qE "\"resolved\":\s*\"file://((/tmp/|/home/|/Users/|/var/))" frontend/package-lock.json; then echo "ERROR: package-lock.json contains absolute local paths (file:///tmp/, /home/, etc.)"; echo "These break CI. Run npm install with the correct dependency source."; grep -nE "\"resolved\":\s*\"file://((/tmp/|/home/|/Users/|/var/))" frontend/package-lock.json | head -5; exit 1; fi'
+        entry: scripts/lockfile_no_local_paths.sh
         language: system
         pass_filenames: false
         files: ^frontend/package-lock\.json$

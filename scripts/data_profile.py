@@ -39,9 +39,7 @@ def _match_schema(filename: str) -> object | None:
     return None
 
 
-def _check_schema_conformance(
-    actual_names: list[str], expected_schema: object
-) -> list[str]:
+def _check_schema_conformance(actual_names: list[str], expected_schema: object) -> list[str]:
     """Compare actual column names against expected schema fields."""
     import pyarrow as pa
 

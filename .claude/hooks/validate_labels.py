@@ -90,9 +90,7 @@ def main() -> None:
         sys.exit(0)
 
     # Build helpful error with gh label create suggestions
-    suggestions = "\n".join(
-        f'  gh label create "{label}"' for label in missing
-    )
+    suggestions = "\n".join(f'  gh label create "{label}"' for label in missing)
     result = {
         "decision": "block",
         "reason": (

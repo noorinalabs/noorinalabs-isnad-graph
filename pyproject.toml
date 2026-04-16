@@ -53,6 +53,8 @@ build-backend = "hatchling.build"
 [tool.ruff]
 line-length = 100
 target-version = "py313"  # ruff doesn't support py314 yet; py313 is the closest
+# Worktree dirs are scratch checkouts of other branches — never lint/format these.
+extend-exclude = [".claude/worktrees"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "PD"]
