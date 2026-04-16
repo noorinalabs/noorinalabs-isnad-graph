@@ -87,6 +87,14 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: noorinalabs/noorinalabs-design-system
+          # Pin to v0.0.1 — the version isnad-graph's frontend/package-lock.json
+          # is locked to. Checking out `main` would build whatever the
+          # design-system has shipped most recently (currently 0.0.2), whose
+          # transitive deps may diverge from the lockfile and break npm install
+          # (e.g. @radix-ui/react-dropdown-menu was added between 0.0.1 and 0.0.2).
+          # Bump this ref together with the lockfile when accepting a new
+          # design-system version. Or, see #810 to remove this whole dance.
+          ref: v0.0.1
           path: noorinalabs-design-system
       - uses: actions/setup-node@v4
         with:
@@ -177,6 +185,14 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: noorinalabs/noorinalabs-design-system
+          # Pin to v0.0.1 — the version isnad-graph's frontend/package-lock.json
+          # is locked to. Checking out `main` would build whatever the
+          # design-system has shipped most recently (currently 0.0.2), whose
+          # transitive deps may diverge from the lockfile and break npm install
+          # (e.g. @radix-ui/react-dropdown-menu was added between 0.0.1 and 0.0.2).
+          # Bump this ref together with the lockfile when accepting a new
+          # design-system version. Or, see #810 to remove this whole dance.
+          ref: v0.0.1
           path: noorinalabs-design-system
       - uses: actions/setup-node@v4
         with:
