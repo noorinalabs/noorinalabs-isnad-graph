@@ -117,7 +117,7 @@ export default function Sidebar() {
             }}
             title={user.email}
           >
-            {user.name || user.email}
+            {user.display_name ?? user.email}
           </div>
           <button
             onClick={signOut}

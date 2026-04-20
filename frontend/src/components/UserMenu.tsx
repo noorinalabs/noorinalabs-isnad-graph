@@ -47,9 +47,11 @@ export default function UserMenu() {
 
   if (!user) return null
 
-  const initials = user.name
+  // display_name can be null — fall back to email so initials always render.
+  const displayName = user.display_name ?? user.email
+  const initials = displayName
     .split(' ')
-    .map((w) => w[0])
+    .map((w) => w[0] ?? '')
     .join('')
     .toUpperCase()
     .slice(0, 2)
@@ -111,7 +113,7 @@ export default function UserMenu() {
                 color: 'var(--color-foreground)',
               }}
             >
-              {user.name}
+              {user.display_name ?? user.email}
             </div>
             <div
               style={{
@@ -123,9 +125,11 @@ export default function UserMenu() {
               {user.email}
             </div>
             <div style={{ display: 'flex', gap: 'var(--spacing-2)', marginTop: 'var(--spacing-2)' }}>
-              <span style={{ display: 'inline-block', padding: 'var(--spacing-0_5) var(--spacing-2)', fontSize: 'var(--text-xs)', fontWeight: 500, borderRadius: 'var(--radius-full)', background: 'var(--color-accent)', color: 'var(--color-primary)' }}>
-                {providerLabel(user.provider)}
-              </span>
+              {user.provider && (
+                <span style={{ display: 'inline-block', padding: 'var(--spacing-0_5) var(--spacing-2)', fontSize: 'var(--text-xs)', fontWeight: 500, borderRadius: 'var(--radius-full)', background: 'var(--color-accent)', color: 'var(--color-primary)' }}>
+                  {providerLabel(user.provider)}
+                </span>
+              )}
               <span style={{ display: 'inline-block', padding: 'var(--spacing-0_5) var(--spacing-2)', fontSize: 'var(--text-xs)', fontWeight: 600, borderRadius: 'var(--radius-full)', background: 'var(--color-accent)', color: 'var(--color-primary)', textTransform: 'capitalize' }}>
                 {role}
               </span>
