@@ -5,6 +5,10 @@ export default function WelcomeBanner() {
 
   if (!isNewUser || !user) return null
 
+  // display_name may be null (per user-service UserRead schema) — fall back to
+  // the local-part of the email so this never crashes (#825).
+  const firstName = user.display_name?.split(' ')[0] ?? user.email.split('@')[0]
+
   return (
     <div
       role="status"
@@ -13,7 +17,7 @@ export default function WelcomeBanner() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-foreground">
-            Welcome to Isnad Graph, {user.name.split(' ')[0]}!
+            Welcome to Isnad Graph, {firstName}!
           </h3>
           <p className="text-sm text-muted-foreground">
             Start exploring hadith chains and narrator networks. Use the search bar to find

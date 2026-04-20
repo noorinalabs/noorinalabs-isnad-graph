@@ -76,7 +76,7 @@ export default function TrialExpiredPage() {
             marginBottom: 'var(--spacing-8)',
           }}
         >
-          {user?.name ? `${user.name}, your` : 'Your'} 7-day free trial of Isnad Graph has
+          {user?.display_name ? `${user.display_name}, your` : 'Your'} 7-day free trial of Isnad Graph has
           expired. Upgrade to a paid plan to continue exploring hadith chains, narrator networks,
           and scholarly analysis tools.
         </p>

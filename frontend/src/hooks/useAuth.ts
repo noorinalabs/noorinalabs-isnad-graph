@@ -3,14 +3,30 @@ import { createElement } from 'react'
 
 export type UserRole = 'viewer' | 'editor' | 'moderator' | 'admin'
 
+/**
+ * Shape of `/api/v1/users/me` (user-service UserRead schema).
+ *
+ * `display_name` is the canonical name field from the API. It can legitimately
+ * be null — consumers MUST null-defense every read (prefer `user.display_name ?? user.email`).
+ *
+ * `is_admin`, `provider`, and `role` are NOT returned by the API directly; they
+ * are kept here as optional so code paths that derive them via JWT claims on the
+ * isnad-graph side can still populate them. Treat as best-effort.
+ */
 export interface AuthUser {
   id: string
   email: string
-  name: string
-  is_admin: boolean
-  provider: string
-  role: UserRole | null
+  display_name: string | null
+  avatar_url: string | null
   email_verified: boolean
+  is_active: boolean
+  locale: string | null
+  created_at: string
+  roles: Array<{ id: string; name: string }>
+  // Derived fields (not in user-service /users/me payload — may be undefined).
+  is_admin?: boolean
+  provider?: string
+  role?: UserRole | null
 }
 
 interface AuthContextValue {
