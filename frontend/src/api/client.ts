@@ -195,8 +195,22 @@ export async function flagContent(
 
 // --- Subscription ---
 
-export async function fetchSubscription(): Promise<SubscriptionResponse> {
-  return fetchJson(`${API_BASE}/subscriptions/me`)
+// 404 from /subscriptions/me is a terminal "no subscription" data state
+// (free tier / admin), not an error. Resolve it to null and let callers
+// branch on `subscription === null`. Other non-OK statuses throw as usual.
+export async function fetchSubscriptionOrNull(): Promise<SubscriptionResponse | null> {
+  const res = await fetch(`${API_BASE}/subscriptions/me`, {
+    headers: getAuthHeaders(),
+    credentials: 'include',
+  })
+  if (res.status === 404) return null
+  if (!res.ok) {
+    if (res.status === 401) {
+      emitSessionExpired()
+    }
+    throw new Error(`API error: ${res.status} ${res.statusText}`)
+  }
+  return res.json() as Promise<SubscriptionResponse>
 }
 
 // --- Admin: Reports ---

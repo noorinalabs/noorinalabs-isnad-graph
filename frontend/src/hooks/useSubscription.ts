@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchSubscription } from '../api/client'
+import { fetchSubscriptionOrNull } from '../api/client'
 import type { SubscriptionResponse } from '../types/api'
 import { useAuth } from './useAuth'
 
 export function useSubscription() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
 
-  const { data, isLoading, error } = useQuery<SubscriptionResponse>({
+  // Admins have no subscription concept — skip the call entirely. A 404 from
+  // /subscriptions/me is a terminal "no subscription" data state, so we treat
+  // it as `null` instead of an error and disable retry (see #830).
+  const { data, isLoading, error } = useQuery<SubscriptionResponse | null>({
     queryKey: ['subscription'],
-    queryFn: fetchSubscription,
-    enabled: !!user,
+    queryFn: fetchSubscriptionOrNull,
+    enabled: !!user && !isAdmin,
+    retry: false,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
   })
