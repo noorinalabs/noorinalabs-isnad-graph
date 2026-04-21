@@ -207,7 +207,7 @@ jobs:
         with:
           token: ${{ secrets.DEPLOY_REPO_PAT }}
           repository: noorinalabs/noorinalabs-deploy
-          event-type: deploy-isnad-graph
+          event-type: deploy-noorinalabs-isnad-graph
           client-payload: >-
             {
               "repo": "noorinalabs-isnad-graph",
