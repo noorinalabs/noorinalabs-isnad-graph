@@ -99,11 +99,11 @@ export interface RoleCount {
 }
 
 export interface DashboardStats {
-  total_users: number
-  active_users: number
-  suspended_users: number
-  users_by_role: RoleCount[]
-  new_registrations_7d: number
+  total_users?: number
+  active_users?: number
+  suspended_users?: number
+  users_by_role?: RoleCount[]
+  new_registrations_7d?: number
   active_sessions: number
 }
 
