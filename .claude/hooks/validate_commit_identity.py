@@ -1,25 +1,17 @@
 #!/usr/bin/env python3
 """PreToolUse hook: Validate git commit identity flags.
 
-Fires on: Bash tool calls.
-Matches: `git commit` invocations (including those with `-c` flags or after
-    shell operators like `&&`, `||`, `;`, `|`). Also matches the pattern
-    `cd <path> && git commit ...` to resolve cross-repo commits against the
-    target repo's roster.
-Does NOT match: `git config`, `git log`, `git show`, nor occurrences of the
-    literal text "git commit" that appear inside heredoc bodies or inside
-    single-/double-quoted strings (e.g., within a commit message).
-Flag pass-through: N/A — this hook is advisory/blocking, it does not rewrite
-    the command.
+Ensures every `git commit` command includes `-c user.name=` and `-c user.email=`
+flags matching a roster member from the charter's Commit Identity table.
 
-Roster resolution (parent+child merge):
-  When the hook fires in a child repository (a repo whose working directory
-  is nested under a parent that itself contains a `.claude/team/roster.json`),
-  the hook loads BOTH rosters and treats the union as valid. On name
-  collision with a differing email, the CHILD roster wins (per-repo override
-  semantics). The parent roster path is inferred from the filesystem
-  position of this hook file — never from an environment variable or a
-  user-supplied path — so it cannot be spoofed by a crafted command.
+Parent+child roster merge (#112 part a):
+  When the target repo (either the local repo or a `cd <path>` target) is a
+  child of another git repo that itself has `.claude/team/roster.json`, the
+  parent roster is loaded and merged with the child roster. Same-name entries
+  in the child override the parent (child wins). Walk-up is limited to ONE
+  level to avoid false positives in nested `code/` trees. This lets org-level
+  coordinators commit in child repos without duplicating their entries into
+  every child `roster.json`.
 
 Exit codes:
   0 — allow (not a git commit, or identity is valid)
@@ -32,103 +24,64 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-try:
-    from annunaki_log import log_pretooluse_block
-except ImportError:
-    # Child repos may not have annunaki instrumentation installed yet.
-    # Signature must match annunaki_log.log_pretooluse_block exactly — mypy
-    # requires identical signatures across conditional function variants.
-    def log_pretooluse_block(  # type: ignore[no-redef]
-        hook_name: str, command: str, reason: str, tool_name: str = "Bash"
-    ) -> None:
-        return None
+from annunaki_log import log_pretooluse_block
 
 
-# Local roster path — this hook's repo's roster (either the parent org-level
-# repo, or a child repo). Single source of truth for identities owned by
-# THIS repo.
-_LOCAL_ROSTER_PATH = Path(__file__).resolve().parent.parent / "team" / "roster.json"
-
-
-def _load_roster(path: Path) -> dict[str, str]:
+def _read_roster(roster_path: Path) -> dict[str, str]:
+    """Read a roster.json file, returning {} on any failure (fail-open)."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        data = json.loads(roster_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
+    return data if isinstance(data, dict) else {}
 
 
-def _find_parent_roster_path(local_repo_root: Path) -> Path | None:
-    """Locate the parent (org-level) roster, if this is a child repo.
+def _load_merged_roster(repo_path: Path) -> dict[str, str]:
+    """Load `repo_path`'s roster, merged with its parent repo's roster if any.
 
-    Walks up from `local_repo_root.parent` looking for a directory whose
-    `.claude/team/roster.json` is distinct from the local one. Returns the
-    first such path, or None if this IS the top-level repo.
-
-    Security note: derived purely from the filesystem location of the hook
-    file. Cannot be influenced by the Bash command being validated, env
-    vars, or any external input.
+    Parent detection (ONE level up only):
+      1. `repo_path/..` must be a directory containing `.git` (i.e. a git repo).
+      2. `repo_path/../.claude/team/roster.json` must exist.
+    If both hold, the parent roster is loaded and merged under the child roster
+    — child keys override parent keys, so a same-name entry in the child wins.
+    Any OSError / malformed JSON at any step is swallowed; a broken parent
+    roster must never block a child repo's valid commit.
     """
+    child_path = repo_path / ".claude" / "team" / "roster.json"
+    child_roster = _read_roster(child_path)
+
     try:
-        local_roster = (local_repo_root / ".claude" / "team" / "roster.json").resolve()
+        parent_dir = repo_path.parent
+        if (
+            parent_dir != repo_path
+            and (parent_dir / ".git").exists()
+            and (parent_dir / ".claude" / "team" / "roster.json").is_file()
+        ):
+            parent_roster = _read_roster(parent_dir / ".claude" / "team" / "roster.json")
+        else:
+            parent_roster = {}
     except OSError:
-        return None
+        parent_roster = {}
 
-    current = local_repo_root.parent
-    while True:
-        candidate = current / ".claude" / "team" / "roster.json"
-        if candidate.is_file():
-            try:
-                if candidate.resolve() != local_roster:
-                    return candidate
-            except OSError:
-                pass
-        if current.parent == current:
-            return None
-        current = current.parent
+    # Child wins on key collision.
+    return {**parent_roster, **child_roster}
 
 
-def _merge_rosters(parent: dict[str, str], child: dict[str, str]) -> dict[str, str]:
-    """Union of parent+child rosters; child wins on name collision."""
-    merged = dict(parent)
-    merged.update(child)
-    return merged
-
-
-def _build_effective_roster(local_roster_path: Path) -> dict[str, str]:
-    """Compute the effective roster for a given local-roster file.
-
-    The local repo root is derived from the roster path:
-      <local_repo_root>/.claude/team/roster.json
-    i.e. three parents up from the roster file.
-    """
-    local_roster = _load_roster(local_roster_path)
-    try:
-        local_repo_root = local_roster_path.parents[2]
-    except IndexError:
-        return local_roster
-
-    parent_roster_path = _find_parent_roster_path(local_repo_root)
-    if parent_roster_path is None:
-        return local_roster
-
-    parent_roster = _load_roster(parent_roster_path)
-    return _merge_rosters(parent_roster, local_roster)
-
-
-# Effective roster at import time — merged parent+child if applicable.
-ROSTER: dict[str, str] = _build_effective_roster(_LOCAL_ROSTER_PATH)
+# Module-level roster for the repo hosting this hook. `_load_merged_roster`
+# walks up one level; at this repo (noorinalabs-main) there is no parent repo
+# with a roster, so this collapses to the local roster only.
+ROSTER: dict[str, str] = _load_merged_roster(Path(__file__).resolve().parent.parent.parent)
 
 
 def _detect_target_roster(command: str) -> dict[str, str] | None:
-    """Detect cross-repo commits and load the target repo's effective roster.
+    """Detect cross-repo commits and load the target repo's merged roster.
 
     When the command contains `cd /path/to/repo && git commit ...`, the
-    commit targets a different repo. Load that repo's roster.json (plus its
-    parent roster, if any) and return the merged result.
+    commit targets a different repo. Load that repo's roster.json (merged
+    with its parent repo's roster if applicable — see `_load_merged_roster`)
+    so we validate against the correct team, not the local one.
 
-    Returns the target repo's effective (merged) roster dict, or None to use
-    the local ROSTER.
+    Returns the target merged roster dict, or None to use the local ROSTER.
     """
     cd_match = re.search(r"cd\s+([^\s;&|]+)", command)
     if not cd_match:
@@ -139,7 +92,8 @@ def _detect_target_roster(command: str) -> dict[str, str] | None:
     roster_path = target_dir / ".claude" / "team" / "roster.json"
     if not roster_path.is_file():
         return None
-    return _build_effective_roster(roster_path)
+    merged = _load_merged_roster(target_dir)
+    return merged or None
 
 
 def _strip_heredocs(text: str) -> str:
