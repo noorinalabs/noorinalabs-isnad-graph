@@ -10,7 +10,7 @@ Usage in any blocking hook:
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -22,7 +22,7 @@ def log_pretooluse_block(
 ) -> None:
     """Append a PreToolUse block event to the Annunaki error log."""
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "type": "pretooluse_block",
         "hook": hook_name,
         "tool_name": tool_name,
