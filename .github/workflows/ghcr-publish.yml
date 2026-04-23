@@ -145,13 +145,30 @@ jobs:
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
           images: ${{ env.REGISTRY }}/${{ matrix.image }}
+          # Tag scheme (isnad-graph#815 Contract v5 = option C, 2026-04-23):
+          #   sha-<short>   — immutable, one per push; written here on every event
+          #   latest        — mutable pointer; written here on main + semver tags
+          #   stg-<short>   — immutable per-push, stg namespace; written here ONLY
+          #                   on push to main. Tag history = stg deploy log.
+          #   stg-latest    — moving pointer to most-recent stg-<short>; written
+          #                   here ONLY on push to main. Consumers pull this for
+          #                   a stable target without chasing SHAs.
+          #   prod-<short>  — immutable per-promotion, prod namespace; written by
+          #                   deploy#84 ONLY, NOT this file. Tag history = promotion log.
+          #   prod-latest   — moving pointer; written by deploy#84 ONLY.
+          # deploy#84 writes both prod-* tags in one `docker buildx imagetools
+          # create` invocation — registry-side manifest rewrite, no rebuild.
           tags: |
             # Git tag (e.g., v1.2.3 or phase12-wave1)
             type=ref,event=tag
-            # Short SHA (e.g., sha-a1b2c3d) on every event
+            # Short SHA (e.g., sha-a1b2c3d) on every event — IMMUTABLE anchor
             type=sha,prefix=sha-,format=short
             # Latest on main-branch push or semver tags
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+            # stg-<short> per-push in stg namespace — IMMUTABLE, push-to-main only
+            type=sha,prefix=stg-,format=short,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            # stg-latest moving pointer — push-to-main only
+            type=raw,value=stg-latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Build and push
         id: build
@@ -172,9 +189,10 @@ jobs:
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           # Scan by digest — guaranteed to exist immediately after push and
-          # immune to tag-resolution races. The previous tag-based form broke
-          # on main pushes because metadata-action only emits :latest + :sha-*
-          # (no :main). See user-service#61 retro.
+          # immune to tag-resolution races. metadata-action emits :latest,
+          # :sha-*, and (on main) :stg-* + :stg-latest — never :main.
+          # Digest is the one stable handle across all of them. See
+          # user-service#61 retro.
           image-ref: ${{ env.REGISTRY }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
           format: table
           exit-code: "1"
