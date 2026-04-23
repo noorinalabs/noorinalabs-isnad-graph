@@ -145,14 +145,19 @@ jobs:
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
         with:
           images: ${{ env.REGISTRY }}/${{ matrix.image }}
-          # Tag scheme (isnad-graph#815 Contract, 2026-04-22):
+          # Tag scheme (isnad-graph#815 Contract v5 = option C, 2026-04-23):
           #   sha-<short>   — immutable, one per push; written here on every event
           #   latest        — mutable pointer; written here on main + semver tags
-          #   stg           — mutable pointer; written here ONLY on push to main
-          #                   (deploys to staging consume :stg)
-          #   prod          — mutable pointer; written by deploy#84's promotion
-          #                   workflow, NOT this file. Promotion re-tags a
-          #                   :sha-<short> as :prod (registry-side, no rebuild).
+          #   stg-<short>   — immutable per-push, stg namespace; written here ONLY
+          #                   on push to main. Tag history = stg deploy log.
+          #   stg-latest    — moving pointer to most-recent stg-<short>; written
+          #                   here ONLY on push to main. Consumers pull this for
+          #                   a stable target without chasing SHAs.
+          #   prod-<short>  — immutable per-promotion, prod namespace; written by
+          #                   deploy#84 ONLY, NOT this file. Tag history = promotion log.
+          #   prod-latest   — moving pointer; written by deploy#84 ONLY.
+          # deploy#84 writes both prod-* tags in one `docker buildx imagetools
+          # create` invocation — registry-side manifest rewrite, no rebuild.
           tags: |
             # Git tag (e.g., v1.2.3 or phase12-wave1)
             type=ref,event=tag
@@ -160,10 +165,10 @@ jobs:
             type=sha,prefix=sha-,format=short
             # Latest on main-branch push or semver tags
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-            # Staging pointer on main-branch push — consumers pull :stg to pick
-            # up the latest main build; promotion (deploy#84) retags a specific
-            # :sha-<short> as :prod without rebuilding.
-            type=raw,value=stg,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            # stg-<short> per-push in stg namespace — IMMUTABLE, push-to-main only
+            type=sha,prefix=stg-,format=short,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            # stg-latest moving pointer — push-to-main only
+            type=raw,value=stg-latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Build and push
         id: build
@@ -185,8 +190,9 @@ jobs:
         with:
           # Scan by digest — guaranteed to exist immediately after push and
           # immune to tag-resolution races. metadata-action emits :latest,
-          # :sha-*, and (on main) :stg — never :main. Digest is the one
-          # stable handle across all of them. See user-service#61 retro.
+          # :sha-*, and (on main) :stg-* + :stg-latest — never :main.
+          # Digest is the one stable handle across all of them. See
+          # user-service#61 retro.
           image-ref: ${{ env.REGISTRY }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
           format: table
           exit-code: "1"
