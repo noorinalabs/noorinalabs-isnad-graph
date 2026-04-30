@@ -50,6 +50,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_pr_ci_status.py",
+            "timeout": 15
+          }
+        ]
       }
     ]
   }
