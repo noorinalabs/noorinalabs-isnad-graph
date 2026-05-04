@@ -13,7 +13,15 @@ ARG CACHEBUST=1
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+# Runtime base pinned to nginx:stable-alpine3.23 by digest for supply-chain
+# reproducibility. `apk upgrade --no-cache` then pulls the latest alpine
+# package patches at build time so we don't ship known-fixed CVEs (e.g.
+# CVE-2026-27135 in nghttp2-libs, isnad-graph#853). The digest pin freezes
+# the starting layer; the upgrade step keeps OS packages current within the
+# alpine 3.23 patch lifecycle. Re-pin to a newer digest on each minor nginx
+# bump (or alpine 3.24+ when nginx publishes it).
+FROM nginx:stable-alpine3.23@sha256:0272e4604ed93c1792f03695a033a6e8546840f86e0de20a884bb17d2c924883
+RUN apk upgrade --no-cache
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
