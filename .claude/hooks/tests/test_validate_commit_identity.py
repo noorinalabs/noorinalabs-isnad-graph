@@ -275,11 +275,7 @@ class StripOrderingTests(unittest.TestCase):
 
     def test_heredoc_body_with_git_commit_is_not_a_commit(self):
         """A `cat <<EOF ... git commit ... EOF` is not a real git commit."""
-        cmd = (
-            "cat <<'EOF'\n"
-            "instructions: do not run git commit by hand\n"
-            "EOF\n"
-        )
+        cmd = "cat <<'EOF'\ninstructions: do not run git commit by hand\nEOF\n"
         self.assertFalse(
             hook._is_git_commit_command(cmd),
             "heredoc body containing the literal phrase 'git commit' must not "
@@ -326,11 +322,7 @@ class StripOrderingTests(unittest.TestCase):
         correctly. This test fails loudly if a future contributor swaps the
         order of strip passes in `_is_git_commit_command`.
         """
-        cmd = (
-            "cat <<'EOF'\n"
-            "git commit -m 'this is inside a heredoc'\n"
-            "EOF\n"
-        )
+        cmd = "cat <<'EOF'\ngit commit -m 'this is inside a heredoc'\nEOF\n"
         self.assertFalse(
             hook._is_git_commit_command(cmd),
             "ordering invariant violated: heredoc bodies whose delimiters are "
@@ -339,11 +331,7 @@ class StripOrderingTests(unittest.TestCase):
 
     def test_heredoc_body_with_quoted_tokens_is_handled(self):
         """A heredoc body containing single-quoted tokens does not break stripping."""
-        cmd = (
-            "cat <<EOF\n"
-            "narrator says 'git commit' but it is just text\n"
-            "EOF\n"
-        )
+        cmd = "cat <<EOF\nnarrator says 'git commit' but it is just text\nEOF\n"
         self.assertFalse(
             hook._is_git_commit_command(cmd),
             "heredoc body with embedded quoted text leaked through detection",
