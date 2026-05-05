@@ -139,11 +139,26 @@ jobs:
       RUFF_VERSION: "0.15.11"
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      # Post-#263 (parent-canonical hook paths) `.claude/hooks/` is empty in
+      # this child repo — shared hook source lives in `noorinalabs-main`.
+      # Guard the lint steps so the job no-ops cleanly until any
+      # isnad-graph-specific hook lands here.
+      - id: probe
+        run: |
+          if [ -d .claude/hooks ] && [ -n "$(find .claude/hooks -type f -name '*.py' -print -quit 2>/dev/null)" ]; then
+            echo "has_hooks=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_hooks=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py files under .claude/hooks/ — skipping ruff (post-#263 child-repo state)."
+          fi
+      - if: steps.probe.outputs.has_hooks == 'true'
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
-      - run: uvx ruff@${{ env.RUFF_VERSION }} check .claude/hooks/
-      - run: uvx ruff@${{ env.RUFF_VERSION }} format --check .claude/hooks/
+      - if: steps.probe.outputs.has_hooks == 'true'
+        run: uvx ruff@${{ env.RUFF_VERSION }} check .claude/hooks/
+      - if: steps.probe.outputs.has_hooks == 'true'
+        run: uvx ruff@${{ env.RUFF_VERSION }} format --check .claude/hooks/
 
   scripts-lint:
     runs-on: ubuntu-latest
