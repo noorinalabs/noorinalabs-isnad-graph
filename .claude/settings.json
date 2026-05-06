@@ -12,6 +12,46 @@
         ]
       },
       {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_wave_context.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/enforce_ontology_context.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/block_shutdown_without_retro.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_wave_audit.py",
+            "timeout": 30
+          }
+        ]
+      },
+      {
         "matcher": "Edit",
         "hooks": [
           {
@@ -53,6 +93,112 @@
             "type": "command",
             "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/auto_add_issue_to_board.py",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/annunaki_monitor.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/ontology_tracker.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/suggest_generic_prompt.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/ontology_tracker.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/suggest_generic_prompt.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/session_start.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/session_start.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/session_handoff.py",
+            "timeout": 30
           }
         ]
       }
