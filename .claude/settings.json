@@ -6,58 +6,53 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_commit_identity.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/block_no_verify.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/block_git_config.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/auto_set_env_test.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_labels.py",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/dispatcher.py",
             "timeout": 30
           }
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_pr_ci_status.py",
-            "timeout": 15
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/enforce_librarian_consulted.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/enforce_librarian_consulted.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/enforce_librarian_consulted.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /home/parameterization/code/noorinalabs-main/.claude/hooks/validate_edit_completion.py",
+            "timeout": 10
           }
         ]
       }
