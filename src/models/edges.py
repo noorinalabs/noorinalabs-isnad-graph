@@ -14,6 +14,7 @@ __all__ = [
     "ActiveDuring",
     "AppearsIn",
     "BasedIn",
+    "Narrated",
     "ParallelOf",
     "StudiedUnder",
     "TransmittedTo",
@@ -103,6 +104,23 @@ class ActiveDuring(BaseModel):
     """Role the narrator played during the event."""
     affiliation: str | None = None
     """Political or theological affiliation during the event."""
+
+
+class Narrated(BaseModel):
+    """Edge: a narrator narrated (was the originating source of) a hadith.
+
+    Mirrors the ``NARRATED`` relationship emitted by the ingestion pipeline's
+    normalize stage (workers/ingest/schema.py). The pipeline merges this edge
+    with no typed properties today; this model establishes the schema contract
+    so the property allow-list can be tightened upstream.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    narrator_id: str
+    """FK to Narrator.id — the narrator who narrated the hadith."""
+    hadith_id: str
+    """FK to Hadith.id — the hadith that was narrated."""
 
 
 class BasedIn(BaseModel):
