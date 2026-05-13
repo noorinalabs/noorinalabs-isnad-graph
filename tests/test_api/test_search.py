@@ -6,28 +6,16 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from tests.factories import make_hadith_search_hit, make_narrator_search_hit
+
 
 def test_search_fulltext_returns_results(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/search?q=test uses full-text index and returns results."""
     mock_neo4j.execute_read.side_effect = [
         # narrator full-text search
-        [
-            {
-                "id": "nar-001",
-                "name_ar": "اختبار",
-                "name_en": "test narrator",
-                "score": 2.5,
-            }
-        ],
+        [make_narrator_search_hit()],
         # hadith full-text search
-        [
-            {
-                "id": "had-001",
-                "matn_ar": "نص اختبار",
-                "matn_en": "test hadith text",
-                "score": 1.8,
-            }
-        ],
+        [make_hadith_search_hit()],
     ]
     resp = client.get("/api/v1/search?q=test")
     assert resp.status_code == 200
@@ -49,7 +37,7 @@ def test_search_falls_back_to_contains(client: TestClient, mock_neo4j: MagicMock
     # third call (hadith fulltext) raises, fourth call (hadith fallback) succeeds
     mock_neo4j.execute_read.side_effect = [
         Exception("No such index 'narrator_search'"),
-        [{"id": "nar-001", "name_ar": "اختبار", "name_en": "fallback", "score": 1.0}],
+        [make_narrator_search_hit(name_en="fallback", score=1.0)],
         Exception("No such index 'hadith_search'"),
         [],
     ]
@@ -104,12 +92,7 @@ def test_semantic_search_returns_results_when_pg_available(client: TestClient, a
     """GET /api/v1/search/semantic returns results when pgvector is wired up."""
     mock_pg = MagicMock()
     mock_pg.execute.return_value = [
-        {
-            "id": "had-001",
-            "matn_ar": "نص اختبار",
-            "matn_en": "test semantic hadith",
-            "score": 0.92,
-        },
+        make_hadith_search_hit(matn_en="test semantic hadith", score=0.92),
     ]
     mock_pg.close.return_value = None
 

@@ -6,12 +6,9 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-SAMPLE_COLLECTION = {
-    "id": "col-001",
-    "name_ar": "صحيح البخاري",
-    "name_en": "Sahih al-Bukhari",
-    "sect": "sunni",
-}
+from tests.factories import make_collection_row
+
+SAMPLE_COLLECTION = make_collection_row()
 
 
 def test_list_collections_empty(client: TestClient, mock_neo4j: MagicMock) -> None:
@@ -49,13 +46,10 @@ def test_list_collections_with_extra_and_missing_props(
     client: TestClient, mock_neo4j: MagicMock
 ) -> None:
     """Collections with extra Neo4j props or missing optional fields don't 500."""
-    props = {
-        "id": "col:bukhari",
-        "name_ar": "صحيح البخاري",
-        "name_en": "Sahih al-Bukhari",
-        "sect": "sunni",
-        "source_corpus": "bukhari",  # extra field not in CollectionResponse
-    }
+    props = make_collection_row(
+        id="col:bukhari",
+        source_corpus="bukhari",  # extra field not in CollectionResponse
+    )
     mock_neo4j.execute_read.side_effect = [[{"total": 1}], [{"props": props}]]
     resp = client.get("/api/v1/collections")
     assert resp.status_code == 200
@@ -67,7 +61,8 @@ def test_list_collections_with_extra_and_missing_props(
 
 def test_list_collections_null_sect(client: TestClient, mock_neo4j: MagicMock) -> None:
     """A collection node missing the sect property should not cause a 500."""
-    props = {"id": "col:test", "name_ar": "اختبار", "name_en": "Test"}
+    props = make_collection_row(id="col:test", name_ar="اختبار", name_en="Test")
+    del props["sect"]
     mock_neo4j.execute_read.side_effect = [[{"total": 1}], [{"props": props}]]
     resp = client.get("/api/v1/collections")
     assert resp.status_code == 200

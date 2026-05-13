@@ -6,15 +6,9 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-SAMPLE_NARRATOR = {
-    "id": "nar-001",
-    "name_ar": "\u0623\u0628\u0648 \u0647\u0631\u064a\u0631\u0629",
-    "name_en": "Abu Hurayra",
-    "generation": "companion",
-    "gender": "male",
-    "sect_affiliation": "sunni",
-    "trustworthiness_consensus": "thiqah",
-}
+from tests.factories import make_narrator_row
+
+SAMPLE_NARRATOR = make_narrator_row()
 
 
 def test_list_narrators_empty(client: TestClient) -> None:

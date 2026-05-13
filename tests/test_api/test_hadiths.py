@@ -6,13 +6,9 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-SAMPLE_HADITH = {
-    "id": "hdt:lk:abu_dawud:10:1574",
-    "matn_ar": "إنما الأعمال بالنيات",
-    "matn_en": "Actions are by intentions",
-    "source_corpus": "lk",
-    "collection_name": "abu_dawud",
-}
+from tests.factories import make_hadith_row
+
+SAMPLE_HADITH = make_hadith_row()
 
 
 def test_get_hadith_facets_empty(client: TestClient) -> None:
@@ -65,10 +61,7 @@ def test_list_hadiths_display_title_with_known_collection(
     client: TestClient, mock_neo4j: MagicMock
 ) -> None:
     """Display title uses collection_name when available."""
-    hadith = {
-        **SAMPLE_HADITH,
-        "collection_name": "Sunan Abu Dawud",
-    }
+    hadith = make_hadith_row(collection_name="Sunan Abu Dawud")
     mock_neo4j.execute_read.side_effect = [
         [{"total": 1}],
         [{"props": hadith}],
