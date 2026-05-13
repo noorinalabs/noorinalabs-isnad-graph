@@ -58,3 +58,4 @@ temp/
 Thumbs.db
 
 .claude/.librarian-consulted/
+.claude/worktrees/
