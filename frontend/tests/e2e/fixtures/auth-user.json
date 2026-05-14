@@ -1,8 +1,11 @@
 {
   "id": "test-user-001",
   "email": "test@example.com",
-  "name": "Test User",
-  "is_admin": false,
-  "provider": "email",
-  "email_verified": true
+  "display_name": "Test User",
+  "avatar_url": null,
+  "email_verified": true,
+  "is_active": true,
+  "locale": "en",
+  "created_at": "2026-01-01T00:00:00Z",
+  "roles": ["viewer"]
 }

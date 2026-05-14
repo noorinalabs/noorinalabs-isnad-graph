@@ -8,17 +8,26 @@ const authUser = JSON.parse(readFileSync(join(__dirname, 'fixtures/auth-user.jso
 const narrators = JSON.parse(readFileSync(join(__dirname, 'fixtures/narrators.json'), 'utf-8'))
 
 async function mockAuthAndData(page: Page) {
-  // Mock auth — return authenticated user
-  await page.route('**/api/v1/auth/me', (route) =>
+  // Mock auth — return authenticated user. useAuth calls `/api/v1/users/me`
+  // (user-service `UserRead` schema). The pre-#812 `/auth/me` path no longer exists.
+  await page.route('**/api/v1/users/me', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authUser) }),
   )
 
-  // Mock subscription — return active trial so ProtectedRoute renders the app
-  await page.route('**/api/v1/auth/subscription', (route) =>
+  // Mock subscription — useSubscription calls `/api/v1/subscriptions/me` and
+  // treats 404 as "no subscription" (null). Return an active trial so ProtectedRoute
+  // sees `isExpired=false` and renders <Outlet/>.
+  await page.route('**/api/v1/subscriptions/me', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ status: 'trial', tier: 'trial', days_remaining: 7 }),
+      body: JSON.stringify({
+        tier: 'trial',
+        status: 'trial',
+        days_remaining: 7,
+        trial_start: '2026-01-01T00:00:00Z',
+        trial_expires: '2026-01-08T00:00:00Z',
+      }),
     }),
   )
 
@@ -71,7 +80,7 @@ async function mockAuthAndData(page: Page) {
         body: JSON.stringify({ results: [], total: 0 }),
       })
     }
-    if (url.includes('/auth/me')) {
+    if (url.includes('/users/me')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authUser) })
     }
 
