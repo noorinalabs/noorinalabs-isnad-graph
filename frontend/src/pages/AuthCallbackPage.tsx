@@ -52,8 +52,15 @@ export default function AuthCallbackPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-8 shadow-xl text-center">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        {/* max-width is set inline, not via Tailwind's `max-w-md`: the design
+            system defines no `--container-*` theme namespace, so Tailwind 4
+            resolves `max-w-md` against `--spacing-md` (1rem) and collapses the
+            card to 16px wide. See #889. */}
+        <div
+          className="w-full space-y-4 rounded-2xl border border-border bg-card p-8 shadow-xl text-center"
+          style={{ maxWidth: '28rem' }}
+        >
           <div
             className="mx-auto flex items-center justify-center rounded-full"
             style={{

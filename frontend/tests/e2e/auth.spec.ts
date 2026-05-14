@@ -86,13 +86,11 @@ test.describe('OAuth callback redirect contract', () => {
     await page.goto('/auth/callback/google?error=oauth_exchange_failed')
 
     // Route matched and AuthCallbackPage rendered the error branch rather than
-    // navigating away. (toBeAttached, not toBeVisible — the error card's width
-    // utilities collapse under the preview build's Tailwind output; tracked
-    // separately in #889.)
-    await expect(page.getByRole('heading', { name: 'Sign-in failed' })).toBeAttached()
+    // navigating away.
+    await expect(page.getByRole('heading', { name: 'Sign-in failed' })).toBeVisible()
     await expect(
       page.getByText(/unable to complete sign-in with the provider/i),
-    ).toBeAttached()
+    ).toBeVisible()
     await expect(page).toHaveURL(/\/auth\/callback\/google/)
   })
 })
