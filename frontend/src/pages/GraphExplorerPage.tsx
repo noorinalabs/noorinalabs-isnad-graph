@@ -284,7 +284,7 @@ export default function GraphExplorerPage() {
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-sm)',
                 background:
-                  d === depth ? 'var(--color-primary, oklch(0.55 0.14 45))' : 'transparent',
+                  d === depth ? 'var(--color-primary)' : 'transparent',
                 color: d === depth ? 'var(--color-primary-foreground)' : 'inherit',
                 cursor: 'pointer',
                 fontWeight: d === depth ? 600 : 400,
