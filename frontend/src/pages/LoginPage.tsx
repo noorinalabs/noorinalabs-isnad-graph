@@ -253,14 +253,7 @@ export default function LoginPage() {
               <button
                 onClick={() => handleOAuth('google')}
                 disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
-                style={{
-                  border: `1px solid var(--color-oauth-google-border)`,
-                  backgroundColor: 'var(--color-oauth-google-bg)',
-                  color: 'var(--color-oauth-google-text)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-google-bg-hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-google-bg)')}
+                className="oauth-button-google flex w-full items-center justify-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
               >
                 <GoogleIcon />
                 {oauthLoading === 'google' ? 'Redirecting...' : 'Sign in with Google'}
@@ -271,13 +264,7 @@ export default function LoginPage() {
               <button
                 onClick={() => handleOAuth('github')}
                 disabled={isLoading}
-                className="flex w-full items-center justify-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
-                style={{
-                  backgroundColor: 'var(--color-oauth-github-bg)',
-                  color: 'var(--color-oauth-github-text)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-github-bg-hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-oauth-github-bg)')}
+                className="oauth-button-github flex w-full items-center justify-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
               >
                 <GitHubIcon />
                 {oauthLoading === 'github' ? 'Redirecting...' : 'Sign in with GitHub'}
