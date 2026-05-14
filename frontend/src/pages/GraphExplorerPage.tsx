@@ -14,8 +14,6 @@ import type { GraphNode, GraphEdge, Narrator, ChainSummary } from '../types/api'
 const NODE_LIMIT = 5000
 const SUGGESTED_NARRATORS = ['Abu Hurayra', 'al-Zuhri', 'Malik ibn Anas', 'Aisha bint Abi Bakr']
 
-type LayoutMode = 'force' | 'hierarchy' | 'radial'
-
 export default function GraphExplorerPage() {
   // --- State ---
   const [searchInput, setSearchInput] = useState('')
@@ -29,7 +27,6 @@ export default function GraphExplorerPage() {
   const [legendOpen, setLegendOpen] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [highlightedChainNodeIds, setHighlightedChainNodeIds] = useState<Set<string> | null>(null)
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('force')
   const containerRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
@@ -295,32 +292,6 @@ export default function GraphExplorerPage() {
               }}
             >
               {d}
-            </button>
-          ))}
-        </div>
-
-        {/* Layout toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Layout:</span>
-          {(['force', 'hierarchy', 'radial'] as LayoutMode[]).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setLayoutMode(mode)}
-              style={{
-                padding: '0.25rem 0.5rem',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
-                background:
-                  mode === layoutMode
-                    ? 'var(--color-primary, oklch(0.55 0.14 45))'
-                    : 'transparent',
-                color: mode === layoutMode ? 'var(--color-primary-foreground)' : 'inherit',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                textTransform: 'capitalize',
-              }}
-            >
-              {mode}
             </button>
           ))}
         </div>
