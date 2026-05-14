@@ -7,13 +7,9 @@ import type {
 } from '../types/admin'
 import type { PaginatedResponse } from '../types/api'
 import { emitSessionExpired } from '../hooks/useAuth'
+import { getAuthHeaders } from './auth-headers'
 
 const API_BASE = '/api/v1/admin'
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 async function fetchAdminJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
