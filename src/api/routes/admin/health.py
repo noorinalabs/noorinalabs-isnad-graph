@@ -42,9 +42,9 @@ def readiness(
 
         settings = get_settings()
         if settings.postgres.dsn:
-            import psycopg2
+            import psycopg
 
-            conn = psycopg2.connect(str(settings.postgres.dsn))
+            conn = psycopg.connect(str(settings.postgres.dsn))
             conn.close()
             pg_ok = True
     except Exception:

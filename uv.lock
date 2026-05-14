@@ -516,7 +516,6 @@ dev = [
     { name = "pytest-rerunfailures" },
     { name = "ruff" },
     { name = "testcontainers", extra = ["neo4j", "redis"] },
-    { name = "types-psycopg2" },
     { name = "types-pyyaml" },
     { name = "types-tqdm" },
 ]
@@ -553,7 +552,6 @@ dev = [
     { name = "pytest-rerunfailures", specifier = ">=14.0" },
     { name = "ruff", specifier = ">=0.3" },
     { name = "testcontainers", extras = ["neo4j", "postgres", "redis"], specifier = ">=4.0" },
-    { name = "types-psycopg2", specifier = ">=2.9.21.20260223" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "types-tqdm", specifier = ">=4.66" },
 ]
@@ -1383,15 +1381,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/19/75/241269d1da26b624c0d5e110e8149093c759b7a286138f4efd61a60e75fe/tomli_w-1.2.0.tar.gz", hash = "sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021", size = 7184, upload-time = "2025-01-15T12:07:24.262Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/18/c86eb8e0202e32dd3df50d43d7ff9854f8e0603945ff398974c1d91ac1ef/tomli_w-1.2.0-py3-none-any.whl", hash = "sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90", size = 6675, upload-time = "2025-01-15T12:07:22.074Z" },
-]
-
-[[package]]
-name = "types-psycopg2"
-version = "2.9.21.20260223"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/55/1f/4daff0ce5e8e191844e65aaa793ed1b9cb40027dc2700906ecf2b6bcc0ed/types_psycopg2-2.9.21.20260223.tar.gz", hash = "sha256:78ed70de2e56bc6b5c26c8c1da8e9af54e49fdc3c94d1504609f3519e2b84f02", size = 27090, upload-time = "2026-02-23T04:11:18.177Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/e7/c566df58410bc0728348b514e718f0b38fa0d248b5c10599a11494ba25d2/types_psycopg2-2.9.21.20260223-py3-none-any.whl", hash = "sha256:c6228ade72d813b0624f4c03feeb89471950ac27cd0506b5debed6f053086bc8", size = 24919, upload-time = "2026-02-23T04:11:17.214Z" },
 ]
 
 [[package]]
