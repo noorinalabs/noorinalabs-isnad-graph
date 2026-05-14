@@ -109,10 +109,11 @@ class ActiveDuring(BaseModel):
 class Narrated(BaseModel):
     """Edge: a narrator narrated (was the originating source of) a hadith.
 
-    Mirrors the ``NARRATED`` relationship emitted by the ingestion pipeline's
-    normalize stage (workers/ingest/schema.py). The pipeline merges this edge
-    with no typed properties today; this model establishes the schema contract
-    so the property allow-list can be tightened upstream.
+    Establishes the schema contract for the ``NARRATED`` relationship
+    (narrator -> hadith). The graph-loading emitter is not yet implemented in
+    this repo; the relationship is currently merged with no typed properties.
+    Defining the model now lets the property allow-list be tightened once the
+    loader lands.
     """
 
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
