@@ -17,7 +17,6 @@ import SearchPage from './pages/SearchPage'
 import TimelinePage from './pages/TimelinePage'
 import ComparativePage from './pages/ComparativePage'
 import GraphExplorerPage from './pages/GraphExplorerPage'
-import UserManagementPage from './pages/admin/UserManagementPage'
 import SystemHealthPage from './pages/admin/SystemHealthPage'
 import ContentStatsPage from './pages/admin/ContentStatsPage'
 import UsageAnalyticsPage from './pages/admin/UsageAnalyticsPage'
@@ -83,7 +82,7 @@ export default function App() {
                 <Route path="admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/dashboard" replace />} />
                   <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="users" element={<UserManagementPage />} />
+                  <Route path="users" element={<Navigate to="/admin/dashboard" replace />} />
                   <Route path="health" element={<SystemHealthPage />} />
                   <Route path="stats" element={<ContentStatsPage />} />
                   <Route path="analytics" element={<UsageAnalyticsPage />} />

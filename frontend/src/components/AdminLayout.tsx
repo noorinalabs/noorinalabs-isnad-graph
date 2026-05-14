@@ -3,9 +3,9 @@ import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
 import styles from './AdminLayout.module.css'
 
+// User Management omitted — backend 501 pending user-service admin API (#835, #806).
 const adminNavItems = [
   { to: '/admin/dashboard', label: 'Dashboard' },
-  { to: '/admin/users', label: 'User Management' },
   { to: '/admin/health', label: 'System Health' },
   { to: '/admin/stats', label: 'Content Stats' },
   { to: '/admin/analytics', label: 'Usage Analytics' },
