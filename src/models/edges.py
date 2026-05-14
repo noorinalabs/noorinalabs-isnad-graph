@@ -14,6 +14,7 @@ __all__ = [
     "ActiveDuring",
     "AppearsIn",
     "BasedIn",
+    "GradedBy",
     "Narrated",
     "ParallelOf",
     "StudiedUnder",
@@ -137,3 +138,23 @@ class BasedIn(BaseModel):
     """Period of residence in Hijri years."""
     role: str | None = None
     """Role or activity at this location."""
+
+
+class GradedBy(BaseModel):
+    """Edge: a hadith was assigned a grading.
+
+    Mirrors the ``GRADED_BY`` relationship (hadith -> grading) emitted by the
+    ingest-platform normalize stage — ``workers/normalize/processor.py``
+    appends an ``_EdgeRow(label="GRADED_BY", src_label="Hadith",
+    dst_label="Grading", props={})`` whenever a grade is present. The emitter
+    carries no typed edge properties today; this model establishes the schema
+    contract so ingest-platform can tighten its ``GRADED_BY`` property
+    allow-list to match.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    hadith_id: str
+    """FK to Hadith.id — the hadith that was graded."""
+    grading_id: str
+    """FK to Grading.id — the grading assigned to the hadith."""
