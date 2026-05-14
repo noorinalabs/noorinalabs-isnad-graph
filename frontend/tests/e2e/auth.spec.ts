@@ -72,6 +72,27 @@ test.describe('OAuth callback redirect contract', () => {
     expect(token).toBe('oauth-access-token')
   })
 
+  test('fragment-delivered token is parsed and stored (prep for user-service #68)', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    )
+
+    // user-service #68 moves the token from the query string into the URL
+    // fragment (`#token=...`) so it never reaches server logs / Referer.
+    // Non-secret params (is_new_user/needs_verification) stay in the query.
+    await page.goto(
+      '/auth/callback/google?is_new_user=0&needs_verification=0#token=fragment-access-token',
+    )
+
+    await expect(page).not.toHaveURL(/\/auth\/callback/)
+    await expect(page).not.toHaveURL(/\/login/)
+
+    const token = await page.evaluate(() => localStorage.getItem('access_token'))
+    expect(token).toBe('fragment-access-token')
+  })
+
   test('provider-qualified new-user redirect lands on email verification', async ({ page }) => {
     await page.route('**/api/v1/**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
