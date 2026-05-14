@@ -17,13 +17,9 @@ import type {
 } from '../types/api'
 
 import { emitSessionExpired } from '../hooks/useAuth'
+import { getAuthHeaders } from './auth-headers'
 
 const API_BASE = '/api/v1'
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 interface FetchJsonOptions {
   // Statuses that should resolve to `null` instead of throwing.
