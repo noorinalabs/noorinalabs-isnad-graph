@@ -22,16 +22,23 @@ test.describe('Accessibility', () => {
   })
 
   test('home page (authenticated) has no accessibility violations', async ({ page }) => {
-    // Mock auth
-    await page.route('**/api/v1/auth/me', (route) =>
+    // useAuth calls `/api/v1/users/me` (user-service `UserRead` schema).
+    await page.route('**/api/v1/users/me', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authUser) }),
     )
-    // Mock subscription — return active trial so ProtectedRoute renders the app
-    await page.route('**/api/v1/auth/subscription', (route) =>
+    // useSubscription calls `/api/v1/subscriptions/me` — return active trial
+    // so ProtectedRoute sees `isExpired=false` and renders <Outlet/>.
+    await page.route('**/api/v1/subscriptions/me', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ status: 'trial', tier: 'trial', days_remaining: 7 }),
+        body: JSON.stringify({
+          tier: 'trial',
+          status: 'trial',
+          days_remaining: 7,
+          trial_start: '2026-01-01T00:00:00Z',
+          trial_expires: '2026-01-08T00:00:00Z',
+        }),
       }),
     )
     await page.addInitScript(() => {

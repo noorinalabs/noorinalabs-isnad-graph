@@ -17,7 +17,7 @@
 #
 # The frontend build needs the design-system tarball staged into the frontend
 # build context. We check out noorinalabs-design-system @ v0.0.1, run
-# `npm install --omit=dev && npm pack`, and move the .tgz into ./frontend/
+# `npm ci && npm run build && npm pack`, and move the .tgz into ./frontend/
 # before docker/build-push-action runs. The frontend Dockerfile's
 # `COPY noorinalabs-design-system-0.0.1.tgz /` step (fixed in #820) expects
 # the tarball at the root of its build context.
@@ -93,11 +93,14 @@ jobs:
         # v0.0.1's package.json declares `files: ["dist"]` with NO prepack /
         # prepare hook, and `dist/` is not committed. A fresh clone packs an
         # empty 172-byte tarball (just package.json metadata) unless we run
-        # the build first. We also MUST use plain `npm install` — NOT
-        # `--omit=dev` — because Vite (the builder) is a devDependency.
-        # Sequence: install ALL deps → run build (populates dist/) → pack.
+        # the build first. We also MUST install ALL deps (no `--omit=dev`)
+        # because Vite (the builder) is a devDependency.
+        # Sequence: install ALL deps from lockfile → run build (populates dist/) → pack.
+        # `npm ci` (not `npm install`) is used to install exact locked versions
+        # from package-lock.json — reproducible release artifact, fails fast if
+        # lockfile and package.json drift (#823).
         run: |
-          npm install
+          npm ci
           npm run build
           npm pack
           ls -lh ./*.tgz
