@@ -15,6 +15,7 @@ from src.models.edges import (
     ActiveDuring,
     AppearsIn,
     BasedIn,
+    GradedBy,
     Narrated,
     ParallelOf,
     StudiedUnder,
@@ -216,6 +217,11 @@ class TestInstantiation:
         assert edge.narrator_id == "nar:a"
         assert edge.hadith_id == "hdt:001"
 
+    def test_graded_by(self) -> None:
+        edge = GradedBy(hadith_id="hdt:001", grading_id="grd:001")
+        assert edge.hadith_id == "hdt:001"
+        assert edge.grading_id == "grd:001"
+
 
 # ---------------------------------------------------------------------------
 # Validation / rejection tests
@@ -266,6 +272,10 @@ class TestValidation:
     def test_narrated_missing_hadith_id(self) -> None:
         with pytest.raises(ValidationError):
             Narrated(narrator_id="nar:a")  # type: ignore[call-arg]
+
+    def test_graded_by_missing_grading_id(self) -> None:
+        with pytest.raises(ValidationError):
+            GradedBy(hadith_id="hdt:001")  # type: ignore[call-arg]
 
     def test_parallel_of_missing_similarity(self) -> None:
         with pytest.raises(ValidationError):
@@ -394,6 +404,11 @@ class TestFrozen:
         with pytest.raises(ValidationError):
             edge.hadith_id = "hdt:002"  # type: ignore[misc]
 
+    def test_graded_by_frozen(self) -> None:
+        edge = GradedBy(hadith_id="hdt:001", grading_id="grd:001")
+        with pytest.raises(ValidationError):
+            edge.grading_id = "grd:002"  # type: ignore[misc]
+
     def test_transmitted_to_frozen(self) -> None:
         edge = TransmittedTo(
             from_narrator_id="nar:a",
@@ -517,6 +532,12 @@ class TestRoundTrip:
         original = Narrated(narrator_id="nar:a", hadith_id="hdt:001")
         data = original.model_dump()
         rebuilt = Narrated(**data)
+        assert rebuilt == original
+
+    def test_graded_by_round_trip(self) -> None:
+        original = GradedBy(hadith_id="hdt:001", grading_id="grd:001")
+        data = original.model_dump()
+        rebuilt = GradedBy(**data)
         assert rebuilt == original
 
     def test_based_in_round_trip(self) -> None:
