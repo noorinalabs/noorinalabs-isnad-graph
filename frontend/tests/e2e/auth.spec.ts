@@ -45,3 +45,54 @@ test.describe('Authentication', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 })
+
+test.describe('OAuth callback redirect contract', () => {
+  // Regression guard for the cross-repo OAuth callback contract (#890, see #824).
+  // user-service `_build_post_login_url()` ALWAYS appends `/{provider}`, so the
+  // real redirect is `/auth/callback/google?token=...` — WITH the provider
+  // segment. These tests goto the provider-qualified URL so they fail if the
+  // frontend route `auth/callback/:provider` is ever changed to drop `:provider`
+  // (which would make React Router 404 the real redirect — that was #824).
+
+  test('provider-qualified success redirect matches the route and stores token', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    )
+
+    await page.goto('/auth/callback/google?token=oauth-access-token&is_new_user=0&needs_verification=0')
+
+    // Route matched (no fall-through to the `*` 404 catch-all) and
+    // AuthCallbackPage navigated away after processing the token.
+    await expect(page).not.toHaveURL(/\/auth\/callback/)
+    await expect(page).not.toHaveURL(/\/login/)
+
+    const token = await page.evaluate(() => localStorage.getItem('access_token'))
+    expect(token).toBe('oauth-access-token')
+  })
+
+  test('provider-qualified new-user redirect lands on email verification', async ({ page }) => {
+    await page.route('**/api/v1/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    )
+
+    await page.goto('/auth/callback/google?token=oauth-access-token&is_new_user=1&needs_verification=1')
+
+    await expect(page).toHaveURL(/\/check-email/)
+  })
+
+  test('provider-qualified error redirect renders the sign-in failed UI', async ({ page }) => {
+    await page.goto('/auth/callback/google?error=oauth_exchange_failed')
+
+    // Route matched and AuthCallbackPage rendered the error branch rather than
+    // navigating away. (toBeAttached, not toBeVisible — the error card's width
+    // utilities collapse under the preview build's Tailwind output; tracked
+    // separately in #889.)
+    await expect(page.getByRole('heading', { name: 'Sign-in failed' })).toBeAttached()
+    await expect(
+      page.getByText(/unable to complete sign-in with the provider/i),
+    ).toBeAttached()
+    await expect(page).toHaveURL(/\/auth\/callback\/google/)
+  })
+})
