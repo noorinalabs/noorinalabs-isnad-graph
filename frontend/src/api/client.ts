@@ -25,11 +25,25 @@ function getAuthHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+interface FetchJsonOptions {
+  // Statuses that should resolve to `null` instead of throwing.
+  // Use for endpoints where a non-OK status is a terminal data state
+  // (e.g. 404 = "no record" or "free tier") rather than an error.
+  // 401 still triggers `emitSessionExpired`; listing it here is a no-op
+  // for that side effect but suppresses the throw.
+  allowStatuses?: number[]
+}
+
+async function fetchJson<T>(url: string): Promise<T>
+async function fetchJson<T>(url: string, opts: FetchJsonOptions): Promise<T | null>
+async function fetchJson<T>(url: string, opts?: FetchJsonOptions): Promise<T | null> {
   const res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
   if (!res.ok) {
     if (res.status === 401) {
       emitSessionExpired()
+    }
+    if (opts?.allowStatuses?.includes(res.status)) {
+      return null
     }
     throw new Error(`API error: ${res.status} ${res.statusText}`)
   }
@@ -199,18 +213,9 @@ export async function flagContent(
 // (free tier / admin), not an error. Resolve it to null and let callers
 // branch on `subscription === null`. Other non-OK statuses throw as usual.
 export async function fetchSubscriptionOrNull(): Promise<SubscriptionResponse | null> {
-  const res = await fetch(`${API_BASE}/subscriptions/me`, {
-    headers: getAuthHeaders(),
-    credentials: 'include',
+  return fetchJson<SubscriptionResponse>(`${API_BASE}/subscriptions/me`, {
+    allowStatuses: [404],
   })
-  if (res.status === 404) return null
-  if (!res.ok) {
-    if (res.status === 401) {
-      emitSessionExpired()
-    }
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
-  }
-  return res.json() as Promise<SubscriptionResponse>
 }
 
 // --- Admin: Reports ---
