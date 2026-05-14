@@ -58,3 +58,8 @@ temp/
 Thumbs.db
 
 .claude/.librarian-consulted/
+
+# Git worktrees — agents create these under .claude/worktrees/ for isolation.
+# They must never be committed: stale worktree snapshots get treated as
+# canonical source otherwise (#807).
+.claude/worktrees/
