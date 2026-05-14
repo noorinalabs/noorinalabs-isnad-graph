@@ -1,29 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  fetchProfile,
-  updateProfile,
-  fetchSessions,
-  revokeSession,
-} from '../api/profile-client'
-import type { UserPreferences } from '../api/profile-client'
+import { fetchProfile, updateProfile, fetchSessions, revokeSession } from '../api/profile-client'
+import { deriveHighestRole } from '../hooks/useAuth'
 
-function providerLabel(provider: string): string {
-  switch (provider) {
-    case 'google':
-      return 'Google'
-    case 'github':
-      return 'GitHub'
-    case 'apple':
-      return 'Apple'
-    case 'facebook':
-      return 'Facebook'
-    default:
-      return provider.charAt(0).toUpperCase() + provider.slice(1)
-  }
-}
-
-function roleBadgeColor(role: string | null): string {
+function roleBadgeColor(role: string): string {
   switch (role) {
     case 'admin':
       return 'var(--color-destructive, #ef4444)'
@@ -59,11 +39,6 @@ export default function ProfilePage() {
     },
   })
 
-  const updatePrefsMutation = useMutation({
-    mutationFn: (preferences: UserPreferences) => updateProfile({ preferences }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
-  })
-
   const revokeSessionMutation = useMutation({
     mutationFn: (sessionId: string) => revokeSession(sessionId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sessions'] }),
@@ -72,6 +47,10 @@ export default function ProfilePage() {
   if (isLoading) return <p>Loading profile...</p>
   if (error) return <p className="error-text">Error: {(error as Error).message}</p>
   if (!profile) return null
+
+  // `display_name` is nullable on user-service `UserRead` — fall back to email.
+  const displayName = profile.display_name ?? profile.email
+  const role = deriveHighestRole(profile.roles)
 
   const sectionStyle: React.CSSProperties = {
     marginBottom: 'var(--spacing-6)',
@@ -135,11 +114,11 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)' }}>
-                <span style={valueStyle}>{profile.name}</span>
+                <span style={valueStyle}>{displayName}</span>
                 <button
                   className="btn"
                   onClick={() => {
-                    setNameInput(profile.name)
+                    setNameInput(profile.display_name ?? '')
                     setEditingName(true)
                   }}
                   style={{ fontSize: 'var(--text-xs)', padding: 'var(--spacing-0_5) var(--spacing-2)' }}
@@ -152,10 +131,6 @@ export default function ProfilePage() {
           <div>
             <div style={labelStyle}>Email</div>
             <div style={valueStyle}>{profile.email}</div>
-          </div>
-          <div>
-            <div style={labelStyle}>Auth Provider</div>
-            <div style={valueStyle}>{providerLabel(profile.provider)}</div>
           </div>
           <div>
             <div style={labelStyle}>Member Since</div>
@@ -173,99 +148,13 @@ export default function ProfilePage() {
                 fontWeight: 600,
                 borderRadius: 'var(--radius-full)',
                 color: '#fff',
-                background: roleBadgeColor(profile.role),
+                background: roleBadgeColor(role),
               }}
             >
-              {(profile.role ?? 'viewer').toUpperCase()}
+              {role.toUpperCase()}
             </span>
           </div>
         </div>
-      </div>
-
-      {/* Preferences */}
-      <div style={sectionStyle}>
-        <h3
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: 'var(--text-base)',
-            marginBottom: 'var(--spacing-4)',
-          }}
-        >
-          Preferences
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-4)' }}>
-          <div>
-            <div style={labelStyle}>Default Search Mode</div>
-            <select
-              className="form-input"
-              value={profile.preferences.default_search_mode}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  default_search_mode: e.target.value,
-                })
-              }
-            >
-              <option value="fulltext">Full Text</option>
-              <option value="semantic">Semantic</option>
-            </select>
-          </div>
-          <div>
-            <div style={labelStyle}>Results Per Page</div>
-            <select
-              className="form-input"
-              value={profile.preferences.results_per_page}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  results_per_page: Number(e.target.value),
-                })
-              }
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div style={labelStyle}>Language (stub)</div>
-            <select
-              className="form-input"
-              value={profile.preferences.language_preference}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  language_preference: e.target.value,
-                })
-              }
-            >
-              <option value="en">English</option>
-              <option value="ar">Arabic</option>
-            </select>
-          </div>
-          <div>
-            <div style={labelStyle}>Theme (stub)</div>
-            <select
-              className="form-input"
-              value={profile.preferences.theme_preference}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  theme_preference: e.target.value,
-                })
-              }
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </div>
-        </div>
-        {updatePrefsMutation.isPending && (
-          <p style={{ marginTop: 'var(--spacing-2)', fontSize: 'var(--text-xs)' }}>Saving...</p>
-        )}
       </div>
 
       {/* Active Sessions */}
