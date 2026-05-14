@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends
 from src.api.deps import get_neo4j
 from src.api.models import SystemHealthResponse
 from src.utils.neo4j_client import Neo4jClient
+from src.utils.pg_client import PgClient
+from src.utils.redis_client import get_redis_client
 
 router = APIRouter(prefix="/health")
 
@@ -26,7 +28,14 @@ def liveness() -> SystemHealthResponse:
 def readiness(
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> SystemHealthResponse:
-    """Readiness probe — check Neo4j, PostgreSQL, and Redis connectivity."""
+    """Readiness probe — check Neo4j, PostgreSQL, and Redis connectivity.
+
+    Verifies each service through the same accessor the application uses for
+    real traffic — the ``app.state.neo4j`` driver, the ``PgClient`` wrapper,
+    and ``get_redis_client`` — rather than constructing throwaway connections
+    by hand. The accessors are still invoked inside per-service guards so an
+    unreachable dependency yields a ``degraded`` response rather than a 500.
+    """
     neo4j_ok = False
     pg_ok = False
     redis_ok = False
@@ -38,27 +47,16 @@ def readiness(
         pass
 
     try:
-        from src.config import get_settings
-
-        settings = get_settings()
-        if settings.postgres.dsn:
-            import psycopg
-
-            conn = psycopg.connect(str(settings.postgres.dsn))
-            conn.close()
-            pg_ok = True
+        with PgClient() as pg:
+            pg.execute("SELECT 1")
+        pg_ok = True
     except Exception:
         pass
 
     try:
-        from src.config import get_settings
-
-        settings = get_settings()
-        if settings.redis.url:
-            import redis
-
-            r = redis.from_url(str(settings.redis.url))
-            r.ping()
+        client = get_redis_client()
+        if client is not None:
+            client.ping()
             redis_ok = True
     except Exception:
         pass

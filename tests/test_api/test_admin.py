@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -132,14 +132,64 @@ class TestAdminHealth:
         assert data["status"] == "ok"
 
     def test_readiness(self, admin_client: TestClient, mock_neo4j: MagicMock) -> None:
+        """Readiness reports ok when every service is reachable via its accessor.
+
+        Postgres is mocked at the ``PgClient`` wrapper and Redis at the
+        ``get_redis_client`` helper — both imported into the admin health
+        module — so the probe exercises the same accessors the application
+        uses for real traffic. ``PgClient`` is used as a context manager.
+        """
         mock_neo4j.execute_read.return_value = [{"ok": 1}]
-        resp = admin_client.get("/api/v1/admin/health/ready")
+
+        mock_pg = MagicMock()
+        mock_pg.execute.return_value = [{"?column?": 1}]
+        mock_pg_cls = MagicMock()
+        mock_pg_cls.return_value.__enter__.return_value = mock_pg
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+
+        with (
+            patch("src.api.routes.admin.health.PgClient", mock_pg_cls),
+            patch(
+                "src.api.routes.admin.health.get_redis_client",
+                return_value=mock_redis,
+            ),
+        ):
+            resp = admin_client.get("/api/v1/admin/health/ready")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["status"] in ("ok", "degraded")
-        assert "neo4j" in data
-        assert "postgres" in data
-        assert "redis" in data
+        assert data["status"] == "ok"
+        assert data["neo4j"] is True
+        assert data["postgres"] is True
+        assert data["redis"] is True
+
+    def test_readiness_degraded_when_pg_down(
+        self, admin_client: TestClient, mock_neo4j: MagicMock
+    ) -> None:
+        """Readiness reports degraded (not 500) when a service accessor fails."""
+        mock_neo4j.execute_read.return_value = [{"ok": 1}]
+
+        mock_pg = MagicMock()
+        mock_pg.execute.side_effect = RuntimeError("connection refused")
+        mock_pg_cls = MagicMock()
+        mock_pg_cls.return_value.__enter__.return_value = mock_pg
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+
+        with (
+            patch("src.api.routes.admin.health.PgClient", mock_pg_cls),
+            patch(
+                "src.api.routes.admin.health.get_redis_client",
+                return_value=mock_redis,
+            ),
+        ):
+            resp = admin_client.get("/api/v1/admin/health/ready")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "degraded"
+        assert data["postgres"] is False
+        assert data["neo4j"] is True
+        assert data["redis"] is True
 
 
 # --- Stats endpoint ---
