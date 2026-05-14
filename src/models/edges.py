@@ -14,6 +14,7 @@ __all__ = [
     "ActiveDuring",
     "AppearsIn",
     "BasedIn",
+    "Narrated",
     "ParallelOf",
     "StudiedUnder",
     "TransmittedTo",
@@ -103,6 +104,24 @@ class ActiveDuring(BaseModel):
     """Role the narrator played during the event."""
     affiliation: str | None = None
     """Political or theological affiliation during the event."""
+
+
+class Narrated(BaseModel):
+    """Edge: a narrator narrated (was the originating source of) a hadith.
+
+    Establishes the schema contract for the ``NARRATED`` relationship
+    (narrator -> hadith). The graph-loading emitter is not yet implemented in
+    this repo; the relationship is currently merged with no typed properties.
+    Defining the model now lets the property allow-list be tightened once the
+    loader lands.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    narrator_id: str
+    """FK to Narrator.id — the narrator who narrated the hadith."""
+    hadith_id: str
+    """FK to Hadith.id — the hadith that was narrated."""
 
 
 class BasedIn(BaseModel):
