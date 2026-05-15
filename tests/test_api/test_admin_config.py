@@ -1,4 +1,11 @@
-"""Tests for admin config endpoints."""
+"""Tests for admin config endpoints.
+
+Shared fixtures (``mock_neo4j``, ``admin_app``/``admin_client``,
+``noauth_client``, ``regular_client``, the ``_clear_settings_cache`` autouse
+shim) live in ``tests/test_api/conftest.py``. The ``get_pg`` dependency
+override with a local ``mock_pg`` is specific to the config endpoints and
+stays here.
+"""
 
 from __future__ import annotations
 
@@ -8,30 +15,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.api.auth import User
-from src.api.middleware import require_admin
-from tests.test_api.test_admin import _admin_user, _test_settings
-
-
-@pytest.fixture(autouse=True)
-def _clear_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    test_settings = _test_settings()
-    from src.config import get_settings
-
-    get_settings.cache_clear()
-
-    import src.config
-
-    monkeypatch.setattr(src.config, "get_settings", lambda: test_settings)
-
-
-@pytest.fixture
-def mock_neo4j() -> MagicMock:
-    client = MagicMock()
-    client.execute_read.return_value = []
-    client.execute_write.return_value = []
-    return client
-
 
 @pytest.fixture
 def mock_pg() -> MagicMock:
@@ -40,21 +23,12 @@ def mock_pg() -> MagicMock:
     return pg
 
 
-@pytest.fixture
-def admin_app(mock_neo4j: MagicMock, mock_pg: MagicMock) -> FastAPI:
-    from src.api.app import create_app
+@pytest.fixture(autouse=True)
+def _override_get_pg(admin_app: FastAPI, mock_pg: MagicMock) -> None:
+    """Override the get_pg dependency on the shared admin_app with mock_pg."""
     from src.api.deps import get_pg
 
-    app = create_app()
-    app.state.neo4j = mock_neo4j
-    app.dependency_overrides[require_admin] = _admin_user
-    app.dependency_overrides[get_pg] = lambda: mock_pg
-    return app
-
-
-@pytest.fixture
-def admin_client(admin_app: FastAPI) -> TestClient:
-    return TestClient(admin_app)
+    admin_app.dependency_overrides[get_pg] = lambda: mock_pg
 
 
 class TestGetConfig:
@@ -204,37 +178,6 @@ class TestConfigAudit:
 
 
 class TestConfigAuthEnforcement:
-    @pytest.fixture
-    def noauth_app(self, mock_neo4j: MagicMock) -> FastAPI:
-        from src.api.app import create_app
-
-        app = create_app()
-        app.state.neo4j = mock_neo4j
-        return app
-
-    @pytest.fixture
-    def noauth_client(self, noauth_app: FastAPI) -> TestClient:
-        return TestClient(noauth_app)
-
-    @pytest.fixture
-    def regular_app(self, mock_neo4j: MagicMock) -> FastAPI:
-        from fastapi import HTTPException
-
-        from src.api.app import create_app
-
-        app = create_app()
-        app.state.neo4j = mock_neo4j
-
-        def _raise_forbidden() -> User:
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        app.dependency_overrides[require_admin] = _raise_forbidden
-        return app
-
-    @pytest.fixture
-    def regular_client(self, regular_app: FastAPI) -> TestClient:
-        return TestClient(regular_app)
-
     def test_get_config_401(self, noauth_client: TestClient) -> None:
         resp = noauth_client.get("/api/v1/admin/config")
         assert resp.status_code == 401
