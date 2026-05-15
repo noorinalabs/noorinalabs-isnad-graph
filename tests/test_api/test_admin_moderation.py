@@ -1,54 +1,16 @@
-"""Tests for admin moderation endpoints."""
+"""Tests for admin moderation endpoints.
+
+Shared fixtures (``mock_neo4j``, ``admin_client``, ``noauth_client``,
+``regular_client``, the ``_clear_settings_cache`` autouse shim) live in
+``tests/test_api/conftest.py``.
+"""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from src.api.auth import User
-from src.api.middleware import require_admin
-from tests.test_api.test_admin import (
-    _admin_user,
-    _test_settings,
-)
-
-
-@pytest.fixture(autouse=True)
-def _clear_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    test_settings = _test_settings()
-    from src.config import get_settings
-
-    get_settings.cache_clear()
-
-    import src.config
-
-    monkeypatch.setattr(src.config, "get_settings", lambda: test_settings)
-
-
-@pytest.fixture
-def mock_neo4j() -> MagicMock:
-    client = MagicMock()
-    client.execute_read.return_value = []
-    client.execute_write.return_value = []
-    return client
-
-
-@pytest.fixture
-def admin_app(mock_neo4j: MagicMock) -> FastAPI:
-    from src.api.app import create_app
-
-    app = create_app()
-    app.state.neo4j = mock_neo4j
-    app.dependency_overrides[require_admin] = _admin_user
-    return app
-
-
-@pytest.fixture
-def admin_client(admin_app: FastAPI) -> TestClient:
-    return TestClient(admin_app)
 
 
 @pytest.fixture
@@ -232,37 +194,6 @@ class TestFlagContent:
 
 
 class TestModerationAuthEnforcement:
-    @pytest.fixture
-    def noauth_app(self, mock_neo4j: MagicMock) -> FastAPI:
-        from src.api.app import create_app
-
-        app = create_app()
-        app.state.neo4j = mock_neo4j
-        return app
-
-    @pytest.fixture
-    def noauth_client(self, noauth_app: FastAPI) -> TestClient:
-        return TestClient(noauth_app)
-
-    @pytest.fixture
-    def regular_app(self, mock_neo4j: MagicMock) -> FastAPI:
-        from fastapi import HTTPException
-
-        from src.api.app import create_app
-
-        app = create_app()
-        app.state.neo4j = mock_neo4j
-
-        def _raise_forbidden() -> User:
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        app.dependency_overrides[require_admin] = _raise_forbidden
-        return app
-
-    @pytest.fixture
-    def regular_client(self, regular_app: FastAPI) -> TestClient:
-        return TestClient(regular_app)
-
     def test_list_401(self, noauth_client: TestClient) -> None:
         resp = noauth_client.get("/api/v1/admin/moderation")
         assert resp.status_code == 401

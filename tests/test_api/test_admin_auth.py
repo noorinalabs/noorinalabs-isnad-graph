@@ -1,72 +1,13 @@
-"""Tests for admin auth enforcement across all admin endpoints."""
+"""Tests for admin auth enforcement across all admin endpoints.
+
+The ``noauth_client`` / ``regular_client`` fixtures and the
+``_clear_settings_cache`` autouse shim live in ``tests/test_api/conftest.py``.
+"""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
-from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-
-from src.api.auth import User
-from src.api.middleware import require_admin
-from tests.test_api.test_admin import _test_settings
-
-
-@pytest.fixture(autouse=True)
-def _clear_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    test_settings = _test_settings()
-    from src.config import get_settings
-
-    get_settings.cache_clear()
-
-    import src.config
-
-    monkeypatch.setattr(src.config, "get_settings", lambda: test_settings)
-
-
-@pytest.fixture
-def mock_neo4j() -> MagicMock:
-    client = MagicMock()
-    client.execute_read.return_value = []
-    client.execute_write.return_value = []
-    return client
-
-
-@pytest.fixture
-def noauth_app(mock_neo4j: MagicMock) -> FastAPI:
-    """App with no auth overrides — all admin endpoints should return 401."""
-    from src.api.app import create_app
-
-    app = create_app()
-    app.state.neo4j = mock_neo4j
-    return app
-
-
-@pytest.fixture
-def noauth_client(noauth_app: FastAPI) -> TestClient:
-    return TestClient(noauth_app)
-
-
-@pytest.fixture
-def regular_app(mock_neo4j: MagicMock) -> FastAPI:
-    """App with non-admin user — all admin endpoints should return 403."""
-    from src.api.app import create_app
-
-    app = create_app()
-    app.state.neo4j = mock_neo4j
-
-    def _raise_forbidden() -> User:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    app.dependency_overrides[require_admin] = _raise_forbidden
-    return app
-
-
-@pytest.fixture
-def regular_client(regular_app: FastAPI) -> TestClient:
-    return TestClient(regular_app)
-
 
 # All admin GET endpoints that should be protected
 ADMIN_GET_ENDPOINTS = [
