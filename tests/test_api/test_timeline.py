@@ -64,6 +64,48 @@ def test_timeline_count_respects_year_filter(client: TestClient, mock_neo4j: Mag
     assert count_params["end_year"] == 10
 
 
+def test_timeline_data_query_respects_year_filter(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """The data query receives the same start/end year filter as the count query."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"total": 1}],
+        [SAMPLE_EVENT],
+    ]
+    resp = client.get("/api/v1/timeline?start_year=1&end_year=10")
+    assert resp.status_code == 200
+
+    data_params = mock_neo4j.execute_read.call_args_list[1][0][1]
+    assert data_params["start_year"] == 1
+    assert data_params["end_year"] == 10
+
+
+def test_timeline_pagination_skip(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """page/limit translate into the expected SKIP value on the data query."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"total": 50}],
+        [SAMPLE_EVENT],
+    ]
+    resp = client.get("/api/v1/timeline?page=4&limit=10")
+    assert resp.status_code == 200
+
+    data_params = mock_neo4j.execute_read.call_args_list[1][0][1]
+    assert data_params["skip"] == 30
+    assert data_params["limit"] == 10
+
+
+def test_timeline_rejects_invalid_page(client: TestClient) -> None:
+    """GET /api/v1/timeline?page=0 is rejected by the ge=1 bound."""
+    resp = client.get("/api/v1/timeline?page=0")
+    assert resp.status_code == 422
+
+
+def test_timeline_rejects_limit_over_max(client: TestClient) -> None:
+    """GET /api/v1/timeline?limit=501 is rejected by the le=500 bound."""
+    resp = client.get("/api/v1/timeline?limit=501")
+    assert resp.status_code == 422
+
+
 def test_timeline_range(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/timeline/range returns min/max year from events."""
     mock_neo4j.execute_read.side_effect = [
@@ -73,4 +115,16 @@ def test_timeline_range(client: TestClient, mock_neo4j: MagicMock) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["min_year_ah"] == 1
+    assert body["max_year_ah"] == 300
+
+
+def test_timeline_range_falls_back_when_empty(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/timeline/range returns the 0..300 default when no events exist."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"min_year": None, "max_year": None}],
+    ]
+    resp = client.get("/api/v1/timeline/range")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["min_year_ah"] == 0
     assert body["max_year_ah"] == 300
