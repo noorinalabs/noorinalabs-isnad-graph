@@ -15,12 +15,10 @@
 # workflow dispatched noorinalabs-deploy on every push-to-main without waiting
 # for publish. See isnad-graph#817 and main#145.
 #
-# The frontend build needs the design-system tarball staged into the frontend
-# build context. We check out noorinalabs-design-system @ v0.0.1, run
-# `npm ci && npm run build && npm pack`, and move the .tgz into ./frontend/
-# before docker/build-push-action runs. The frontend Dockerfile's
-# `COPY noorinalabs-design-system-0.0.1.tgz /` step (fixed in #820) expects
-# the tarball at the root of its build context.
+# The frontend build resolves @noorinalabs/design-system from the GitHub
+# Packages npm registry (isnad-graph#810). The frontend Dockerfile runs
+# `npm ci` against that registry, so the GH Packages read token is passed
+# into the Docker build as a build secret (npmrc).
 
 name: Publish to GHCR
 
@@ -42,10 +40,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  # Pinned to the version frontend/package-lock.json references. When the
-  # frontend bumps to 0.0.2 (isnad-graph#818), update this AND the
-  # Dockerfile's COPY line and the package-lock together.
-  DESIGN_SYSTEM_REF: v0.0.1
 
 jobs:
   build-and-push:
@@ -74,60 +68,17 @@ jobs:
       - name: Checkout (isnad-graph)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # Frontend only: stage the design-system tarball into the build context
-      # so the Dockerfile's `COPY noorinalabs-design-system-0.0.1.tgz /` works.
-      # GITHUB_TOKEN works cross-repo because both repos are in the same org.
-      - name: Checkout design-system (frontend only)
+      # Frontend only: build an .npmrc carrying the GH Packages read token so
+      # the Dockerfile's `npm ci` can resolve @noorinalabs/design-system from
+      # the registry (isnad-graph#810). Passed into the Docker build as a
+      # secret file — never baked into an image layer.
+      - name: Write npm auth for design-system registry (frontend only)
         if: matrix.component == 'frontend'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: noorinalabs/noorinalabs-design-system
-          ref: ${{ env.DESIGN_SYSTEM_REF }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: design-system-src
-
-      - name: Build and pack design-system (frontend only)
-        if: matrix.component == 'frontend'
-        working-directory: design-system-src
-        # CRITICAL pattern from ci.yml@f5f413f (Marisol, 2026-04-06):
-        # v0.0.1's package.json declares `files: ["dist"]` with NO prepack /
-        # prepare hook, and `dist/` is not committed. A fresh clone packs an
-        # empty 172-byte tarball (just package.json metadata) unless we run
-        # the build first. We also MUST install ALL deps (no `--omit=dev`)
-        # because Vite (the builder) is a devDependency.
-        # Sequence: install ALL deps from lockfile → run build (populates dist/) → pack.
-        # `npm ci` (not `npm install`) is used to install exact locked versions
-        # from package-lock.json — reproducible release artifact, fails fast if
-        # lockfile and package.json drift (#823).
         run: |
-          npm ci
-          npm run build
-          npm pack
-          ls -lh ./*.tgz
-          mv ./noorinalabs-design-system-*.tgz ../frontend/
-
-      - name: Fix design-system lockfile integrity (frontend only)
-        if: matrix.component == 'frontend'
-        working-directory: frontend
-        # Pattern from ci.yml@615a692 (Marisol, 2026-04-06). The committed
-        # frontend/package-lock.json records the integrity hash of the v0.0.1
-        # tarball that was built and packed at release time. A freshly-packed
-        # tarball from source has a different hash (timestamps / filesystem
-        # ordering), which makes `npm ci` inside the Dockerfile fail with
-        # EINTEGRITY. Strip the integrity field from the lockfile entry;
-        # npm then trusts the resolved `file:` path without checksum.
-        # Because this rewrites the lockfile inside the frontend/ build
-        # context (before docker/build-push-action uploads the context),
-        # the Dockerfile's `COPY package.json package-lock.json ./` + `npm ci`
-        # see the patched lockfile and succeed.
-        run: |
-          node -e "
-            const fs = require('fs');
-            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-            const pkg = lock.packages['node_modules/@noorinalabs/design-system'];
-            if (pkg) { delete pkg.integrity; }
-            fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
-          "
+          {
+            echo "@noorinalabs:registry=https://npm.pkg.github.com"
+            echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_PACKAGES_TOKEN }}"
+          } > "${{ runner.temp }}/ds-npmrc"
 
       - name: Set up QEMU (multi-arch)
         if: contains(matrix.platforms, 'arm64')
@@ -183,6 +134,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Frontend only: mount the GH Packages .npmrc as a build secret so
+          # the Dockerfile's `npm ci` resolves @noorinalabs/design-system from
+          # the registry without baking the token into a layer (#810).
+          secret-files: |
+            ${{ matrix.component == 'frontend' && format('npmrc={0}/ds-npmrc', runner.temp) || '' }}
           # Per-component cache scopes so api and frontend don't evict each
           # other's layers during parallel matrix builds.
           cache-from: type=gha,scope=${{ matrix.component }}
