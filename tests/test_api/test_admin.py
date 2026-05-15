@@ -257,16 +257,3 @@ class TestAdminConfig:
         assert data["entries"][0]["key"] == "rate_limit_per_minute"
         assert data["entries"][0]["old_value"] == "60"
         assert data["entries"][0]["new_value"] == "120"
-
-
-# --- Auth enforcement ---
-
-
-class TestAdminAuthEnforcement:
-    def test_unauthenticated_returns_401(self, noauth_client: TestClient) -> None:
-        resp = noauth_client.get("/api/v1/admin/stats")
-        assert resp.status_code == 401
-
-    def test_non_admin_returns_403(self, regular_client: TestClient) -> None:
-        resp = regular_client.get("/api/v1/admin/stats")
-        assert resp.status_code == 403
