@@ -6,28 +6,16 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from tests.factories import make_search_hadith_hit, make_search_narrator_hit
+
 
 def test_search_fulltext_returns_results(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/search?q=test uses full-text index and returns results."""
     mock_neo4j.execute_read.side_effect = [
         # narrator full-text search
-        [
-            {
-                "id": "nar-001",
-                "name_ar": "اختبار",
-                "name_en": "test narrator",
-                "score": 2.5,
-            }
-        ],
+        [make_search_narrator_hit()],
         # hadith full-text search
-        [
-            {
-                "id": "had-001",
-                "matn_ar": "نص اختبار",
-                "matn_en": "test hadith text",
-                "score": 1.8,
-            }
-        ],
+        [make_search_hadith_hit()],
         # narrator count query
         [{"total": 7}],
         # hadith count query
@@ -56,10 +44,11 @@ def test_search_fulltext_returns_results(client: TestClient, mock_neo4j: MagicMo
 def test_search_total_exceeds_limit(client: TestClient, mock_neo4j: MagicMock) -> None:
     """total reflects the true match count even when results are capped at limit."""
     narrator_hits = [
-        {"id": f"nar-{i}", "name_ar": "اختبار", "name_en": f"n{i}", "score": 1.0} for i in range(2)
+        make_search_narrator_hit(id=f"nar-{i}", name_en=f"n{i}", score=1.0) for i in range(2)
     ]
     hadith_hits = [
-        {"id": f"had-{i}", "matn_ar": "نص", "matn_en": f"h{i}", "score": 1.0} for i in range(2)
+        make_search_hadith_hit(id=f"had-{i}", matn_ar="نص", matn_en=f"h{i}", score=1.0)
+        for i in range(2)
     ]
     mock_neo4j.execute_read.side_effect = [
         narrator_hits,
@@ -82,7 +71,7 @@ def test_search_falls_back_to_contains(client: TestClient, mock_neo4j: MagicMock
     # hadith count: fulltext raises, CONTAINS count fallback succeeds
     mock_neo4j.execute_read.side_effect = [
         Exception("No such index 'narrator_search'"),
-        [{"id": "nar-001", "name_ar": "اختبار", "name_en": "fallback", "score": 1.0}],
+        [make_search_narrator_hit(name_en="fallback", score=1.0)],
         Exception("No such index 'hadith_search'"),
         [],
         Exception("No such index 'narrator_search'"),

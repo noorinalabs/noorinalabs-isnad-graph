@@ -6,12 +6,7 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-SAMPLE_COLLECTION = {
-    "id": "col-001",
-    "name_ar": "صحيح البخاري",
-    "name_en": "Sahih al-Bukhari",
-    "sect": "sunni",
-}
+from tests.factories import make_collection_row
 
 
 def test_list_collections_empty(client: TestClient, mock_neo4j: MagicMock) -> None:
@@ -27,7 +22,7 @@ def test_list_collections_empty(client: TestClient, mock_neo4j: MagicMock) -> No
 
 def test_list_collections_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/collections returns paginated collections from Neo4j."""
-    mock_neo4j.execute_read.side_effect = [[{"total": 1}], [{"props": SAMPLE_COLLECTION}]]
+    mock_neo4j.execute_read.side_effect = [[{"total": 1}], [{"props": make_collection_row()}]]
     resp = client.get("/api/v1/collections")
     assert resp.status_code == 200
     body = resp.json()
@@ -39,7 +34,7 @@ def test_list_collections_with_data(client: TestClient, mock_neo4j: MagicMock) -
 
 def test_get_collection_found(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/collections/{id} returns collection when found."""
-    mock_neo4j.execute_read.return_value = [{"props": SAMPLE_COLLECTION}]
+    mock_neo4j.execute_read.return_value = [{"props": make_collection_row()}]
     resp = client.get("/api/v1/collections/col-001")
     assert resp.status_code == 200
     assert resp.json()["id"] == "col-001"

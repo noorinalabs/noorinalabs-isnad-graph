@@ -6,15 +6,7 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-SAMPLE_NARRATOR = {
-    "id": "nar-001",
-    "name_ar": "\u0623\u0628\u0648 \u0647\u0631\u064a\u0631\u0629",
-    "name_en": "Abu Hurayra",
-    "generation": "companion",
-    "gender": "male",
-    "sect_affiliation": "sunni",
-    "trustworthiness_consensus": "thiqah",
-}
+from tests.factories import make_narrator_row
 
 
 def test_list_narrators_empty(client: TestClient) -> None:
@@ -32,7 +24,7 @@ def test_list_narrators_with_data(client: TestClient, mock_neo4j: MagicMock) -> 
     """GET /api/v1/narrators returns narrators from Neo4j."""
     mock_neo4j.execute_read.side_effect = [
         [{"total": 1}],
-        [{"props": SAMPLE_NARRATOR}],
+        [{"props": make_narrator_row()}],
     ]
     resp = client.get("/api/v1/narrators")
     assert resp.status_code == 200
@@ -47,7 +39,7 @@ def test_list_narrators_pagination(client: TestClient, mock_neo4j: MagicMock) ->
     """Pagination params are forwarded correctly."""
     mock_neo4j.execute_read.side_effect = [
         [{"total": 50}],
-        [{"props": SAMPLE_NARRATOR}],
+        [{"props": make_narrator_row()}],
     ]
     resp = client.get("/api/v1/narrators?page=3&limit=10")
     assert resp.status_code == 200
@@ -61,7 +53,7 @@ def test_list_narrators_fulltext_search(client: TestClient, mock_neo4j: MagicMoc
     mock_neo4j.execute_read.return_value = [
         {
             "total": 1,
-            "rows": [{"props": SAMPLE_NARRATOR}],
+            "rows": [{"props": make_narrator_row()}],
         }
     ]
     resp = client.get("/api/v1/narrators?q=Abu")
@@ -85,7 +77,7 @@ def test_list_narrators_fulltext_search_pagination(
     mock_neo4j.execute_read.return_value = [
         {
             "total": 25,
-            "rows": [{"props": SAMPLE_NARRATOR}],
+            "rows": [{"props": make_narrator_row()}],
         }
     ]
     resp = client.get("/api/v1/narrators?q=Abu&page=2&limit=10")
@@ -104,7 +96,7 @@ def test_list_narrators_fulltext_search_pagination(
 
 def test_get_narrator_found(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/narrators/{id} returns narrator when found."""
-    mock_neo4j.execute_read.return_value = [{"props": SAMPLE_NARRATOR}]
+    mock_neo4j.execute_read.return_value = [{"props": make_narrator_row()}]
     resp = client.get("/api/v1/narrators/nar-001")
     assert resp.status_code == 200
     assert resp.json()["id"] == "nar-001"

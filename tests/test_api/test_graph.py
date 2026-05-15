@@ -6,6 +6,8 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from tests.factories import make_chain_row, make_narrator_node
+
 
 def test_narrator_chains_found(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/graph/narrator/{id}/chains returns chains."""
@@ -13,15 +15,7 @@ def test_narrator_chains_found(client: TestClient, mock_neo4j: MagicMock) -> Non
         # exists check
         [{"id": "nar-001"}],
         # chain rows
-        [
-            {
-                "chain_id": "ch-001",
-                "hadith_id": "had-001",
-                "matn_ar": "متن الحديث",
-                "matn_en": "Hadith text",
-                "grade": "sahih",
-            }
-        ],
+        [make_chain_row()],
     ]
     resp = client.get("/api/v1/graph/narrator/nar-001/chains")
     assert resp.status_code == 200
@@ -37,15 +31,7 @@ def test_narrator_chains_with_max_depth(client: TestClient, mock_neo4j: MagicMoc
         # exists check
         [{"id": "nar-001"}],
         # chain rows
-        [
-            {
-                "chain_id": "ch-001",
-                "hadith_id": "had-001",
-                "matn_ar": "متن الحديث",
-                "matn_en": "Hadith text",
-                "grade": "sahih",
-            }
-        ],
+        [make_chain_row()],
     ]
     resp = client.get("/api/v1/graph/narrator/nar-001/chains?max_depth=3")
     assert resp.status_code == 200
@@ -60,15 +46,7 @@ def test_narrator_chains_default_max_depth(client: TestClient, mock_neo4j: Magic
     """GET /api/v1/graph/narrator/{id}/chains uses default max_depth=5."""
     mock_neo4j.execute_read.side_effect = [
         [{"id": "nar-001"}],
-        [
-            {
-                "chain_id": "ch-001",
-                "hadith_id": "had-001",
-                "matn_ar": "متن",
-                "matn_en": None,
-                "grade": None,
-            }
-        ],
+        [make_chain_row(matn_ar="متن", matn_en=None, grade=None)],
     ]
     resp = client.get("/api/v1/graph/narrator/nar-001/chains")
     assert resp.status_code == 200
@@ -128,44 +106,15 @@ def test_hadith_chain_not_found(client: TestClient) -> None:
 
 def test_narrator_network_found(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/graph/narrator/{id}/network returns ego network."""
-    _narrator_fields = {
-        "id": "nar-001",
-        "name_ar": "الراوي المركزي",
-        "name_en": "Central Narrator",
-        "gen": "companion",
-        "community_id": 1,
-        "in_degree": 2,
-        "out_degree": 3,
-        "betweenness_centrality": 0.05,
-        "pagerank": 0.002,
-        "sect_affiliation": "sunni",
-        "trustworthiness_consensus": "thiqah",
-        "death_year_ah": 59,
-        "birth_year_ah": None,
-        "kunya": None,
-        "nisba": None,
-    }
     mock_neo4j.execute_read.side_effect = [
         # 1: exists check
         [{"id": "nar-001"}],
         # 2: center node fields
-        [_narrator_fields],
+        [make_narrator_node()],
         # 3: neighbors at depth
         [
-            {
-                **_narrator_fields,
-                "id": "nar-010",
-                "name_ar": "المعلم",
-                "name_en": "Teacher",
-                "gen": "companion",
-            },
-            {
-                **_narrator_fields,
-                "id": "nar-020",
-                "name_ar": "الطالب",
-                "name_en": "Student",
-                "gen": "successor",
-            },
+            make_narrator_node(id="nar-010", name_ar="المعلم", name_en="Teacher", gen="companion"),
+            make_narrator_node(id="nar-020", name_ar="الطالب", name_en="Student", gen="successor"),
         ],
         # 4: TRANSMITTED_TO edges
         [

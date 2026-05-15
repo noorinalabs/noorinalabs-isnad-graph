@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from tests.factories import make_narrator_row
 from tests.test_api.routes import GRAPH, HADITHS, NARRATORS, SEARCH
 
 
@@ -90,15 +91,9 @@ class TestBoundaryConditions:
 
     def test_single_narrator_in_database(self, client: TestClient, mock_neo4j: MagicMock) -> None:
         """Database with exactly one narrator returns it correctly."""
-        narrator_props = {
-            "id": "nar-only",
-            "name_ar": "محمد",
-            "name_en": "Muhammad",
-            "generation": "sahabi",
-            "gender": "male",
-            "sect_affiliation": "sunni",
-            "trustworthiness_consensus": "thiqah",
-        }
+        narrator_props = make_narrator_row(
+            id="nar-only", name_ar="محمد", name_en="Muhammad", generation="sahabi"
+        )
         mock_neo4j.execute_read.side_effect = [
             [{"total": 1}],
             [{"props": narrator_props}],
