@@ -10,7 +10,7 @@ import {
 } from '../../api/admin-client'
 import type { AdminUser } from '../../types/admin'
 
-const ROLES = ['viewer', 'editor', 'moderator', 'admin'] as const
+const ROLES = ['trial', 'reader', 'researcher', 'admin'] as const
 
 export default function UserManagementPage() {
   const queryClient = useQueryClient()
@@ -20,7 +20,7 @@ export default function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkRole, setBulkRole] = useState('viewer')
+  const [bulkRole, setBulkRole] = useState('trial')
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -168,7 +168,7 @@ export default function UserManagementPage() {
                   <td>{u.email}</td>
                   <td>{u.provider}</td>
                   <td>
-                    <select className="form-input" value={u.role ?? 'viewer'} onChange={(e) => roleMutation.mutate({ userId: u.id, role: e.target.value })} disabled={roleMutation.isPending} style={{ width: 120, padding: '0.25rem' }}>
+                    <select className="form-input" value={u.role ?? 'trial'} onChange={(e) => roleMutation.mutate({ userId: u.id, role: e.target.value })} disabled={roleMutation.isPending} style={{ width: 120, padding: '0.25rem' }}>
                       {ROLES.map((r) => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
                     </select>
                   </td>
@@ -201,7 +201,7 @@ export default function UserManagementPage() {
               <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Name</div><div style={{ fontWeight: 500 }}>{userDetail.name}</div></div>
               <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Email</div><div style={{ fontWeight: 500 }}>{userDetail.email}</div></div>
               <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Provider</div><div style={{ fontWeight: 500 }}>{userDetail.provider}</div></div>
-              <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Role</div><div style={{ fontWeight: 500 }}>{userDetail.role ?? 'viewer'}</div></div>
+              <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Role</div><div style={{ fontWeight: 500 }}>{userDetail.role ?? 'trial'}</div></div>
               <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Status</div><div style={{ fontWeight: 500 }}>{userDetail.is_suspended ? 'Suspended' : 'Active'}</div></div>
               <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Member Since</div><div style={{ fontWeight: 500 }}>{new Date(userDetail.created_at).toLocaleDateString()}</div></div>
               <div><div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>Total Logins</div><div style={{ fontWeight: 500 }}>{userDetail.login_count}</div></div>

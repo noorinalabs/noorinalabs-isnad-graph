@@ -33,7 +33,7 @@ function authAs(opts: { user: unknown; isAdmin: boolean }) {
     user: opts.user,
     loading: false,
     isAdmin: opts.isAdmin,
-    role: opts.isAdmin ? "admin" : "viewer",
+    role: opts.isAdmin ? "admin" : "trial",
     hasRole: () => opts.isAdmin,
     sessionExpired: false,
     isNewUser: false,
