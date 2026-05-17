@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { createElement } from 'react'
 
-export type UserRole = 'viewer' | 'editor' | 'moderator' | 'admin'
+export type UserRole = 'trial' | 'reader' | 'researcher' | 'admin'
 
 /**
  * Shape of `/api/v1/users/me` (user-service UserRead schema).
@@ -50,33 +50,31 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>
 }
 
+// Mirrors the user-service canonical hierarchy (ontology/repos/user-service.yaml:69
+// → { admin: 40, researcher: 30, reader: 20, trial: 10 }), rescaled to 0-indexed
+// ranks. Order matters for `deriveHighestRole` highest-first iteration.
 const ROLE_HIERARCHY: Record<UserRole, number> = {
-  viewer: 0,
-  editor: 1,
-  moderator: 2,
+  trial: 0,
+  reader: 1,
+  researcher: 2,
   admin: 3,
 }
 
 /**
- * Map a list of role names (as returned by user-service) to the highest
- * matching `UserRole` in the frontend hierarchy. Unknown role names
- * (e.g. user-service DB roles like `researcher`, `reader`, `trial` that
- * aren't yet represented in the frontend union) are ignored — callers
- * default to `viewer` for fully-unknown sets.
- *
- * NOTE: if `UserRole` is extended to cover additional backend roles, add
- * them to `ROLE_HIERARCHY` above and they will automatically participate
- * in derivation here (we iterate the hierarchy highest-first).
+ * Map a list of role names (as returned by user-service `UserRead.roles`) to
+ * the highest matching `UserRole`. The frontend union is reconciled with the
+ * backend vocabulary as of #876 — any string outside `trial|reader|researcher|admin`
+ * is unknown and ignored; if no known role matches, callers default to `trial`
+ * (the lowest tier — least permissive).
  */
 export function deriveHighestRole(roleNames: string[]): UserRole {
-  // Iterate ROLE_HIERARCHY from highest rank to lowest; return first match.
   const ordered = (Object.keys(ROLE_HIERARCHY) as UserRole[]).sort(
     (a, b) => ROLE_HIERARCHY[b] - ROLE_HIERARCHY[a],
   )
   for (const tier of ordered) {
     if (roleNames.includes(tier)) return tier
   }
-  return 'viewer'
+  return 'trial'
 }
 
 // Absolute URLs targeting the user-service vhost (`users.{base}`). Sourced
