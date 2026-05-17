@@ -48,7 +48,7 @@ Rejected. Forces churn-coupling between repos: every Phase-4 enrichment-only fie
 
 ### (b) Lenient subset — `model_fields ⊆ ingest_allow_list`
 
-Rejected after Round-2 dialog with the ingest-platform Architect surfaced bidirectional drift at `origin/deployments/phase-3/wave-11` HEAD: model has 3 Hadith fields not in ingest, ingest has 8 Hadith fields not in model. (b) would silently allow every model→ingest divergence — exactly the bug class #24 was filed to prevent. Subset is asymmetric in the wrong direction.
+Rejected after Round-2 dialog with the ingest-platform Architect surfaced bidirectional drift at `origin/deployments/phase-3/wave-11` HEAD: model has 3 SET-property Hadith fields not in ingest (excluding `id`, which is a merge-key per `model-extras.yaml`), ingest has 8 Hadith fields not in model. (b) would silently allow every model→ingest divergence — exactly the bug class #24 was filed to prevent. Subset is asymmetric in the wrong direction.
 
 ### (c) Single combined exceptions file
 
