@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": "mod-001",
+      "entity_type": "hadith",
+      "entity_id": "bukhari:1",
+      "reason": "spam",
+      "status": "pending",
+      "flagged_by": "user-001",
+      "flagged_at": "2026-05-01T10:00:00Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "notes": null
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20
+}
