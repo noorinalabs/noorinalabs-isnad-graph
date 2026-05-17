@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": "bukhari:1",
+      "matn_ar": "إنما الأعمال بالنيات",
+      "matn_en": "Actions are but by intentions",
+      "grade_composite": "Sahih",
+      "topic_tags": ["intention"],
+      "source_corpus": "Sahih al-Bukhari",
+      "collection_name": "Bukhari",
+      "display_title": "Bukhari 1",
+      "has_shia_parallel": false,
+      "has_sunni_parallel": true
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20
+}
