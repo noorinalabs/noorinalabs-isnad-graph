@@ -10,7 +10,8 @@
     "test": "vitest",
     "lint": "eslint src/",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "gen:types": "openapi-typescript docs/openapi-snapshot.json -o src/types/user-service.d.ts"
   },
   "dependencies": {
     "@noorinalabs/design-system": "^0.0.1",
@@ -45,6 +46,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsdom": "^29.0.1",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.58.1",
     "vite": "^6.4.1",

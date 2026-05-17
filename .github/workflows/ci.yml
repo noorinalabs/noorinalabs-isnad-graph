@@ -125,6 +125,14 @@ jobs:
           "
       - run: npm install
       - run: npx eslint src/
+      # Regenerate user-service types from the committed OpenAPI snapshot and
+      # fail if the result diverges from the committed `.d.ts`. Mirrors the
+      # `openapi-snapshot-drift` job on noorinalabs-user-service (#104). Snapshot
+      # provenance is documented in `frontend/docs/openapi-snapshot.README.md`.
+      - name: Regenerate user-service types from snapshot
+        run: npm run gen:types
+      - name: Check for type drift
+        run: git diff --exit-code src/types/user-service.d.ts
       - run: npx tsc --noEmit
       - run: npx vitest run
 
