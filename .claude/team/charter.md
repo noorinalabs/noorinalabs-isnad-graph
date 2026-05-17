@@ -1,5 +1,13 @@
 # Team Charter — noorinalabs-isnad-graph
 
+## Repository Context
+
+`noorinalabs-isnad-graph` is a child repo of [`noorinalabs-main`](https://github.com/noorinalabs/noorinalabs-main). The shared org-level charter sub-docs are the single source of truth and live in the parent repo at `noorinalabs-main/.claude/team/charter/`. Links to those sub-docs from this charter use **GitHub blob URLs** rather than relative filesystem paths, so they resolve identically from:
+
+- a standalone clone of this repo (where the parent isn't on disk),
+- a worktree checkout (where directory depth breaks relative paths), and
+- a nested clone under `noorinalabs-main/` (where the on-disk copy under the parent's `.claude/team/charter/` directory also exists for offline reference).
+
 ## Purpose
 
 All work on the noorinalabs-isnad-graph repository is executed through a simulated team of specialized agents. Every problem-solving session MUST instantiate this team structure. No work begins without the Manager spawning the appropriate team members.
@@ -17,14 +25,14 @@ The following rules are defined once in the org charter and apply to all repos. 
 
 | Topic | Reference |
 |-------|-----------|
-| Issue comments, reply protocol, delegation, assignment, hygiene | [Org § Issues](../../../.claude/team/charter/issues.md) |
-| Branching rules, deployments branches, worktree cleanup | [Org § Branching](../../../.claude/team/charter/branching.md) |
-| Commit identity, co-author trailers | [Org § Commits](../../../.claude/team/charter/commits.md) |
-| PR workflow, CI enforcement, consolidated PRs, cross-PR deps | [Org § Pull Requests](../../../.claude/team/charter/pull-requests.md) |
-| Agent naming, lifecycle, hub-and-spoke, team lifecycle | [Org § Agents](../../../.claude/team/charter/agents.md) |
-| Hooks (validate identity, block --no-verify, block git config, auto env test, validate labels) | [Org § Hooks](../../../.claude/team/charter/hooks.md) |
-| Tech preferences, debate, tie-breaking (LCA) | [Org § Tech Decisions](../../../.claude/team/charter/tech-decisions.md) |
-| Cross-repo communication protocol | [Org § Communication](../../../.claude/team/charter/communication.md) |
+| Issue comments, reply protocol, delegation, assignment, hygiene | [Org § Issues](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/issues.md) |
+| Branching rules, deployments branches, worktree cleanup | [Org § Branching](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/branching.md) |
+| Commit identity, co-author trailers | [Org § Commits](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/commits.md) |
+| PR workflow, CI enforcement, consolidated PRs, cross-PR deps | [Org § Pull Requests](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/pull-requests.md) |
+| Agent naming, lifecycle, hub-and-spoke, team lifecycle | [Org § Agents](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/agents.md) |
+| Hooks (validate identity, block --no-verify, block git config, auto env test, validate labels) | [Org § Hooks](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/hooks.md) |
+| Tech preferences, debate, tie-breaking (LCA) | [Org § Tech Decisions](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/tech-decisions.md) |
+| Cross-repo communication protocol | [Org § Communication](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/communication.md) |
 
 ## Issue Review Process
 
@@ -178,7 +186,7 @@ Each team member maintains a directional trust score (1-5). Default is 3 (neutra
 | Thandiwe Moyo | `Thandiwe Moyo` | `parametrization+Thandiwe.Moyo@gmail.com` |
 | Ravi Wickramasinghe | `Ravi Wickramasinghe` | `parametrization+Ravi.Wickramasinghe@gmail.com` |
 
-See [Org § Commits](../../../.claude/team/charter/commits.md) for the commit format, co-author trailers, and identity rules.
+See [Org § Commits](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/commits.md) for the commit format, co-author trailers, and identity rules.
 
 ## Automated Enforcement (Git Hooks)
 
@@ -194,7 +202,7 @@ See [Org § Commits](../../../.claude/team/charter/commits.md) for the commit fo
 
 GitHub repository rulesets requiring at least 1 approving review on all PRs targeting `deployments/**` branches. Emergency override: repository admins can bypass via the GitHub UI (hotfix scenarios only with Manager approval).
 
-See [Org § Hooks](../../../.claude/team/charter/hooks.md) for Claude Code hook details (validate identity, block --no-verify, block git config, auto env test, validate labels).
+See [Org § Hooks](https://github.com/noorinalabs/noorinalabs-main/blob/main/.claude/team/charter/hooks.md) for Claude Code hook details (validate identity, block --no-verify, block git config, auto env test, validate labels).
 
 ## Steady-State Goal
 
