@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends
 
 from src.api.deps import get_neo4j
 from src.api.models import SystemHealthResponse
+from src.utils.logging import get_logger
 from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter(prefix="/health")
+
+log = get_logger(__name__)
+
+_DSN_CREDENTIALS_RE = re.compile(r"(?P<scheme>[a-zA-Z][a-zA-Z0-9+.-]*://)[^@/\s]+(?=@)")
+
+
+def _redact_dsn(text: str) -> str:
+    """Strip ``user:password`` from any ``scheme://user:pass@host`` URI in *text*.
+
+    Defensive — modern psycopg/redis don't leak credentials in error messages, but
+    this guarantees the no-credentials-in-logs invariant even if a future library
+    bump changes that behaviour.
+    """
+    return _DSN_CREDENTIALS_RE.sub(r"\g<scheme>***", text)
 
 
 @router.get("/live", response_model=SystemHealthResponse)
@@ -26,7 +43,12 @@ def liveness() -> SystemHealthResponse:
 def readiness(
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> SystemHealthResponse:
-    """Readiness probe — check Neo4j, PostgreSQL, and Redis connectivity."""
+    """Readiness probe — check Neo4j, PostgreSQL, and Redis connectivity.
+
+    All three probes log structured failures (with exception class) so degraded
+    states are debuggable from logs. DSN credentials are redacted from any
+    exception text that escapes into log messages.
+    """
     neo4j_ok = False
     pg_ok = False
     redis_ok = False
@@ -34,21 +56,29 @@ def readiness(
     try:
         neo4j.execute_read("RETURN 1 AS ok")
         neo4j_ok = True
-    except Exception:
-        pass
+    except Exception as exc:
+        log.error(
+            "neo4j health probe failed",
+            exc_type=type(exc).__name__,
+            exc_msg=_redact_dsn(str(exc)),
+        )
 
     try:
         from src.config import get_settings
 
         settings = get_settings()
         if settings.postgres.dsn:
-            import psycopg2
+            import psycopg
 
-            conn = psycopg2.connect(str(settings.postgres.dsn))
+            conn = psycopg.connect(str(settings.postgres.dsn))
             conn.close()
             pg_ok = True
-    except Exception:
-        pass
+    except Exception as exc:
+        log.error(
+            "postgres health probe failed",
+            exc_type=type(exc).__name__,
+            exc_msg=_redact_dsn(str(exc)),
+        )
 
     try:
         from src.config import get_settings
@@ -60,8 +90,12 @@ def readiness(
             r = redis.from_url(str(settings.redis.url))
             r.ping()
             redis_ok = True
-    except Exception:
-        pass
+    except Exception as exc:
+        log.error(
+            "redis health probe failed",
+            exc_type=type(exc).__name__,
+            exc_msg=_redact_dsn(str(exc)),
+        )
 
     all_ok = neo4j_ok and pg_ok and redis_ok
     return SystemHealthResponse(
