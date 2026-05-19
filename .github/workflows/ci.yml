@@ -79,6 +79,9 @@ jobs:
 
   frontend-lint-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: frontend
@@ -99,6 +102,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # @noorinalabs/* now resolves from GitHub Packages (see ds#81 / wave-10
+          # publish-pipeline fix). setup-node writes a temporary $HOME/.npmrc
+          # that uses NODE_AUTH_TOKEN; pair with `env: NODE_AUTH_TOKEN: ...` on
+          # the `npm install` step below. The committed `frontend/.npmrc`
+          # registry override coexists with this and is what makes local-dev
+          # npm install work outside Actions.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noorinalabs'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Build and pack design-system dependency
@@ -124,6 +135,8 @@ jobs:
             fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
           "
       - run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx eslint src/
       # Regenerate user-service types from the committed OpenAPI snapshot and
       # fail if the result diverges from the committed `.d.ts`. Mirrors the
@@ -207,6 +220,9 @@ jobs:
     # and verify the job runs green on the same PR — no further silencing.
     if: false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: frontend
@@ -227,6 +243,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # See frontend-lint-and-test job for context on the registry-url +
+          # NODE_AUTH_TOKEN pairing for GitHub Packages @noorinalabs/* resolution.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noorinalabs'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Build and pack design-system dependency
@@ -252,6 +272,8 @@ jobs:
             fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
           "
       - run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: Start preview server
