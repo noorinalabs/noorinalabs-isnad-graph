@@ -79,51 +79,30 @@ jobs:
 
   frontend-lint-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/checkout@v6
-        with:
-          repository: noorinalabs/noorinalabs-design-system
-          # Pin to v0.0.1 — the version isnad-graph's frontend/package-lock.json
-          # is locked to. Checking out `main` would build whatever the
-          # design-system has shipped most recently (currently 0.0.2), whose
-          # transitive deps may diverge from the lockfile and break npm install
-          # (e.g. @radix-ui/react-dropdown-menu was added between 0.0.1 and 0.0.2).
-          # Bump this ref together with the lockfile when accepting a new
-          # design-system version. Or, see #810 to remove this whole dance.
-          ref: v0.0.1
-          path: noorinalabs-design-system
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # @noorinalabs/* resolves from GitHub Packages (see ds#81 / wave-10
+          # publish-pipeline fix). setup-node writes a temporary $HOME/.npmrc
+          # that uses NODE_AUTH_TOKEN; pair with `env: NODE_AUTH_TOKEN: ...` on
+          # the `npm install` step below. The committed `frontend/.npmrc`
+          # registry override coexists with this and is what makes local-dev
+          # npm install work outside Actions.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noorinalabs'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Build and pack design-system dependency
-        working-directory: noorinalabs-design-system
-        # frontend/package-lock.json pins @noorinalabs/design-system to
-        # `file:../../noorinalabs-design-system-0.0.1.tgz`. From `frontend/`,
-        # that resolves to `${{ github.workspace }}/..` (the parent of the
-        # checkout root, e.g. /home/runner/work/<repo>/). The design-system
-        # is checked out at the matching `v0.0.1` tag in the step above, so
-        # `npm pack` produces exactly that filename. See #810 for the proper
-        # migration to a published npm package.
-        run: |
-          npm install
-          npm run build
-          npm pack --pack-destination "${{ github.workspace }}/.."
-      - name: Fix design-system lockfile integrity
-        run: |
-          node -e "
-            const fs = require('fs');
-            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-            const pkg = lock.packages['node_modules/@noorinalabs/design-system'];
-            if (pkg) { delete pkg.integrity; }
-            fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
-          "
       - run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx eslint src/
       # Regenerate user-service types from the committed OpenAPI snapshot and
       # fail if the result diverges from the committed `.d.ts`. Mirrors the
@@ -207,51 +186,26 @@ jobs:
     # and verify the job runs green on the same PR — no further silencing.
     if: false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/checkout@v6
-        with:
-          repository: noorinalabs/noorinalabs-design-system
-          # Pin to v0.0.1 — the version isnad-graph's frontend/package-lock.json
-          # is locked to. Checking out `main` would build whatever the
-          # design-system has shipped most recently (currently 0.0.2), whose
-          # transitive deps may diverge from the lockfile and break npm install
-          # (e.g. @radix-ui/react-dropdown-menu was added between 0.0.1 and 0.0.2).
-          # Bump this ref together with the lockfile when accepting a new
-          # design-system version. Or, see #810 to remove this whole dance.
-          ref: v0.0.1
-          path: noorinalabs-design-system
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # See frontend-lint-and-test job for context on the registry-url +
+          # NODE_AUTH_TOKEN pairing for GitHub Packages @noorinalabs/* resolution.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noorinalabs'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Build and pack design-system dependency
-        working-directory: noorinalabs-design-system
-        # frontend/package-lock.json pins @noorinalabs/design-system to
-        # `file:../../noorinalabs-design-system-0.0.1.tgz`. From `frontend/`,
-        # that resolves to `${{ github.workspace }}/..` (the parent of the
-        # checkout root, e.g. /home/runner/work/<repo>/). The design-system
-        # is checked out at the matching `v0.0.1` tag in the step above, so
-        # `npm pack` produces exactly that filename. See #810 for the proper
-        # migration to a published npm package.
-        run: |
-          npm install
-          npm run build
-          npm pack --pack-destination "${{ github.workspace }}/.."
-      - name: Fix design-system lockfile integrity
-        run: |
-          node -e "
-            const fs = require('fs');
-            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-            const pkg = lock.packages['node_modules/@noorinalabs/design-system'];
-            if (pkg) { delete pkg.integrity; }
-            fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
-          "
       - run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: Start preview server
