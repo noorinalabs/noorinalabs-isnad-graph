@@ -1,0 +1,103 @@
+# Model-only property exclusions.
+#
+# Pydantic-model fields in src/models/ that workers/ingest/schema.py deliberately
+# omits from NODE_PROPERTY_MAP / EDGE_PROPERTY_MAP. Each entry must have a rationale
+# and a tracking issue (or a doc/ADR ref for `permanent` category).
+#
+# Used by scripts/emit_ingest_schema.py to suppress drift-failure on these specific
+# fields. Anything on a model that is not in this file AND not in the ingest
+# allow-list will fail the schema-drift CI gate — that's exactly the silent-drop
+# failure mode noorinalabs/noorinalabs-isnad-ingest-platform#24 was filed to catch.
+#
+# Categories:
+#   enrichment-only  — populated only by post-ingest Phase-4 enrichment pipeline.
+#                      Including it in ingest's allow-list would let an
+#                      unenriched batch overwrite the enriched value with null.
+#                      The rationale text below is taken verbatim from
+#                      workers/ingest/schema.py docstring `Fields intentionally
+#                      omitted` section, attribution: PR #18 D-ii.
+#   merge-key        — used in the Cypher MERGE clause itself, never re-SET on
+#                      properties. `id` on every node falls in this bucket.
+#   todo-rationalize — model field with no clear answer on whether ingest should
+#                      pick it up; do not silently drop without explicit decision.
+#                      Decision tracked in `issue`.
+#
+# Seed populated 2026-05-17 from origin/deployments/phase-3/wave-11 HEAD diff and
+# verbatim rationale from workers/ingest/schema.py @ 58fb249.
+
+nodes:
+  Hadith:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET (per workers/ingest/schema.py docstring)
+    - field: topic_tags
+      category: todo-rationalize
+      issue: noorinalabs/noorinalabs-isnad-graph#24
+      note: model carries Phase-4 topic classifier output; ingest currently ignores. Decide promote vs. keep enrichment-only.
+    - field: has_shia_parallel
+      category: todo-rationalize
+      issue: noorinalabs/noorinalabs-isnad-graph#24
+      note: derived field; emitted by normalize? Verify before promote.
+    - field: has_sunni_parallel
+      category: todo-rationalize
+      issue: noorinalabs/noorinalabs-isnad-graph#24
+      note: derived field; emitted by normalize? Verify before promote.
+  Narrator:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET (per workers/ingest/schema.py docstring)
+    - field: aliases
+      category: todo-rationalize
+      issue: noorinalabs/noorinalabs-isnad-graph#24
+      note: list[str] alternate name forms; likely should be ingested. Pending data-team decision.
+    - field: betweenness_centrality
+      category: enrichment-only
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: exclusively populated by post-ingest enrichment (narrator centrality); excluded so unenriched batch doesn't wipe it out
+    - field: in_degree
+      category: enrichment-only
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: exclusively populated by post-ingest enrichment; excluded so unenriched batch doesn't wipe it out
+    - field: out_degree
+      category: enrichment-only
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: exclusively populated by post-ingest enrichment; excluded so unenriched batch doesn't wipe it out
+    - field: pagerank
+      category: enrichment-only
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: exclusively populated by post-ingest enrichment (pagerank); excluded so unenriched batch doesn't wipe it out
+    - field: community_id
+      category: enrichment-only
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: exclusively populated by post-ingest enrichment (Louvain); excluded so unenriched batch doesn't wipe it out
+  Collection:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET
+  Chain:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET
+  Grading:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET
+  HistoricalEvent:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET
+  Location:
+    - field: id
+      category: merge-key
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#18
+      note: matched in MERGE clause, never re-SET
+
+edges:
+  # Phase-3 edges currently align cleanly with edge models. New entries follow the
+  # same shape as nodes when divergence is introduced.

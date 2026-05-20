@@ -1,0 +1,87 @@
+name: schema-drift
+
+# Cross-repo drift gate between this repo's Pydantic models in src/models/ and
+# noorinalabs-isnad-ingest-platform/workers/ingest/schema.py. See
+# noorinalabs/noorinalabs-isnad-ingest-platform#24 for the design.
+#
+# Fails the PR if scripts/emit_ingest_schema.py detects unrationalized divergence
+# in either direction (model field ingest doesn't accept; ingest field not on
+# model). Documented exceptions live in scripts/{ingest,model}-extras.yaml.
+
+on:
+  pull_request:
+    branches: [main, 'deployments/**']
+    paths:
+      - 'src/models/**'
+      - 'scripts/emit_ingest_schema.py'
+      - 'scripts/ingest-extras.yaml'
+      - 'scripts/model-extras.yaml'
+      - '.github/workflows/schema-drift.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: schema-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isnad-graph
+        uses: actions/checkout@v6
+
+      - name: Resolve ingest-platform sibling ref
+        id: sibling-ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Match this PR's base branch when possible (so a wave-branch PR here
+          # checks against the matching wave-branch on ingest-platform); fall
+          # back to main if the sibling doesn't have it yet. Per
+          # feedback_cross_repo_wave_ref_resolution (deploy#159 W10 lesson).
+          BASE_REF="${{ github.base_ref || github.ref_name }}"
+          REPO=noorinalabs/noorinalabs-isnad-ingest-platform
+          if gh api "repos/${REPO}/branches/${BASE_REF}" --silent 2>/dev/null; then
+            echo "ref=${BASE_REF}" >> "$GITHUB_OUTPUT"
+            echo "::notice::ingest-platform sibling branch matched: ${BASE_REF}"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+            echo "::notice::ingest-platform '${BASE_REF}' not found; falling back to main"
+          fi
+
+      - name: Checkout ingest-platform schema (sparse)
+        uses: actions/checkout@v6
+        with:
+          repository: noorinalabs/noorinalabs-isnad-ingest-platform
+          ref: ${{ steps.sibling-ref.outputs.ref }}
+          path: _sibling
+          sparse-checkout: |
+            workers/ingest/schema.py
+          sparse-checkout-cone-mode: false
+
+      - name: Verify sibling schema fetched
+        run: |
+          if [ ! -f _sibling/workers/ingest/schema.py ]; then
+            echo "::error::sibling sparse-checkout failed: workers/ingest/schema.py not present"
+            ls -la _sibling/ || true
+            exit 1
+          fi
+          echo "fetched $(wc -l < _sibling/workers/ingest/schema.py) lines"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - run: uv sync
+
+      - name: Check schema drift
+        run: |
+          uv run python scripts/emit_ingest_schema.py check \
+            --ingest-schema _sibling/workers/ingest/schema.py

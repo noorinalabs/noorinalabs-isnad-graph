@@ -7,34 +7,42 @@ describe("deriveHighestRole", () => {
     expect(deriveHighestRole(["admin"])).toBe("admin")
   })
 
-  it("returns 'viewer' when roles is empty", () => {
-    expect(deriveHighestRole([])).toBe("viewer")
+  it("returns 'trial' (lowest tier) when roles is empty", () => {
+    expect(deriveHighestRole([])).toBe("trial")
   })
 
-  it("returns the highest tier when multiple frontend-known roles are present", () => {
-    // moderator (rank 2) beats editor (rank 1)
-    expect(deriveHighestRole(["editor", "moderator"])).toBe("moderator")
+  it("returns the highest tier when multiple backend roles are present", () => {
+    // researcher (rank 2) beats reader (rank 1)
+    expect(deriveHighestRole(["reader", "researcher"])).toBe("researcher")
     // admin (rank 3) beats everything
-    expect(deriveHighestRole(["viewer", "editor", "moderator", "admin"])).toBe(
+    expect(deriveHighestRole(["trial", "reader", "researcher", "admin"])).toBe(
       "admin",
     )
   })
 
-  it("ignores backend role names that are not in the UserRole union", () => {
-    // user-service DB roles `researcher`, `reader`, `trial` aren't in
-    // the frontend UserRole union yet — they should be skipped.
-    expect(deriveHighestRole(["researcher", "reader", "trial"])).toBe("viewer")
+  it("returns the highest backend role and ignores unknown names", () => {
+    // Reconciled to backend vocabulary (#876): researcher/reader/trial are
+    // now first-class — no longer silently degrade to a stand-in tier.
+    expect(deriveHighestRole(["researcher", "reader", "trial"])).toBe(
+      "researcher",
+    )
+  })
+
+  it("ignores role names outside the backend vocabulary", () => {
+    // Legacy / unknown role names (e.g. the pre-#876 frontend-invented
+    // `viewer`/`editor`/`moderator`) are dropped; fall back to `trial`.
+    expect(deriveHighestRole(["viewer", "editor", "moderator"])).toBe("trial")
   })
 
   it("picks the highest matching tier even when unknown roles are mixed in", () => {
-    expect(deriveHighestRole(["researcher", "admin"])).toBe("admin")
-    expect(deriveHighestRole(["reader", "editor"])).toBe("editor")
+    expect(deriveHighestRole(["editor", "admin"])).toBe("admin")
+    expect(deriveHighestRole(["viewer", "reader"])).toBe("reader")
   })
 
   it("returns the single matching tier when only one known role is present", () => {
-    expect(deriveHighestRole(["editor"])).toBe("editor")
-    expect(deriveHighestRole(["moderator"])).toBe("moderator")
-    expect(deriveHighestRole(["viewer"])).toBe("viewer")
+    expect(deriveHighestRole(["reader"])).toBe("reader")
+    expect(deriveHighestRole(["researcher"])).toBe("researcher")
+    expect(deriveHighestRole(["trial"])).toBe("trial")
   })
 })
 

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import pytest
+
+if TYPE_CHECKING:
+    from contextlib import ExitStack
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -140,6 +144,131 @@ class TestAdminHealth:
         assert "neo4j" in data
         assert "postgres" in data
         assert "redis" in data
+
+
+class TestAdminHealthObservability:
+    """Issue #913 — failing probes must log structured failures without leaking DSN."""
+
+    def test_redact_dsn_strips_basic_auth_userpass(self) -> None:
+        from src.api.routes.admin.health import _redact_dsn
+
+        assert _redact_dsn("postgresql://user:secret@host/db") == "postgresql://***@host/db"
+        assert _redact_dsn("redis://:topsecret@host:6379/0") == "redis://***@host:6379/0"
+
+    def test_redact_dsn_leaves_dsn_free_text_untouched(self) -> None:
+        from src.api.routes.admin.health import _redact_dsn
+
+        assert _redact_dsn("connection refused on port 5432") == "connection refused on port 5432"
+        assert _redact_dsn("OperationalError: server closed connection") == (
+            "OperationalError: server closed connection"
+        )
+
+    def test_neo4j_probe_failure_logs_exc_type_no_dsn(
+        self, admin_client: TestClient, mock_neo4j: MagicMock
+    ) -> None:
+        from structlog.testing import capture_logs
+
+        mock_neo4j.execute_read.side_effect = RuntimeError(
+            "auth failed for bolt://neo4j:supersecret@host:7687"
+        )
+        with capture_logs() as cap_logs, _patched_pg_redis():
+            resp = admin_client.get("/api/v1/admin/health/ready")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["neo4j"] is False
+        assert data["status"] == "degraded"
+
+        neo4j_events = [r for r in cap_logs if "neo4j" in r.get("event", "")]
+        assert len(neo4j_events) >= 1, f"expected neo4j failure log, got {cap_logs}"
+        ev = neo4j_events[0]
+        assert ev["log_level"] == "error"
+        assert ev["exc_type"] == "RuntimeError"
+        for field_value in ev.values():
+            assert "supersecret" not in str(field_value), f"DSN secret leaked in field: {ev}"
+
+    def test_postgres_probe_failure_logs_no_dsn(self, admin_client: TestClient) -> None:
+        from unittest.mock import patch
+
+        from structlog.testing import capture_logs
+
+        mock_neo4j = admin_client.app.state.neo4j  # type: ignore[attr-defined]
+        mock_neo4j.execute_read.return_value = [{"ok": 1}]
+
+        boom = RuntimeError("connect: postgresql://pguser:pgpass@db:5432/x")
+        with capture_logs() as cap_logs:
+            with (
+                patch("psycopg.connect", side_effect=boom),
+                patch("redis.from_url") as mock_redis_from_url,
+            ):
+                mock_redis_from_url.return_value.ping.return_value = True
+                resp = admin_client.get("/api/v1/admin/health/ready")
+
+        assert resp.status_code == 200
+        assert resp.json()["postgres"] is False
+
+        pg_events = [r for r in cap_logs if "postgres" in r.get("event", "")]
+        assert len(pg_events) == 1
+        ev = pg_events[0]
+        assert ev["exc_type"] == "RuntimeError"
+        assert ev["log_level"] == "error"
+        # Mandatory security assertion — DSN password must NOT appear anywhere in the log record
+        for field_value in ev.values():
+            assert "pgpass" not in str(field_value), f"DSN password leaked: {ev}"
+            assert "pguser:pgpass" not in str(field_value)
+
+    def test_redis_probe_failure_logs_no_url_secret(self, admin_client: TestClient) -> None:
+        from unittest.mock import patch
+
+        from structlog.testing import capture_logs
+
+        mock_neo4j = admin_client.app.state.neo4j  # type: ignore[attr-defined]
+        mock_neo4j.execute_read.return_value = [{"ok": 1}]
+
+        boom = RuntimeError("auth failed: redis://:topsecret@cache:6379/0")
+        with capture_logs() as cap_logs:
+            with patch("psycopg.connect"), patch("redis.from_url") as mock_redis_from_url:
+                mock_redis_from_url.return_value.ping.side_effect = boom
+                resp = admin_client.get("/api/v1/admin/health/ready")
+
+        assert resp.status_code == 200
+        assert resp.json()["redis"] is False
+
+        redis_events = [r for r in cap_logs if "redis" in r.get("event", "")]
+        assert len(redis_events) == 1
+        ev = redis_events[0]
+        assert ev["exc_type"] == "RuntimeError"
+        for field_value in ev.values():
+            assert "topsecret" not in str(field_value), f"Redis URL secret leaked: {ev}"
+
+    def test_all_probes_pass_emits_no_failure_logs(
+        self, admin_client: TestClient, mock_neo4j: MagicMock
+    ) -> None:
+        from structlog.testing import capture_logs
+
+        mock_neo4j.execute_read.return_value = [{"ok": 1}]
+        with capture_logs() as cap_logs, _patched_pg_redis():
+            resp = admin_client.get("/api/v1/admin/health/ready")
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+        failure_events = [r for r in cap_logs if "health probe failed" in r.get("event", "")]
+        assert failure_events == []
+
+
+def _patched_pg_redis() -> ExitStack:
+    """Context manager: stub psycopg.connect and redis.from_url to no-op success."""
+    from contextlib import ExitStack
+    from unittest.mock import MagicMock, patch
+
+    stack = ExitStack()
+    pg_patch = patch("psycopg.connect")
+    redis_patch = patch("redis.from_url")
+    stack.enter_context(pg_patch)
+    mock_redis = stack.enter_context(redis_patch)
+    mock_redis.return_value = MagicMock()
+    mock_redis.return_value.ping.return_value = True
+    return stack
 
 
 # --- Stats endpoint ---

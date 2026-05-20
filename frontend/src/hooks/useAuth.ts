@@ -1,34 +1,29 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { createElement } from 'react'
+import type { components } from '../types/user-service'
 
-export type UserRole = 'viewer' | 'editor' | 'moderator' | 'admin'
+export type UserRole = 'trial' | 'reader' | 'researcher' | 'admin'
 
 /**
- * Shape of `/api/v1/users/me` (user-service UserRead schema).
+ * Shape of `/api/v1/users/me` — the base type is generated from the committed
+ * user-service OpenAPI snapshot (`frontend/docs/openapi-snapshot.json` →
+ * `frontend/src/types/user-service.d.ts` via `npm run gen:types`). Drift between
+ * the snapshot and the generated `.d.ts` is enforced at PR-time by the
+ * `frontend-typegen-drift` CI job.
  *
  * `display_name` is the canonical name field from the API. It can legitimately
  * be null — consumers MUST null-defense every read (prefer `user.display_name ?? user.email`).
  *
- * `roles` is a list of role *names* (strings), matching user-service
- * `UserRead.roles: list[str]` in `src/app/schemas/user.py`. Serialized from
- * `[ur.role.name for ur in u.user_roles]` in `src/app/routers/users.py`. Use
- * `deriveHighestRole(roles)` to map to the `UserRole` union.
+ * `roles` is a list of role *names* (strings). Use `deriveHighestRole(roles)`
+ * to map to the `UserRole` union.
  *
  * `provider` is NOT part of the user-service `/users/me` payload today; it is
- * kept here as optional because the OAuth callback path on the isnad-graph
- * side may populate it from JWT claims before the user is loaded. Readers
- * (e.g. `UserMenu`) already null-guard it, so it gracefully degrades.
+ * kept here as optional (added via the interface extension below) because the
+ * OAuth callback path on the isnad-graph side may populate it from JWT claims
+ * before the user is loaded. Readers (e.g. `UserMenu`) already null-guard it,
+ * so it gracefully degrades.
  */
-export interface AuthUser {
-  id: string
-  email: string
-  display_name: string | null
-  avatar_url: string | null
-  email_verified: boolean
-  is_active: boolean
-  locale: string | null
-  created_at: string
-  roles: string[]
+export type AuthUser = components['schemas']['UserRead'] & {
   // Optional — not returned by /users/me today; may be populated from JWT
   // claims during OAuth callback. See UserMenu.tsx for the sole reader.
   provider?: string
@@ -50,33 +45,31 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>
 }
 
+// Mirrors the user-service canonical hierarchy (ontology/repos/user-service.yaml:69
+// → { admin: 40, researcher: 30, reader: 20, trial: 10 }), rescaled to 0-indexed
+// ranks. Order matters for `deriveHighestRole` highest-first iteration.
 const ROLE_HIERARCHY: Record<UserRole, number> = {
-  viewer: 0,
-  editor: 1,
-  moderator: 2,
+  trial: 0,
+  reader: 1,
+  researcher: 2,
   admin: 3,
 }
 
 /**
- * Map a list of role names (as returned by user-service) to the highest
- * matching `UserRole` in the frontend hierarchy. Unknown role names
- * (e.g. user-service DB roles like `researcher`, `reader`, `trial` that
- * aren't yet represented in the frontend union) are ignored — callers
- * default to `viewer` for fully-unknown sets.
- *
- * NOTE: if `UserRole` is extended to cover additional backend roles, add
- * them to `ROLE_HIERARCHY` above and they will automatically participate
- * in derivation here (we iterate the hierarchy highest-first).
+ * Map a list of role names (as returned by user-service `UserRead.roles`) to
+ * the highest matching `UserRole`. The frontend union is reconciled with the
+ * backend vocabulary as of #876 — any string outside `trial|reader|researcher|admin`
+ * is unknown and ignored; if no known role matches, callers default to `trial`
+ * (the lowest tier — least permissive).
  */
 export function deriveHighestRole(roleNames: string[]): UserRole {
-  // Iterate ROLE_HIERARCHY from highest rank to lowest; return first match.
   const ordered = (Object.keys(ROLE_HIERARCHY) as UserRole[]).sort(
     (a, b) => ROLE_HIERARCHY[b] - ROLE_HIERARCHY[a],
   )
   for (const tier of ordered) {
     if (roleNames.includes(tier)) return tier
   }
-  return 'viewer'
+  return 'trial'
 }
 
 // Absolute URLs targeting the user-service vhost (`users.{base}`). Sourced

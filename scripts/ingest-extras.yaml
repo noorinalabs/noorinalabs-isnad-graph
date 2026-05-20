@@ -1,0 +1,77 @@
+# Ingest-only property allow-list extras.
+#
+# Properties that workers/ingest/schema.py legitimately accepts in NODE_PROPERTY_MAP /
+# EDGE_PROPERTY_MAP but are NOT defined on the corresponding Pydantic model in
+# src/models/. Each entry must have a rationale and a tracking issue.
+#
+# Used by scripts/emit_ingest_schema.py to suppress drift-failure on these specific
+# fields. Anything in ingest's allow-list but not in this file AND not on the model
+# will fail the schema-drift CI gate.
+#
+# Categories:
+#   phase-3-legacy  — emitted by current normalize-v1 pipeline; rationalization
+#                     tracked in `issue`. Either promote to model, keep ingest-only,
+#                     or remove from ingest.
+#   defensive       — accepted as part of a defensive allow-list to catch a class of
+#                     attacker-controlled key; should never be removed without
+#                     security review.
+#   permanent       — intentionally ingest-only forever (defensive or operational).
+#                     `issue` may point at a doc/ADR rather than a tracking issue.
+#
+# Seed populated 2026-05-17 from origin/deployments/phase-3/wave-11 HEAD diff.
+
+nodes:
+  Hadith:
+    - field: grade
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: legacy normalize-v1 emits coarse grade alongside grade_composite; model only has grade_composite
+    - field: sect
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: emitted by normalize-v1; model derives sect via has_shia_parallel / has_sunni_parallel pair
+    - field: collection_name
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: denormalized join from APPEARS_IN edge; consider removing once query layer joins efficiently
+    - field: book_number
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: emitted by normalize-v1; model carries via APPEARS_IN edge book_number
+    - field: chapter_number
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: emitted by normalize-v1; model carries via APPEARS_IN edge chapter_number
+    - field: hadith_number
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: emitted by normalize-v1; model carries hadith_number_in_book via APPEARS_IN edge
+    - field: chapter_name_ar
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: denormalized chapter context; not on model; candidate for removal
+    - field: chapter_name_en
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: denormalized chapter context; not on model; candidate for removal
+  Narrator:
+    - field: name_ar_normalized
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: pre-computed normalized form for index lookups; consider promoting to model
+    - field: transmission_method
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: per-edge attribute on TRANSMITTED_TO; ingesting on node is a denormalization
+  Collection:
+    - field: source_corpus
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: present on Hadith model and Collection ingest; consider promoting to Collection model
+
+edges:
+  APPEARS_IN:
+    - field: hadith_number
+      category: phase-3-legacy
+      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
+      note: legacy normalize-v1 emits both hadith_number and hadith_number_in_book on APPEARS_IN; AppearsIn model only has hadith_number_in_book. Decide which is canonical.

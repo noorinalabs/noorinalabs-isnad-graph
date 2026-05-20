@@ -7,3 +7,4 @@ We use Michael Nygard's ADR format. Each decision gets a numbered file.
 - [ADR-002](002-neo4j-merge-idempotency.md) — MERGE for idempotent graph loading
 - [ADR-003](003-oauth-provider-shim.md) — Abstract OAuth behind common interface
 - [ADR-004](004-sunnah-scraper-over-api.md) — Web scraper over API for sunnah.com
+- [ADR-005](005-cross-repo-ingest-schema-contract.md) — Cross-repo schema contract for ingest-platform ⟷ isnad-graph

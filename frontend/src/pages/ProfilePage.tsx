@@ -27,9 +27,9 @@ function roleBadgeColor(role: string | null): string {
   switch (role) {
     case 'admin':
       return 'var(--color-destructive, #ef4444)'
-    case 'moderator':
+    case 'researcher':
       return 'var(--color-warning, #f59e0b)'
-    case 'editor':
+    case 'reader':
       return 'var(--color-primary)'
     default:
       return 'var(--color-muted-foreground)'
@@ -176,7 +176,7 @@ export default function ProfilePage() {
                 background: roleBadgeColor(profile.role),
               }}
             >
-              {(profile.role ?? 'viewer').toUpperCase()}
+              {(profile.role ?? 'trial').toUpperCase()}
             </span>
           </div>
         </div>
