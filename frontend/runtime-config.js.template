@@ -1,0 +1,13 @@
+// Runtime-injected config. The container entrypoint (entrypoint.sh) runs
+// `envsubst` over this template at start-up, writing the result to
+// /usr/share/nginx/html/runtime-config.js, which nginx serves as a static
+// asset. index.html loads it as the first <script> so window.RUNTIME_CONFIG
+// is populated before any module code runs.
+//
+// This indirection lets a single image digest (Contract v6, #815) target
+// env-specific origins at runtime instead of build time — Vite bakes
+// `import.meta.env.VITE_*` into the bundle, which can encode only one value.
+// See isnad-graph#932 / deploy#245 step 5.
+window.RUNTIME_CONFIG = {
+  USER_SERVICE_ORIGIN: "${USER_SERVICE_ORIGIN}",
+};
