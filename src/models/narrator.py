@@ -24,6 +24,8 @@ class Narrator(BaseModel):
     """Full Arabic name."""
     name_en: str
     """Full English transliteration."""
+    name_ar_normalized: str | None = None
+    """Pre-computed normalized form of ``name_ar`` for index/lookup matching."""
     kunya: str | None = None
     """Patronymic, e.g. 'Abu Hurayra'."""
     nisba: str | None = None

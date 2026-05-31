@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from src.models.enums import Sect
+from src.models.enums import Sect, SourceCorpus
 
 __all__ = ["Collection"]
 
@@ -32,6 +32,8 @@ class Collection(BaseModel):
     """Year of compilation in Hijri calendar."""
     sect: Sect
     """Sectarian tradition (Sunni or Shia)."""
+    source_corpus: SourceCorpus
+    """Source corpus from which this collection was acquired."""
     canonical_rank: int | None = None
     """Canonical rank within its tradition (1 = highest authority)."""
     total_hadiths: int | None = None
