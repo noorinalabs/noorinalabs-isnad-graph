@@ -19,59 +19,43 @@
 #                     `issue` may point at a doc/ADR rather than a tracking issue.
 #
 # Seed populated 2026-05-17 from origin/deployments/phase-3/wave-11 HEAD diff.
+# Reconciled 2026-05-31 per the ratified ingest-platform#35 ruling:
+#   - PROMOTE (now on the Pydantic models via isnad-graph#935; entries dropped):
+#     Hadith.chapter_name_ar, Hadith.chapter_name_en, Narrator.name_ar_normalized,
+#     Collection.source_corpus.
+#   - REMOVE node-copy (no longer in ingest NODE_PROPERTY_MAP via
+#     ingest-platform#54; entries dropped): Hadith.book_number,
+#     Hadith.chapter_number, Hadith.hadith_number — these are per-appearance
+#     facts carried on the APPEARS_IN edge, read off the node by no consumer.
+#   - EDGE canonicalization (ingest-platform#54): APPEARS_IN dropped the bare
+#     legacy hadith_number in favour of the modeled hadith_number_in_book;
+#     the excuse entry is dropped.
+#   - KEEP permanently (flipped phase-3-legacy -> permanent below): the four
+#     denormalized/derived keys ingest accepts that the model intentionally
+#     does not expose. Rationale anchored in ADR-005 (cross-repo ingest schema
+#     contract) rather than a tracking issue, per the `permanent` category.
 
 nodes:
   Hadith:
     - field: grade
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: legacy normalize-v1 emits coarse grade alongside grade_composite; model only has grade_composite
+      category: permanent
+      issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
+      note: normalize-v1 emits a coarse grade alongside the model's grade_composite; intentionally ingest-only — the model exposes only the composite. Kept per ingest-platform#35 ruling.
     - field: sect
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: emitted by normalize-v1; model derives sect via has_shia_parallel / has_sunni_parallel pair
+      category: permanent
+      issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
+      note: model derives sect via the has_shia_parallel / has_sunni_parallel pair; the explicit ingest sect is a transitional denormalization the model deliberately omits. Kept per ingest-platform#35 ruling.
     - field: collection_name
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: denormalized join from APPEARS_IN edge; consider removing once query layer joins efficiently
-    - field: book_number
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: emitted by normalize-v1; model carries via APPEARS_IN edge book_number
-    - field: chapter_number
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: emitted by normalize-v1; model carries via APPEARS_IN edge chapter_number
-    - field: hadith_number
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: emitted by normalize-v1; model carries hadith_number_in_book via APPEARS_IN edge
-    - field: chapter_name_ar
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: denormalized chapter context; not on model; candidate for removal
-    - field: chapter_name_en
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: denormalized chapter context; not on model; candidate for removal
+      category: permanent
+      issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
+      note: denormalized join from the APPEARS_IN edge; kept on the node for query convenience, intentionally not on the model. Kept per ingest-platform#35 ruling.
   Narrator:
-    - field: name_ar_normalized
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: pre-computed normalized form for index lookups; consider promoting to model
     - field: transmission_method
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: per-edge attribute on TRANSMITTED_TO; ingesting on node is a denormalization
-  Collection:
-    - field: source_corpus
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: present on Hadith model and Collection ingest; consider promoting to Collection model
+      category: permanent
+      issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
+      note: per-edge attribute on TRANSMITTED_TO, denormalized onto the Narrator node by ingest; the model exposes it only on the edge. Kept per ingest-platform#35 ruling.
 
-edges:
-  APPEARS_IN:
-    - field: hadith_number
-      category: phase-3-legacy
-      issue: noorinalabs/noorinalabs-isnad-ingest-platform#35
-      note: legacy normalize-v1 emits both hadith_number and hadith_number_in_book on APPEARS_IN; AppearsIn model only has hadith_number_in_book. Decide which is canonical.
+# All Hadith per-appearance number fields and the four promoted fields were
+# reconciled out on 2026-05-31; the remaining entries are the four permanent
+# denormalizations above. No `edges` extras remain after APPEARS_IN was
+# canonicalized to hadith_number_in_book.
