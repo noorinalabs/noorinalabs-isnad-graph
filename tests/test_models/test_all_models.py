@@ -72,6 +72,7 @@ def _collection(**overrides: object) -> Collection:
         "name_ar": "صحيح البخاري",
         "name_en": "Sahih al-Bukhari",
         "sect": Sect.SUNNI,
+        "source_corpus": SourceCorpus.SUNNAH,
     }
     defaults.update(overrides)
     return Collection(**defaults)  # type: ignore[arg-type]
@@ -144,6 +145,7 @@ class TestInstantiation:
         c = _collection()
         assert c.id == "col:test-001"
         assert c.sect == Sect.SUNNI
+        assert c.source_corpus == SourceCorpus.SUNNAH
 
     def test_chain(self) -> None:
         ch = _chain()
@@ -230,6 +232,14 @@ class TestValidation:
     def test_collection_missing_sect(self) -> None:
         with pytest.raises(ValidationError):
             Collection(id="col:x", name_ar="a", name_en="A")  # type: ignore[call-arg]
+
+    def test_collection_missing_source_corpus(self) -> None:
+        with pytest.raises(ValidationError):
+            Collection(id="col:x", name_ar="a", name_en="A", sect=Sect.SUNNI)  # type: ignore[call-arg]
+
+    def test_collection_bad_source_corpus(self) -> None:
+        with pytest.raises(ValidationError):
+            _collection(source_corpus="invalid_corpus")
 
     def test_chain_missing_chain_length(self) -> None:
         with pytest.raises(ValidationError):
@@ -401,7 +411,11 @@ class TestRoundTrip:
     """model_dump() output can reconstruct an identical instance."""
 
     def test_narrator_round_trip(self) -> None:
-        original = _narrator(aliases=["Alias1", "Alias2"], kunya="Abu Test")
+        original = _narrator(
+            aliases=["Alias1", "Alias2"],
+            kunya="Abu Test",
+            name_ar_normalized="اسم",
+        )
         data = original.model_dump()
         rebuilt = Narrator(**data)
         assert rebuilt == original
@@ -410,6 +424,8 @@ class TestRoundTrip:
         original = _hadith(
             matn_en="Deeds are by intentions",
             topic_tags=["faith", "intention"],
+            chapter_name_ar="باب النية",
+            chapter_name_en="Chapter on Intention",
         )
         data = original.model_dump()
         rebuilt = Hadith(**data)
@@ -526,6 +542,7 @@ class TestDefaults:
         assert n.birth_year_ah is None
         assert n.death_year_ah is None
         assert n.aliases == []
+        assert n.name_ar_normalized is None
         assert n.betweenness_centrality is None
         assert n.pagerank is None
 
@@ -534,6 +551,8 @@ class TestDefaults:
         assert h.matn_en is None
         assert h.isnad_raw_ar is None
         assert h.topic_tags == []
+        assert h.chapter_name_ar is None
+        assert h.chapter_name_en is None
         assert h.has_shia_parallel is False
         assert h.has_sunni_parallel is False
 

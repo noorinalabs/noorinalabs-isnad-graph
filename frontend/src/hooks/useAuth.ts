@@ -72,11 +72,16 @@ export function deriveHighestRole(roleNames: string[]): UserRole {
   return 'trial'
 }
 
-// Absolute URLs targeting the user-service vhost (`users.{base}`). Sourced
-// from `VITE_USER_SERVICE_ORIGIN` so a single image works across environments.
-// Empty/undefined falls back to same-origin (transitional dual-bind on
-// `isnad.{base}` — retired in a separate PR per deploy#245 phase 2 part 2).
-const USER_SERVICE_ORIGIN = import.meta.env.VITE_USER_SERVICE_ORIGIN ?? ''
+// Absolute URLs targeting the user-service vhost (`users.{base}`). Resolved at
+// runtime from `window.RUNTIME_CONFIG` (injected by the container entrypoint via
+// /runtime-config.js) so a single image digest targets env-specific origins —
+// Vite can bake only one VITE_* value into the bundle (Contract v6, #815).
+// Falls back to the build-time `VITE_USER_SERVICE_ORIGIN` for local `npm run dev`
+// (no entrypoint), then to '' (same-origin). See isnad-graph#932 / deploy#245 step 5.
+const USER_SERVICE_ORIGIN =
+  (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.USER_SERVICE_ORIGIN) ||
+  import.meta.env.VITE_USER_SERVICE_ORIGIN ||
+  ''
 const AUTH_BASE = `${USER_SERVICE_ORIGIN}/auth`
 const USER_BASE = `${USER_SERVICE_ORIGIN}/api/v1/users`
 const SESSIONS_BASE = `${USER_SERVICE_ORIGIN}/api/v1/sessions`

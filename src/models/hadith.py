@@ -32,6 +32,10 @@ class Hadith(BaseModel):
     """Consensus or primary grade string."""
     topic_tags: list[str] = Field(default_factory=list)
     """Topic tags populated in Phase 4."""
+    chapter_name_ar: str | None = None
+    """Arabic chapter (bab) title for the hadith's location in its collection."""
+    chapter_name_en: str | None = None
+    """English chapter (bab) title for the hadith's location in its collection."""
     source_corpus: SourceCorpus
     """Source corpus from which this hadith was acquired."""
     has_shia_parallel: bool = False

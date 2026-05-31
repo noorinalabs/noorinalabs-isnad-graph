@@ -5,9 +5,13 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 
 // Absolute URL targeting the user-service vhost (`users.{base}`). See
-// useAuth.ts for the full BASE-constant set; kept duplicated here to avoid
-// a barrel-export refactor inside this PR.
-const USER_SERVICE_ORIGIN = import.meta.env.VITE_USER_SERVICE_ORIGIN ?? ''
+// useAuth.ts for the full BASE-constant set and the runtime-vs-build-time
+// resolution rationale; kept duplicated here to avoid a barrel-export refactor
+// inside this PR.
+const USER_SERVICE_ORIGIN =
+  (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.USER_SERVICE_ORIGIN) ||
+  import.meta.env.VITE_USER_SERVICE_ORIGIN ||
+  ''
 const AUTH_BASE = `${USER_SERVICE_ORIGIN}/auth`
 
 function GoogleIcon() {

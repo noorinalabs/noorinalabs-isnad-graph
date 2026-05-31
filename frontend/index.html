@@ -11,6 +11,11 @@
       rel="stylesheet"
     />
     <title>Isnad Graph — Hadith Analysis Platform</title>
+    <!-- Runtime config: rendered by the container entrypoint (envsubst over
+         runtime-config.js.template). Must load before any module code so
+         window.RUNTIME_CONFIG is set first. 404s in local `npm run dev`
+         (no entrypoint) — readers fall back to VITE_*. See isnad-graph#932. -->
+    <script src="/runtime-config.js"></script>
     <script src="/theme-init.js"></script>
   </head>
   <body>
