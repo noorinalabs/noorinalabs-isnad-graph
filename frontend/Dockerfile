@@ -1,13 +1,15 @@
 FROM node:24-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json ./
-# package-lock.json references @noorinalabs/design-system via a file: path
-# pointing at /noorinalabs-design-system-0.0.1.tgz. The deploy script stages
-# this tarball into the build context root before docker build (see #818).
-# Long-term: switch to GHCR-published image (#817) or npm registry
-# (design-system#57) and drop this implicit-contract copy.
-COPY noorinalabs-design-system-0.0.1.tgz /
-RUN npm ci
+# package-lock.json resolves @noorinalabs/design-system from GitHub Packages
+# (npm.pkg.github.com) — see #940. .npmrc points the @noorinalabs scope at that
+# registry and reads the token from ${NODE_AUTH_TOKEN}; the token is supplied to
+# `npm ci` below via a BuildKit secret (never a build-arg/layer), so it is not
+# baked into the image. Package is org-public but the registry still requires a
+# read token, hence the secret. ghcr-publish.yml sources it from GITHUB_TOKEN
+# (packages:read). Local builds: `--secret id=node_auth_token,env=NODE_AUTH_TOKEN`.
+COPY package.json package-lock.json .npmrc ./
+RUN --mount=type=secret,id=node_auth_token \
+    NODE_AUTH_TOKEN="$(cat /run/secrets/node_auth_token)" npm ci
 # Cache-bust: ARG changes invalidate all subsequent layers
 ARG CACHEBUST=1
 COPY . .

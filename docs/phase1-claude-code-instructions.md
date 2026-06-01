@@ -192,7 +192,7 @@ Also attempt to fetch the pre-scraped JSON dump from the GitHub repo as a fallba
 
 ---
 
-## STEP 4: Acquisition Orchestrator (src/acquire/__init__.py)
+## STEP 4: Acquisition Orchestrator (`src/acquire/__init__.py`)
 
 Create a `run_all(raw_dir: Path) -> dict[str, Path]` function that:
 1. Calls each downloader's `run()` function in sequence.
@@ -603,7 +603,7 @@ Each parser is a module in `src/parse/` with a `def run(raw_dir: Path, staging_d
 
 ---
 
-## STEP 8: Parse Orchestrator (src/parse/__init__.py)
+## STEP 8: Parse Orchestrator (`src/parse/__init__.py`)
 
 Create a `run_all(raw_dir: Path, staging_dir: Path) -> dict[str, list[Path]]` function:
 

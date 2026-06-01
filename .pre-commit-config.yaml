@@ -1,24 +1,32 @@
 # Pre-commit hooks for isnad-graph
-# Install: make hooks
-# Docs: https://pre-commit.com/
+# Install:  make hooks   (or: pre-commit install --hook-type pre-commit \
+#                              --hook-type commit-msg --hook-type pre-push)
+# Docs:     https://pre-commit.com/
 #
-# Hook execution order (fail-fast, cheapest first):
-#   1. Ruff format check
-#   2. Ruff lint
-#   3. gitleaks (secret detection)
-#   4. pip-audit (CVE scan)
-#   5. mypy type checking
-#   6. Unit tests
-#   7. Integration tests (CI only)
-#   8. Frontend ESLint
-#   9. Frontend TypeScript type checking
+# This MIRRORS .github/workflows/ci.yml + docs.yml so local commits/pushes fail
+# fast instead of surfacing a lint/type/test/actionlint/build error only after a
+# PR is opened (Phase-3 end-state criterion #6 / #327). The kind-level mirror
+# (ruff, mypy, pytest, eslint, typescript, gitleaks, pip-audit, actionlint,
+# build present on both sides) is enforced in CI by `.claude/lib/
+# pre_commit_ci_sync.py` — if a future edit drops a check from one side, the
+# "Pre-commit <-> CI sync-drift gate" job in docs.yml fails the build.
+#
+# Stage split (fail-fast, cheapest first):
+#   pre-commit (every commit) — ruff-format, ruff-lint, gitleaks, actionlint,
+#     pip-audit, mypy, unit tests, ESLint, frontend type-check. Fast checks that
+#     catch the most common defects before a commit is recorded.
+#   commit-msg               — co-author trailer enforcement.
+#   pre-push  (every push)   — frontend build. The heavier compile that mirrors
+#     ci.yml's `npm run build`; run before code leaves the machine, not on every
+#     commit, to keep the commit loop snappy.
 #
 # Prerequisites:
 #   - Python 3.14+ with uv
+#   - Node.js 22+ with npm (run `cd frontend && npm install` once)
 #   - gitleaks CLI: https://github.com/gitleaks/gitleaks#installing
 
 repos:
-  # --- Ruff formatter & linter ---
+  # --- Ruff formatter & linter (commit stage) ---
   # ruff-format runs first so format fixes don't trigger re-lint.
   # `.claude/worktrees/` is excluded because it contains scratch checkouts of
   # other branches; reformatting them would silently overwrite work in progress.
@@ -36,12 +44,20 @@ repos:
         name: ruff-lint
         exclude: ^\.claude/worktrees/
 
-  # --- Secret detection ---
+  # --- Secret detection (commit stage) ---
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
     hooks:
       - id: gitleaks
         name: gitleaks
+
+  # --- Workflow lint (commit stage) — mirrors docs.yml actionlint job (#327) ---
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+        name: actionlint
+        stages: [pre-commit]
 
   # --- Branch & commit identity checks ---
   - repo: local
@@ -120,3 +136,15 @@ repos:
         files: ^frontend/
         types_or: [ts, tsx]
         stages: [pre-commit]
+
+      # Push stage: the heavier frontend production build. Mirrors ci.yml's
+      # `npm run build`; run before code leaves the machine (not on every commit)
+      # to keep the commit loop snappy. Required so the #327 sync-drift gate sees
+      # the `build` kind mirrored locally.
+      - id: frontend-build
+        name: frontend-build (pre-push)
+        entry: bash -c 'cd frontend && npm run build'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

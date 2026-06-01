@@ -1,0 +1,35 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "//": "Spellcheck for noorinalabs-isnad-graph authored docs (#326). Scoped to canonical authored prose (CLAUDE.md, README.md, docs, skills, charter) — the append-only records (feedback_log, trust_matrix) and roster cards are excluded because they are dense with person/narrator names that would balloon the dictionary without catching real typos. Domain vocabulary (Arabic transliteration, hadith/isnad terms, stack names) lives in project-words.txt.",
+  "dictionaryDefinitions": [
+    {
+      "name": "project-words",
+      "path": "./.cspell/project-words.txt",
+      "addWords": true
+    }
+  ],
+  "dictionaries": ["project-words", "en_US", "softwareTerms", "bash", "python", "node", "typescript", "filetypes"],
+  "ignoreRegExpList": [
+    "/[0-9a-f]{7,40}/",
+    "/https?:\\/\\/[^\\s)]+/",
+    "/`[^`]+`/",
+    "/<!--[\\s\\S]*?-->/",
+    "/\\b[A-Z_]{3,}\\b/"
+  ],
+  "files": [
+    "CLAUDE.md",
+    "README.md",
+    "docs/**/*.md",
+    ".claude/skills/**/*.md",
+    ".claude/team/charter.md"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    "frontend/node_modules/**",
+    "dist/**",
+    "frontend/dist/**",
+    ".venv/**",
+    ".claude/worktrees/**"
+  ]
+}
