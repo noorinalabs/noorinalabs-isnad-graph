@@ -50,7 +50,7 @@ jobs:
           uv export --no-hashes --frozen --no-emit-project > /tmp/requirements.txt
           uv run pip-audit --strict --desc -r /tmp/requirements.txt --ignore-vuln CVE-2024-23342 --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-25645
       - name: Secret detection with gitleaks
-        uses: gitleaks/gitleaks-action@v2.3.9 # node20 runtime: no node24 release on gitleaks-action; accepted-with-warning per owner 2026-05-28, revisit #929
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0 — node24 runtime (resolves #929)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
