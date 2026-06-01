@@ -170,26 +170,27 @@ jobs:
         # shellcheck integration runs (per the actionlint-needs-shellcheck
         # discipline) rather than silently skipping.
         #
-        # Three PRE-EXISTING findings in workflows outside this W14 docs/config
-        # rollout's scope are -ignore'd so the gate goes green on the artifacts it
-        # actually owns, rather than failing on debt this PR did not introduce.
-        # They are tracked for a focused follow-up (isnad-graph#939):
-        #   * `constant expression "false"` — ci.yml's `e2e` job is deliberately
-        #     `if: false` (disabled pending the mock-auth-refresh, isnad-graph#812,
-        #     which carries a documented re-enable contract). This is an
-        #     intentional kill-switch, not a defect.
-        #   * `SC2034` — ci.yml's e2e wait-for-server loop has an unused `$i`.
-        #   * `SC2129` — ghcr-publish.yml's summary step uses individual `>>`
-        #     redirects (the GHCR-publish workflow is explicitly out of this
-        #     PR's scope).
-        # New defects in NEWLY-edited workflows (this docs.yml, future edits) are
-        # still caught — the ignores are narrow, finding-specific patterns.
+        # The two GENUINE pre-existing debt findings the W14 rollout (#938) had
+        # narrowly ignored are now fixed at source (isnad-graph#939), so their
+        # ignores are retired:
+        #   * `SC2034` — ci.yml's e2e wait-for-server loop: unused `$i` → `_`.
+        #   * `SC2129` — ghcr-publish.yml's summary step: grouped into a single
+        #     `{ … } >>` redirect.
+        # ONE narrow ignore is intentionally RETAINED:
+        #   * `constant expression "false" in condition` — ci.yml's `e2e` job is
+        #     deliberately `if: false` (the e2e suite is disabled pending the
+        #     mock-auth-refresh, isnad-graph#812, which carries a documented
+        #     re-enable contract). This is an intentional kill-switch, not debt
+        #     to fix here; it disappears on its own when #812 re-enables e2e and
+        #     removes the `if:`. Until then the ignore stays. (Note: this finding
+        #     is version-dependent — actionlint 1.7.7 does not emit it, but the
+        #     CI-downloaded latest does, so the ignore is required for CI green.)
+        # New defects in NEWLY-edited workflows are still caught — the ignore is a
+        # narrow, finding-specific pattern.
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           ./actionlint -color \
-            -ignore 'constant expression "false" in condition' \
-            -ignore 'SC2034:' \
-            -ignore 'SC2129:'
+            -ignore 'constant expression "false" in condition'
 
   precommit-ci-sync:
     name: Pre-commit ⇄ CI sync-drift gate

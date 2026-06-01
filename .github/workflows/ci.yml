@@ -212,7 +212,7 @@ jobs:
         run: npx vite preview --port 4173 &
       - name: Wait for server
         run: |
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -s http://localhost:4173 > /dev/null && exit 0
             sleep 1
           done
