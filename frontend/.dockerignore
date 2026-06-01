@@ -4,10 +4,10 @@
 # each run if this file is missing or too permissive). 240MB+ of node_modules
 # alone would noticeably slow every publish.
 #
-# NOTE: the design-system tarball (noorinalabs-design-system-*.tgz) is staged
-# into this directory by the publish workflow BEFORE docker build and MUST NOT
-# be ignored — the Dockerfile's `COPY noorinalabs-design-system-0.0.1.tgz /`
-# depends on it being present in the build context.
+# NOTE: .npmrc MUST stay in the build context — the Dockerfile COPYs it so
+# `npm ci` can resolve @noorinalabs/design-system from GitHub Packages with the
+# BuildKit-secret token (#940). It carries no secret itself (only the
+# `${NODE_AUTH_TOKEN}` placeholder), so it is safe in the context.
 
 # Node artefacts (reinstalled inside the image by `npm ci`)
 node_modules
