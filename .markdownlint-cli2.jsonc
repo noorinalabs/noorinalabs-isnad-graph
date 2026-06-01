@@ -1,0 +1,59 @@
+// markdownlint-cli2 config for noorinalabs-isnad-graph committed docs (#326).
+//
+// W14 end-state rollout: this mirrors the parent-canonical docs-lint gate
+// (noorinalabs-main #563) onto the isnad-graph repo. The committed prose here is
+// a large operational corpus — the PRD, phase specs, ADRs, deployment/security/
+// data-validation runbooks, and the repo CLAUDE.md — where long lines, inline
+// HTML comments, and repeated section headings are INTENTIONAL, not defects.
+// The goal is to catch genuinely broken markdown (unclosed code fences,
+// malformed link syntax, hard tabs, trailing-space line breaks that silently
+// drop content) — NOT to reflow the existing docs to a style guide.
+//
+// The noisy stylistic rules the corpus deliberately violates are disabled; the
+// structural rules that catch real rendering breakage stay on. Tightening
+// individual rules is a follow-up once the corpus is clean.
+{
+  "config": {
+    "default": true,
+
+    // --- intentionally-violated stylistic rules (disabled) ---
+    "MD013": false, // line-length — dense tables + prose run long by design
+    "MD033": false, // inline HTML — <!-- --> markers + <br> in tables
+    "MD024": false, // duplicate headings — same section name recurs across ADRs/specs
+    "MD041": false, // first-line-heading — some docs open with frontmatter or a note
+    "MD036": false, // emphasis-as-heading — bold lead-ins ("**Why:**") are a house idiom
+    "MD034": false, // bare URLs — issue/PR refs are pasted bare throughout
+    "MD029": false, // ordered-list prefix — manual numbering restarts in lists
+    "MD040": false, // fenced-code language — some illustrative blocks are bare
+    "MD046": false, // code-block style — mixed fenced/indented across older docs
+    "MD007": false, // unordered-list indentation — nested briefs use varied indent
+    "MD028": false, // blank line inside blockquote — multi-para notes use them
+    "MD025": false, // multiple top-level headings — some compiled docs concatenate
+    "MD032": false, // blanks-around-lists — tight list/heading packing is pervasive
+    "MD022": false, // blanks-around-headings — same tight packing
+    "MD031": false, // blanks-around-fences — tight fence packing
+    "MD004": false, // ul-style — mixed -/* bullets across older docs
+    "MD012": false, // no-multiple-blanks — deliberate spacing in records
+    "MD049": false, // emphasis-style — mixed _/* emphasis
+    "MD058": false, // blanks-around-tables — tight table-under-lead-in is house style
+    "MD060": false, // table-column-style — compact table pipes are house style
+    "MD051": false, // link-fragments — false-positives on headings carrying trailing <!-- --> comments; relative-file link breakage is covered by lychee instead
+
+    // --- structural rules kept ON (catch real breakage) ---
+    // MD009 trailing-spaces, MD047 single-trailing-newline, MD010 hard-tabs,
+    // MD042 empty-link, MD039 spaces-in-link-text, MD011 reversed-link-syntax,
+    // MD037 spaces-in-emphasis, and the rest of `default: true` remain enforced.
+    "MD010": { "code_blocks": false } // allow hard tabs inside code blocks only
+  },
+  "globs": [
+    "**/*.md"
+  ],
+  "ignores": [
+    "node_modules/**",
+    "frontend/node_modules/**",
+    "dist/**",
+    "frontend/dist/**",
+    ".venv/**",
+    ".claude/worktrees/**"
+  ]
+}

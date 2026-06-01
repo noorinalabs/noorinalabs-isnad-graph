@@ -103,7 +103,7 @@ isnad-graph/
 
 Use `uv` as the package manager. Target Python 3.11+. Include these dependency groups:
 
-### Core dependencies:
+### Core dependencies
 ```
 pydantic >= 2.6
 pydantic-settings >= 2.1
@@ -117,7 +117,7 @@ structlog >= 24.1
 python-dotenv >= 1.0
 ```
 
-### Dev dependencies (in a `[tool.uv.dev-dependencies]` or `[project.optional-dependencies]` dev group):
+### Dev dependencies (in a `[tool.uv.dev-dependencies]` or `[project.optional-dependencies]` dev group)
 ```
 pytest >= 8.0
 pytest-asyncio >= 0.23
@@ -126,7 +126,7 @@ ruff >= 0.3
 mypy >= 1.8
 ```
 
-### Phase 2+ dependencies (in an "ml" optional group, not installed in Phase 0):
+### Phase 2+ dependencies (in an "ml" optional group, not installed in Phase 0)
 ```
 sentence-transformers >= 2.5
 faiss-cpu >= 1.7
@@ -484,7 +484,7 @@ BasedIn:
   role: Optional[str]
 ```
 
-### src/models/__init__.py
+### `src/models/__init__.py`
 
 Re-export all models and enums from this package for convenient imports:
 ```python

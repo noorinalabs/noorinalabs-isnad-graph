@@ -1,0 +1,210 @@
+name: CI — Docs & Config
+
+# Phase-3 end-state criterion #5 (noorinalabs-main#326): all committed artifacts
+# pass checks — including documentation and config, not just the Python +
+# TypeScript that ci.yml gates. This workflow closes the NON-source gap for
+# isnad-graph: markdown lint + spellcheck + internal link-check over committed
+# docs, committed-config syntax (YAML/JSON parse), and workflow actionlint.
+# Mirrors the parent-canonical docs.yml (#563) and the landing-page child pilot
+# (#104), adapted to this repo's dual Python+React layout.
+
+on:
+  push:
+    branches: [main, "deployments/**"]
+    paths:
+      - "**/*.md"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.json"
+      - "**/*.jsonc"
+      - ".claude/**"
+      - "docs/**"
+      - ".markdownlint-cli2.jsonc"
+      - ".cspell.json"
+      - ".cspell/**"
+      - ".lychee.toml"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    branches: [main, "deployments/**"]
+    paths:
+      - "**/*.md"
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.json"
+      - "**/*.jsonc"
+      - ".claude/**"
+      - "docs/**"
+      - ".markdownlint-cli2.jsonc"
+      - ".cspell.json"
+      - ".cspell/**"
+      - ".lychee.toml"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  markdownlint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: markdownlint-cli2
+        # Config (.markdownlint-cli2.jsonc) carries the glob + ignores and
+        # disables the stylistic rules the dense PRD/spec/ADR corpus
+        # intentionally uses, keeping the structural rules that catch real
+        # breakage.
+        uses: DavidAnson/markdownlint-cli2-action@ded1f9488f68a970bc66ea5619e13e9b52e601cd # v23.2.0
+
+  spellcheck:
+    name: Spellcheck (cspell)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: cspell
+        uses: streetsidesoftware/cspell-action@de2a73e963e7443969755b648a1008f77033c5b2 # v8.4.0
+        with:
+          # Dictionary + ignore rules come from .cspell.json. The `files` glob
+          # here is authoritative for the action; it is scoped to the AUTHORED
+          # prose set — CLAUDE.md, README.md, docs, skills, charter. The
+          # append-only records (feedback_log, trust_matrix) and roster cards
+          # are excluded: they are dense with person/narrator names that are not
+          # spell-defects. A real typo in authored prose blocks; new domain terms
+          # (Arabic transliteration, hadith/isnad vocabulary, stack names) go in
+          # .cspell/project-words.txt.
+          config: ".cspell.json"
+          files: |
+            CLAUDE.md
+            README.md
+            docs/**/*.md
+            .claude/skills/**/*.md
+            .claude/team/charter.md
+          incremental_files_only: false
+          strict: true
+
+  linkcheck:
+    name: Internal link-check (lychee)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: lychee
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
+        with:
+          # .lychee.toml runs offline (internal/relative links only; external
+          # URL liveness is intentionally not gated — third-party uptime must
+          # not flake the docs gate). A broken relative cross-reference fails.
+          # The org charter-split refs here are full github.com blob URLs, so
+          # they fall under the external-URL exclude (no relative-escape
+          # special-casing needed — see .lychee.toml header).
+          args: "--config .lychee.toml --no-progress './**/*.md'"
+          fail: true
+
+  config-lint:
+    name: Config — YAML/JSON syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate committed YAML + JSON parse
+        # A committed config file that does not parse is a real defect — this is
+        # the syntax floor for the non-source config artifacts ci.yml ignores.
+        # `.jsonc` (the markdownlint config) carries comments and is NOT strict
+        # JSON, so it is excluded from the json.loads pass; markdownlint lints it
+        # instead. Generated/vendored trees (.venv, node_modules, dist) skipped.
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          import pathlib
+
+          try:
+              import yaml  # PyYAML is preinstalled on ubuntu-latest runners
+          except ImportError:
+              import subprocess
+
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "pyyaml"])
+              import yaml
+
+          skip_prefixes = (
+              ".venv/",
+              "node_modules/",
+              "frontend/node_modules/",
+              "dist/",
+              "frontend/dist/",
+              ".claude/worktrees/",
+              ".git/",
+          )
+          root = pathlib.Path(".")
+          failures = []
+          for path in root.rglob("*"):
+              rel = path.as_posix()
+              if path.is_dir() or rel.startswith(skip_prefixes):
+                  continue
+              if path.suffix in (".yaml", ".yml"):
+                  try:
+                      list(yaml.safe_load_all(path.read_text(encoding="utf-8")))
+                  except Exception as exc:  # noqa: BLE001
+                      failures.append(f"{rel}: YAML parse error: {exc}")
+              elif path.suffix == ".json":
+                  try:
+                      json.loads(path.read_text(encoding="utf-8"))
+                  except Exception as exc:  # noqa: BLE001
+                      failures.append(f"{rel}: JSON parse error: {exc}")
+          if failures:
+              print("\n".join(failures))
+              sys.exit(1)
+          print("All committed YAML/JSON parse cleanly.")
+          PY
+
+  actionlint:
+    name: Config — Workflow actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run actionlint on workflows
+        # shellcheck is preinstalled on ubuntu-latest, so actionlint's embedded
+        # shellcheck integration runs (per the actionlint-needs-shellcheck
+        # discipline) rather than silently skipping.
+        #
+        # Three PRE-EXISTING findings in workflows outside this W14 docs/config
+        # rollout's scope are -ignore'd so the gate goes green on the artifacts it
+        # actually owns, rather than failing on debt this PR did not introduce.
+        # They are tracked for a focused follow-up (see the rollout PR body):
+        #   * `constant expression "false"` — ci.yml's `e2e` job is deliberately
+        #     `if: false` (disabled pending the mock-auth-refresh, isnad-graph#812,
+        #     which carries a documented re-enable contract). This is an
+        #     intentional kill-switch, not a defect.
+        #   * `SC2034` — ci.yml's e2e wait-for-server loop has an unused `$i`.
+        #   * `SC2129` — ghcr-publish.yml's summary step uses individual `>>`
+        #     redirects (the GHCR-publish workflow is explicitly out of this
+        #     PR's scope).
+        # New defects in NEWLY-edited workflows (this docs.yml, future edits) are
+        # still caught — the ignores are narrow, finding-specific patterns.
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color \
+            -ignore 'constant expression "false" in condition' \
+            -ignore 'SC2034:' \
+            -ignore 'SC2129:'
+
+  precommit-ci-sync:
+    name: Pre-commit ⇄ CI sync-drift gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify pre-commit config mirrors CI-enforced checks (#327)
+        # Fails if a check CI enforces (ruff/mypy/pytest/eslint/typescript/
+        # gitleaks/pip-audit/actionlint/build/…) is missing from
+        # .pre-commit-config.yaml, so local hooks can't silently drift behind CI.
+        # This is the machine-enforcement that keeps the #327 mirror from
+        # rotting. Scans ALL of .github/workflows/*.yml (ci.yml + this file) by
+        # default — left UNSCOPED on purpose (the divergent pilot that scoped it
+        # to a single workflow is not canonical).
+        run: python3 .claude/lib/pre_commit_ci_sync.py .

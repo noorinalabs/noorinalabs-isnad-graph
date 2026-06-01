@@ -1,0 +1,43 @@
+# lychee link-checker config for noorinalabs-isnad-graph docs (#326).
+#
+# Purpose: catch BROKEN INTERNAL cross-references between docs (e.g. the PRD,
+# phase specs, ADRs, and runbooks link to each other and to CLAUDE.md; a renamed
+# or missing target is a real defect). External-URL liveness is intentionally
+# NOT gated here — it depends on third-party uptime and would make CI flaky and
+# non-deterministic (a 503 on some unrelated site should never block a docs PR).
+# External links are excluded; internal/relative links are checked.
+#
+# Note on the org charter cross-refs: this repo's `.claude/team/charter.md`
+# points at the SPLIT org charter (agents/branching/commits/… .md) via full
+# `https://github.com/noorinalabs/noorinalabs-main/blob/main/...` blob URLs, NOT
+# relative `../../../` escapes — so they are already covered by the `^https?://`
+# external-URL exclude below and need no special-casing (unlike the sibling
+# landing-page pilot, whose charter used relative escapes).
+
+# Only check local filesystem + relative links; skip all remote schemes.
+scheme = ["file"]
+
+# Treat these as offline-only — never make network requests.
+offline = true
+
+# Exclude link targets that are not real broken-link signals.
+exclude = [
+  # mailto / external hosts handled separately; bare example hosts in prose.
+  '^https?://',
+  '^mailto:',
+  # GitHub issue/PR shorthand like `#326` is not a URL.
+  '^#\d+$',
+]
+
+# Don't descend into generated/vendored trees.
+exclude_path = [
+  "node_modules",
+  "frontend/node_modules",
+  "dist",
+  "frontend/dist",
+  ".venv",
+  ".claude/worktrees",
+]
+
+# A relative link with no matching file is the failure we DO want to surface.
+require_https = false
