@@ -173,7 +173,7 @@ jobs:
         # Three PRE-EXISTING findings in workflows outside this W14 docs/config
         # rollout's scope are -ignore'd so the gate goes green on the artifacts it
         # actually owns, rather than failing on debt this PR did not introduce.
-        # They are tracked for a focused follow-up (see the rollout PR body):
+        # They are tracked for a focused follow-up (isnad-graph#939):
         #   * `constant expression "false"` — ci.yml's `e2e` job is deliberately
         #     `if: false` (disabled pending the mock-auth-refresh, isnad-graph#812,
         #     which carries a documented re-enable contract). This is an
