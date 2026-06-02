@@ -42,6 +42,19 @@ def get_timeline(
     """Return historical events with narrator counts per period for timeline visualization."""
     skip = (page - 1) * limit
 
+    # Total count of events matching the year filter, before SKIP/LIMIT
+    # pagination, so clients can paginate over the full result set.
+    count_rows = neo4j.execute_read(
+        """
+        MATCH (e:HistoricalEvent)
+        WHERE ($start_year IS NULL OR e.year_ah >= $start_year)
+          AND ($end_year IS NULL OR e.year_ah <= $end_year)
+        RETURN count(e) AS total
+        """,
+        {"start_year": start_year, "end_year": end_year},
+    )
+    total = count_rows[0]["total"] if count_rows else 0
+
     rows = neo4j.execute_read(
         """
         MATCH (e:HistoricalEvent)
@@ -77,4 +90,4 @@ def get_timeline(
         )
         for r in rows
     ]
-    return TimelineResponse(entries=entries, total=len(entries))
+    return TimelineResponse(entries=entries, total=total)

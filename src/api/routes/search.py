@@ -60,7 +60,12 @@ def search(
                 )
             )
 
-    return SearchResultsResponse(results=results, total=len(results), query=q)
+    # --- Total count across both result types ---
+    # The result list above is capped at ``limit``; ``total`` must reflect the
+    # full count of matching narrators + hadiths so clients can paginate.
+    total = _fulltext_narrator_count(neo4j, q) + _fulltext_hadith_count(neo4j, q)
+
+    return SearchResultsResponse(results=results, total=total, query=q)
 
 
 def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> list[dict[str, Any]]:
@@ -117,6 +122,54 @@ def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[
         )
 
 
+def _fulltext_narrator_count(neo4j: Neo4jClient, query: str) -> int:
+    """Count all narrators matching the query, using the same index/fallback as search."""
+    try:
+        rows = neo4j.execute_read(
+            """
+            CALL db.index.fulltext.queryNodes('narrator_search', $q)
+            YIELD node
+            RETURN count(node) AS total
+            """,
+            {"q": query},
+        )
+    except Exception:  # noqa: BLE001
+        log.debug("fulltext narrator_search unavailable, counting via CONTAINS")
+        rows = neo4j.execute_read(
+            """
+            MATCH (n:Narrator)
+            WHERE n.name_ar CONTAINS $q OR n.name_en CONTAINS $q
+            RETURN count(n) AS total
+            """,
+            {"q": query},
+        )
+    return rows[0]["total"] if rows else 0
+
+
+def _fulltext_hadith_count(neo4j: Neo4jClient, query: str) -> int:
+    """Count all hadiths matching the query, using the same index/fallback as search."""
+    try:
+        rows = neo4j.execute_read(
+            """
+            CALL db.index.fulltext.queryNodes('hadith_search', $q)
+            YIELD node
+            RETURN count(node) AS total
+            """,
+            {"q": query},
+        )
+    except Exception:  # noqa: BLE001
+        log.debug("fulltext hadith_search unavailable, counting via CONTAINS")
+        rows = neo4j.execute_read(
+            """
+            MATCH (h:Hadith)
+            WHERE h.matn_ar CONTAINS $q OR h.matn_en CONTAINS $q
+            RETURN count(h) AS total
+            """,
+            {"q": query},
+        )
+    return rows[0]["total"] if rows else 0
+
+
 @router.get("/search/semantic", response_model=SearchResultsResponse)
 def search_semantic(
     q: str = Query(..., min_length=1, max_length=500, description="Semantic search query"),
@@ -146,6 +199,15 @@ def search_semantic(
             """,
             (q, q, limit),
         )
+        # Total count of candidate hadiths (the LIMIT above caps ``rows`` at
+        # ``limit``; ``total`` must reflect the full searchable set).
+        count_rows = pg.execute(
+            """
+            SELECT count(*) AS total
+            FROM isnad_graph.hadith_embeddings e
+            JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
+            """
+        )
     except Exception:  # noqa: BLE001
         log.debug("pgvector semantic search unavailable", exc_info=True)
         return JSONResponse(  # type: ignore[return-value]
@@ -169,4 +231,5 @@ def search_semantic(
             )
         )
 
-    return SearchResultsResponse(results=results, total=len(results), query=q)
+    total = count_rows[0]["total"] if count_rows else len(results)
+    return SearchResultsResponse(results=results, total=total, query=q)
