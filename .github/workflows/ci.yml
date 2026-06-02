@@ -172,6 +172,81 @@ jobs:
           fi
           echo "No local paths found in package-lock.json"
 
+  # Build the frontend image and run it under the SAME hardening the deploy
+  # compose applies (read_only rootfs + tmpfs-only writable mounts), then assert
+  # the container reaches healthy and serves the rendered runtime-config.js.
+  # This closes the CI-vs-runtime gap that let ig#949 ship: CI built the image
+  # but never ran it with `read_only: true`, so the entrypoint's write to the
+  # read-only html root was only discovered live on staging. The tmpfs sizes
+  # and the healthcheck command mirror noorinalabs-deploy compose/
+  # docker-compose.prod.yml `frontend:` — keep them in sync if either changes.
+  frontend-readonly-container:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - name: Build frontend image (load to local docker)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          load: true
+          tags: isnad-frontend:ci-readonly
+          # Same BuildKit secret the publish workflow uses so `npm ci` can read
+          # @noorinalabs/design-system from GitHub Packages (#940). Secret-
+          # mounted, never a layer.
+          secrets: |
+            node_auth_token=${{ secrets.GITHUB_TOKEN }}
+      - name: Run container with deploy's read-only hardening
+        run: |
+          docker run -d --name fe-readonly \
+            --read-only \
+            --tmpfs /tmp:size=64M \
+            --tmpfs /var/cache/nginx:size=128M \
+            --tmpfs /run:size=16M \
+            -e USER_SERVICE_ORIGIN=https://users.test.example \
+            -p 8080:80 \
+            isnad-frontend:ci-readonly
+      - name: Wait for container healthy (mirrors compose healthcheck)
+        run: |
+          for _ in $(seq 1 20); do
+            if curl -sf http://localhost:8080/ >/dev/null; then
+              echo "Container serving / — healthy."
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' fe-readonly 2>/dev/null)" != "true" ]; then
+              echo "::error::Container exited (crash loop). Logs:"
+              docker logs fe-readonly || true
+              exit 1
+            fi
+            sleep 3
+          done
+          echo "::error::Container never became healthy. Logs:"
+          docker logs fe-readonly || true
+          exit 1
+      - name: Assert runtime-config.js is rendered and substituted
+        run: |
+          BODY="$(curl -sf http://localhost:8080/runtime-config.js)"
+          echo "$BODY"
+          # The #934 contract: USER_SERVICE_ORIGIN is substituted into the body...
+          echo "$BODY" | grep -qF 'https://users.test.example' \
+            || { echo "::error::runtime-config.js missing substituted USER_SERVICE_ORIGIN"; exit 1; }
+          # ...and the literal envsubst placeholder must NOT survive. The single
+          # quotes are intentional: we grep for the verbatim ${...} placeholder
+          # text, not a shell expansion.
+          # shellcheck disable=SC2016
+          if echo "$BODY" | grep -qF '${USER_SERVICE_ORIGIN}'; then
+            echo "::error::runtime-config.js still contains the un-substituted \${USER_SERVICE_ORIGIN} placeholder"
+            exit 1
+          fi
+          echo "runtime-config.js rendered and substituted correctly under read-only rootfs."
+      - name: Container logs (always)
+        if: always()
+        run: docker logs fe-readonly || true
+
   e2e:
     needs: lint-and-typecheck
     # Disabled pending mock-auth-refresh — see noorinalabs/noorinalabs-isnad-graph#812.

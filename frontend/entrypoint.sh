@@ -11,7 +11,13 @@
 set -eu
 
 TEMPLATE=/runtime-config.js.template
-OUTPUT=/usr/share/nginx/html/runtime-config.js
+# Render to /tmp, not the html root: the deploy compose runs this container with
+# `read_only: true` and only /tmp, /var/cache/nginx, /run are tmpfs (writable).
+# Writing under /usr/share/nginx/html (the read-only rootfs) crash-loops the
+# container at start (ig#949). nginx serves this path back at the original
+# /runtime-config.js URL via an `alias` in nginx.conf, so index.html's
+# `<script src="/runtime-config.js">` is unchanged.
+OUTPUT=/tmp/runtime-config.js
 
 # The single-quoted SHELL-FORMAT argument is deliberate: it is an envsubst
 # allowlist, not a shell expansion. Only ${USER_SERVICE_ORIGIN} is substituted;
