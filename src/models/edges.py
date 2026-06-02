@@ -14,6 +14,8 @@ __all__ = [
     "ActiveDuring",
     "AppearsIn",
     "BasedIn",
+    "GradedBy",
+    "Narrated",
     "ParallelOf",
     "StudiedUnder",
     "TransmittedTo",
@@ -105,6 +107,24 @@ class ActiveDuring(BaseModel):
     """Political or theological affiliation during the event."""
 
 
+class Narrated(BaseModel):
+    """Edge: a narrator narrated (was the originating source of) a hadith.
+
+    Establishes the schema contract for the ``NARRATED`` relationship
+    (narrator -> hadith). The graph-loading emitter is not yet implemented in
+    this repo; the relationship is currently merged with no typed properties.
+    Defining the model now lets the property allow-list be tightened once the
+    loader lands.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    narrator_id: str
+    """FK to Narrator.id — the narrator who narrated the hadith."""
+    hadith_id: str
+    """FK to Hadith.id — the hadith that was narrated."""
+
+
 class BasedIn(BaseModel):
     """Edge: a narrator was based in a location during a period."""
 
@@ -118,3 +138,23 @@ class BasedIn(BaseModel):
     """Period of residence in Hijri years."""
     role: str | None = None
     """Role or activity at this location."""
+
+
+class GradedBy(BaseModel):
+    """Edge: a hadith was assigned a grading.
+
+    Mirrors the ``GRADED_BY`` relationship (hadith -> grading) emitted by the
+    ingest-platform normalize stage — ``workers/normalize/processor.py``
+    appends an ``_EdgeRow(label="GRADED_BY", src_label="Hadith",
+    dst_label="Grading", props={})`` whenever a grade is present. The emitter
+    carries no typed edge properties today; this model establishes the schema
+    contract so ingest-platform can tighten its ``GRADED_BY`` property
+    allow-list to match.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    hadith_id: str
+    """FK to Hadith.id — the hadith that was graded."""
+    grading_id: str
+    """FK to Grading.id — the grading assigned to the hadith."""
