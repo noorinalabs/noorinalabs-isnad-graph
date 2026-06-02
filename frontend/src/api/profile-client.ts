@@ -1,4 +1,5 @@
 import { emitSessionExpired } from '../hooks/useAuth'
+import { getAuthHeaders } from './auth-headers'
 
 // Absolute URL targeting the user-service vhost (`users.{base}`). See
 // useAuth.ts for the full BASE-constant set and the runtime-vs-build-time
@@ -9,11 +10,6 @@ const USER_SERVICE_ORIGIN =
   import.meta.env.VITE_USER_SERVICE_ORIGIN ||
   ''
 const API_BASE = `${USER_SERVICE_ORIGIN}/api/v1/users/me`
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 async function fetchProfileJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {

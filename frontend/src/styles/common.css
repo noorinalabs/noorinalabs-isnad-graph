@@ -1088,3 +1088,24 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted-foreground);
 }
+
+/* OAuth sign-in buttons — per-provider colors with CSS :hover
+   (replaces inline onMouseEnter/onMouseLeave handlers) */
+.oauth-button-google {
+  border: var(--border-width-thin) solid var(--color-oauth-google-border);
+  background-color: var(--color-oauth-google-bg);
+  color: var(--color-oauth-google-text);
+}
+
+.oauth-button-google:hover {
+  background-color: var(--color-oauth-google-bg-hover);
+}
+
+.oauth-button-github {
+  background-color: var(--color-oauth-github-bg);
+  color: var(--color-oauth-github-text);
+}
+
+.oauth-button-github:hover {
+  background-color: var(--color-oauth-github-bg-hover);
+}

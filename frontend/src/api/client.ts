@@ -17,13 +17,9 @@ import type {
 } from '../types/api'
 
 import { emitSessionExpired } from '../hooks/useAuth'
+import { getAuthHeaders } from './auth-headers'
 
 const API_BASE = '/api/v1'
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })

@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import time
 
-import psycopg
-import redis as redis_lib
 from fastapi import APIRouter, Depends, Response
 
 from src.api.deps import get_neo4j
 from src.api.models import HealthResponse, ServiceStatus, StatusResponse
-from src.config import get_settings
 from src.utils.neo4j_client import Neo4jClient
+from src.utils.pg_client import PgClient
+from src.utils.redis_client import get_redis_client
 
 router = APIRouter()
 
@@ -32,19 +31,18 @@ def _check_neo4j(neo4j: Neo4jClient) -> ServiceStatus:
 
 
 def _check_postgres() -> ServiceStatus:
-    """Check PostgreSQL connectivity and return status."""
+    """Check PostgreSQL connectivity and return status.
+
+    Uses the application's ``PgClient`` wrapper — the same accessor used for
+    real traffic — instead of hand-rolling a raw ``psycopg.connect`` call.
+    """
     start = time.monotonic()
     try:
-        settings = get_settings()
-        conn = psycopg.connect(settings.postgres.dsn)
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT version()")
-                row = cur.fetchone()
-                version = str(row[0]).split(",")[0] if row else None
-        finally:
-            conn.close()
+        with PgClient() as pg:
+            rows = pg.execute("SELECT version() AS version")
         latency = (time.monotonic() - start) * 1000
+        raw = rows[0]["version"] if rows else None
+        version = str(raw).split(",")[0] if raw else None
         return ServiceStatus(status="up", latency_ms=round(latency, 1), version=version)
     except Exception as exc:
         latency = (time.monotonic() - start) * 1000
@@ -52,15 +50,21 @@ def _check_postgres() -> ServiceStatus:
 
 
 def _check_redis() -> ServiceStatus:
-    """Check Redis connectivity and return status."""
+    """Check Redis connectivity and return status.
+
+    Uses the shared ``get_redis_client`` helper — the same accessor used for
+    real traffic — instead of hand-rolling a raw ``redis.from_url`` call.
+    """
     start = time.monotonic()
     try:
-        settings = get_settings()
-        r = redis_lib.from_url(str(settings.redis.url))
-        r.ping()
-        info: dict[str, object] = r.info("server")  # type: ignore[assignment]
+        client = get_redis_client()
+        if client is None:
+            latency = (time.monotonic() - start) * 1000
+            return ServiceStatus(
+                status="down", latency_ms=round(latency, 1), error="redis unavailable"
+            )
+        info: dict[str, object] = client.info("server")
         version = str(info.get("redis_version", "")) or None
-        r.close()
         latency = (time.monotonic() - start) * 1000
         return ServiceStatus(status="up", latency_ms=round(latency, 1), version=version)
     except Exception as exc:
