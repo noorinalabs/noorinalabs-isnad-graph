@@ -17,7 +17,13 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const errorCode = searchParams.get('error')
-    const token = searchParams.get('token')
+    // The access token is read from the URL fragment first: user-service moves
+    // it out of the query string (#68) because query params leak into server
+    // logs, the Referer header, and browser history. The query-param read is a
+    // transition fallback so this works against both the pre-#68 user-service
+    // (token in query) and post-#68 (token in fragment) — and can land first.
+    const hashToken = new URLSearchParams(window.location.hash.slice(1)).get('token')
+    const token = hashToken ?? searchParams.get('token')
     const isNewUser = searchParams.get('is_new_user')
     const needsVerification = searchParams.get('needs_verification')
     const returnUrl = sessionStorage.getItem('oauth_return_url') || '/'
