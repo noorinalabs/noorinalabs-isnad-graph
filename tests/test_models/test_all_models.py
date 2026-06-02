@@ -15,6 +15,8 @@ from src.models.edges import (
     ActiveDuring,
     AppearsIn,
     BasedIn,
+    GradedBy,
+    Narrated,
     ParallelOf,
     StudiedUnder,
     TransmittedTo,
@@ -211,6 +213,16 @@ class TestInstantiation:
     def test_based_in(self) -> None:
         edge = BasedIn(narrator_id="nar:a", location_id="loc:medina")
         assert edge.location_id == "loc:medina"
+
+    def test_narrated(self) -> None:
+        edge = Narrated(narrator_id="nar:a", hadith_id="hdt:001")
+        assert edge.narrator_id == "nar:a"
+        assert edge.hadith_id == "hdt:001"
+
+    def test_graded_by(self) -> None:
+        edge = GradedBy(hadith_id="hdt:001", grading_id="grd:001")
+        assert edge.hadith_id == "hdt:001"
+        assert edge.grading_id == "grd:001"
 
 
 # ---------------------------------------------------------------------------
