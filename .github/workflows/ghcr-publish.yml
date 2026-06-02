@@ -155,13 +155,15 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## GHCR Publish (${{ matrix.component }}): ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Ref:** ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Image:** ${{ env.REGISTRY }}/${{ matrix.image }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Platforms:** ${{ matrix.platforms }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **SHA:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Digest:** ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## GHCR Publish (${{ matrix.component }}): ${{ job.status }}"
+            echo ""
+            echo "- **Ref:** ${{ github.ref_name }}"
+            echo "- **Image:** ${{ env.REGISTRY }}/${{ matrix.image }}"
+            echo "- **Platforms:** ${{ matrix.platforms }}"
+            echo "- **SHA:** ${{ github.sha }}"
+            echo "- **Digest:** ${{ steps.build.outputs.digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Fire repository_dispatch to noorinalabs-deploy AFTER both images published.
   # Gated to main-branch pushes only — tag pushes and manual dispatches do NOT
