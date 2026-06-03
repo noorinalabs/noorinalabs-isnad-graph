@@ -59,3 +59,8 @@ Thumbs.db
 
 .claude/.consulted/
 .claude/.librarian-consulted/
+
+# Worktrees — local-only isolation dirs, never tracked. Top-level .worktrees/
+# plus the .claude/worktrees/ convention path used by wave/agent isolation.
+.worktrees/
+.claude/worktrees/
