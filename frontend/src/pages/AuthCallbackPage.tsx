@@ -17,13 +17,14 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const errorCode = searchParams.get('error')
-    // The access token is read from the URL fragment first: user-service moves
-    // it out of the query string (#68) because query params leak into server
-    // logs, the Referer header, and browser history. The query-param read is a
-    // transition fallback so this works against both the pre-#68 user-service
-    // (token in query) and post-#68 (token in fragment) — and can land first.
-    const hashToken = new URLSearchParams(window.location.hash.slice(1)).get('token')
-    const token = hashToken ?? searchParams.get('token')
+    // The access token is read ONLY from the URL fragment. user-service delivers
+    // it in the fragment (#68) because query params leak into server logs, the
+    // Referer header, and browser history. The `?token=` query fallback that PR
+    // #952 kept for the pre-#68 transition is now removed (#955): us#147 is
+    // deployed, so the backend always sends the token in the fragment. Keeping a
+    // query read alive would re-open the very Referer-leak path #68 closed — a
+    // token arriving on the query string is now treated as untrusted and ignored.
+    const token = new URLSearchParams(window.location.hash.slice(1)).get('token')
     const isNewUser = searchParams.get('is_new_user')
     const needsVerification = searchParams.get('needs_verification')
     const returnUrl = sessionStorage.getItem('oauth_return_url') || '/'
