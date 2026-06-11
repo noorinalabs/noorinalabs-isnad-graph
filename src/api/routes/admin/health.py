@@ -67,10 +67,10 @@ def readiness(
         from src.config import get_settings
 
         settings = get_settings()
-        if settings.postgres.dsn:
+        if settings.postgres.effective_dsn:
             import psycopg
 
-            conn = psycopg.connect(str(settings.postgres.dsn))
+            conn = psycopg.connect(str(settings.postgres.effective_dsn))
             conn.close()
             pg_ok = True
     except Exception as exc:
@@ -84,10 +84,10 @@ def readiness(
         from src.config import get_settings
 
         settings = get_settings()
-        if settings.redis.url:
+        if settings.redis.effective_url:
             import redis
 
-            r = redis.from_url(str(settings.redis.url))
+            r = redis.from_url(str(settings.redis.effective_url))
             r.ping()
             redis_ok = True
     except Exception as exc:

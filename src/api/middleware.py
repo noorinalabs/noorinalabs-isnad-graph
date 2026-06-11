@@ -122,7 +122,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             try:
                 from src.config import get_settings
 
-                url = get_settings().redis.url
+                url = get_settings().redis.effective_url
             except Exception:  # noqa: BLE001
                 return None
         try:
