@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import quote
 
+from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,11 +20,51 @@ class Neo4jSettings(BaseSettings):
 
 
 class PostgresSettings(BaseSettings):
-    """PostgreSQL connection settings."""
+    """PostgreSQL connection settings.
+
+    The preferred config path is the separate component vars below
+    (PG_HOST/PORT/USER/PASSWORD/DB). When PG_HOST is set, the DSN is built
+    in-app with the user and password percent-encoded via ``urllib.parse.quote``
+    — so a password containing URL-reserved characters (`/`, `+`, `=`, `@`, `:`,
+    `#`, ...) can never corrupt the URL authority and break ``urlparse`` at
+    startup (#956, sibling of user-service #65). PG_DSN is retained as a
+    backward-compatible fallback and as the local-dev default; it is used
+    verbatim only when PG_HOST is unset. Consumers should read
+    :attr:`effective_dsn`, never ``dsn`` directly.
+    """
 
     dsn: str = "postgresql://isnad:isnad_dev@localhost:5432/isnad_graph"
+    host: str | None = None
+    port: int = 5432
+    user: str | None = None
+    password: str | None = None
+    db: str | None = None
+    # Scheme used when building the DSN from components.
+    driver: str = "postgresql"
 
     model_config = SettingsConfigDict(env_prefix="PG_")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def effective_dsn(self) -> str:
+        """The Postgres DSN the app should actually connect with.
+
+        When ``host`` is set, build the DSN from the component vars with the
+        user and password percent-encoded (``safe=""`` so every URL-reserved
+        character is escaped), so a password with URL-unsafe characters can
+        never corrupt the URL. Otherwise fall back to ``dsn`` verbatim
+        (backward compat / local-dev default).
+        """
+        if self.host is None:
+            return self.dsn
+        auth = ""
+        if self.user is not None:
+            auth = quote(self.user, safe="")
+            if self.password is not None:
+                auth += f":{quote(self.password, safe='')}"
+            auth += "@"
+        path = f"/{self.db}" if self.db is not None else ""
+        return f"{self.driver}://{auth}{self.host}:{self.port}{path}"
 
 
 class RateLimitSettings(BaseSettings):
@@ -35,11 +77,45 @@ class RateLimitSettings(BaseSettings):
 
 
 class RedisSettings(BaseSettings):
-    """Redis cache connection settings."""
+    """Redis cache connection settings.
+
+    The preferred config path is the separate component vars below
+    (REDIS_HOST/PORT/PASSWORD/DB, + REDIS_TLS). When REDIS_HOST is set, the URL
+    is built in-app with the password percent-encoded via ``urllib.parse.quote``
+    — so a base64 password containing `/` no longer terminates the URL authority
+    and crashes ``urlparse`` at startup (#956, sibling of user-service #65).
+    REDIS_URL is the backward-compatible fallback / local-dev default, used
+    verbatim only when REDIS_HOST is unset. Consumers should read
+    :attr:`effective_url`, never ``url`` directly.
+    """
 
     url: str = "redis://localhost:6379/0"
+    host: str | None = None
+    port: int = 6379
+    password: str | None = None
+    db: int = 0
+    # Set true to use rediss:// (TLS) when building the URL from components.
+    tls: bool = False
 
     model_config = SettingsConfigDict(env_prefix="REDIS_")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def effective_url(self) -> str:
+        """The Redis connection URL the app should actually connect with.
+
+        When ``host`` is set, build ``redis(s)://[:<encoded-password>@]host:port/db``
+        with the password percent-encoded via ``urllib.parse.quote`` (``safe=""``
+        so `/`, `@`, `:`, `#`, etc. survive ``urlparse``). Otherwise fall back to
+        ``url`` verbatim (backward compat / local-dev default).
+        """
+        if self.host is None:
+            return self.url
+        scheme = "rediss" if self.tls else "redis"
+        auth = ""
+        if self.password:
+            auth = f":{quote(self.password, safe='')}@"
+        return f"{scheme}://{auth}{self.host}:{self.port}/{self.db}"
 
 
 class AuthSettings(BaseSettings):

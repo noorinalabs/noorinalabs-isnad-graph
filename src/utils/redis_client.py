@@ -20,7 +20,7 @@ def get_redis_client() -> Any | None:
         import redis
 
         settings = get_settings().redis
-        client = redis.Redis.from_url(settings.url, decode_responses=True)
+        client = redis.Redis.from_url(settings.effective_url, decode_responses=True)
         client.ping()
         return client
     except Exception:  # noqa: BLE001
