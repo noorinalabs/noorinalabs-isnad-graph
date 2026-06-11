@@ -44,8 +44,8 @@ def _cmd_info() -> None:
     print(f"  neo4j.uri      : {settings.neo4j.uri}")
     print(f"  neo4j.user     : {settings.neo4j.user}")
     print(f"  neo4j.password : {_mask_password(settings.neo4j.password)}")
-    print(f"  postgres.dsn   : {settings.postgres.dsn}")
-    print(f"  redis.url      : {settings.redis.url}")
+    print(f"  postgres.dsn   : {settings.postgres.effective_dsn}")
+    print(f"  redis.url      : {settings.redis.effective_url}")
     print(f"  log_level      : {settings.log_level}")
     print()
 
@@ -68,7 +68,7 @@ def _cmd_info() -> None:
     try:
         import psycopg
 
-        conn = psycopg.connect(settings.postgres.dsn)
+        conn = psycopg.connect(settings.postgres.effective_dsn)
         conn.close()
         print("  postgres : connected")
     except Exception:  # noqa: BLE001

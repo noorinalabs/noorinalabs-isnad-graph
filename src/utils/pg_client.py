@@ -23,7 +23,7 @@ class PgClient:
 
     def __init__(self, dsn: str | None = None) -> None:
         settings = get_settings()
-        self._dsn = dsn or settings.postgres.dsn
+        self._dsn = dsn or settings.postgres.effective_dsn
         try:
             self._conn: psycopg.Connection[dict[str, Any]] = psycopg.connect(
                 self._dsn, row_factory=dict_row
