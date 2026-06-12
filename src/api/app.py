@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,8 @@ from src.api.middleware import (
     require_auth,
 )
 
+log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -30,6 +33,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         user=settings.neo4j.user,
         password=settings.neo4j.password,
     )
+    # Ensure the search full-text indexes exist on the deployed graph. The
+    # statements are idempotent (``IF NOT EXISTS``); this is the one path
+    # guaranteed to run on every deploy, since data may be loaded out-of-band
+    # (e.g. via cypher-shell) without going through the loader. Best-effort: a
+    # transiently unavailable Neo4j must not block API startup — search degrades
+    # gracefully to CONTAINS until the index is present.
+    try:
+        app.state.neo4j.ensure_fulltext_indexes()
+    except Exception:  # noqa: BLE001 — startup must not fail on index setup
+        log.warning("ensure_fulltext_indexes failed at startup", exc_info=True)
     yield
     app.state.neo4j.close()
 

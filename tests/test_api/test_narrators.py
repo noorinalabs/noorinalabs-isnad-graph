@@ -102,6 +102,47 @@ def test_list_narrators_fulltext_search_pagination(
     assert params["limit"] == 10
 
 
+def test_list_narrators_search_falls_back_to_contains(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """When ``narrator_search`` is absent, search degrades to CONTAINS (no 500)."""
+    # First call (fulltext) raises as Neo4j does for a missing index;
+    # second call (CONTAINS fallback) succeeds.
+    mock_neo4j.execute_read.side_effect = [
+        Exception("There is no such fulltext schema index: narrator_search"),
+        [{"total": 1, "rows": [{"props": SAMPLE_NARRATOR}]}],
+    ]
+    resp = client.get("/api/v1/narrators?q=Abu")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["name_en"] == "Abu Hurayra"
+
+    # Fulltext attempted first, then the CONTAINS fallback.
+    assert mock_neo4j.execute_read.call_count == 2
+    fallback_query = mock_neo4j.execute_read.call_args_list[1][0][0]
+    assert "CONTAINS" in fallback_query
+    assert "fulltext.queryNodes" not in fallback_query
+    # Fallback matches on the raw query, not the Lucene-quoted phrase.
+    assert mock_neo4j.execute_read.call_args_list[1][0][1]["q"] == "Abu"
+
+
+def test_list_narrators_search_fallback_empty_not_500(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """Missing index + no CONTAINS matches yields an empty 200, never a 500."""
+    mock_neo4j.execute_read.side_effect = [
+        Exception("There is no such fulltext schema index: narrator_search"),
+        [{"total": 0, "rows": []}],
+    ]
+    resp = client.get("/api/v1/narrators?q=Nobody")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["items"] == []
+
+
 def test_get_narrator_found(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/narrators/{id} returns narrator when found."""
     mock_neo4j.execute_read.return_value = [{"props": SAMPLE_NARRATOR}]
