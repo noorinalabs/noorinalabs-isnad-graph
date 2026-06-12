@@ -289,8 +289,10 @@ class TestInputValidation:
         assert resp.status_code == 422
 
     def test_search_empty_query(self, client: TestClient) -> None:
+        # Empty q is a clean no-op (200 + empty results), not a 422 (#966).
         resp = client.get("/api/v1/search?q=")
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        assert resp.json()["results"] == []
 
     def test_collections_limit_too_high(self, client: TestClient) -> None:
         resp = client.get("/api/v1/collections?limit=999")

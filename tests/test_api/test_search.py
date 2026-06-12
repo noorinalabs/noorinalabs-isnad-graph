@@ -110,10 +110,36 @@ def test_search_empty_results(client: TestClient) -> None:
     assert body["results"] == []
 
 
-def test_search_requires_query(client: TestClient) -> None:
-    """GET /api/v1/search without q param returns 422."""
+def test_search_missing_query_is_noop(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/search without q param is a clean no-op (200, empty), not 422."""
     resp = client.get("/api/v1/search")
-    assert resp.status_code == 422
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["query"] == ""
+    assert body["total"] == 0
+    assert body["results"] == []
+    # Blank input must short-circuit before any Neo4j query.
+    mock_neo4j.execute_read.assert_not_called()
+
+
+def test_search_empty_query_is_noop(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/search?q= (explicit empty) is a clean no-op, not 422."""
+    resp = client.get("/api/v1/search?q=")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["results"] == []
+    mock_neo4j.execute_read.assert_not_called()
+
+
+def test_search_blank_query_is_noop(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /api/v1/search?q=%20%20 (whitespace-only) is a clean no-op, not 422."""
+    resp = client.get("/api/v1/search?q=%20%20")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["results"] == []
+    mock_neo4j.execute_read.assert_not_called()
 
 
 def test_semantic_search_returns_503_when_pg_unavailable(client: TestClient, app: object) -> None:

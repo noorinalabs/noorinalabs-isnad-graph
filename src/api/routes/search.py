@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
-    q: str = Query(..., min_length=1, max_length=500, description="Search query"),
+    q: str = Query("", max_length=500, description="Search query"),
     limit: int = Query(20, ge=1, le=100),
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> SearchResultsResponse:
@@ -28,7 +28,17 @@ def search(
 
     Uses Neo4j full-text indexes (``narrator_search``, ``hadith_search``)
     when available, falling back to ``CONTAINS`` substring matching.
+
+    An empty or blank ``q`` is a clean no-op: it returns ``200`` with an empty
+    result set rather than ``422``, so the frontend firing a search on an empty
+    box (or on initial load) lands on a valid "no results yet" state instead of
+    an API error.
     """
+    # Short-circuit blank queries before touching Neo4j — nothing to match, and
+    # a full-text query on empty input is meaningless.
+    if not q.strip():
+        return SearchResultsResponse(results=[], total=0, query=q)
+
     results: list[SearchResult] = []
 
     # --- Narrator search via full-text index ---
