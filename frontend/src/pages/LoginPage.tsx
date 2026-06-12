@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { readJsonResponse } from '../lib/authJson'
 
 // Absolute URL targeting the user-service vhost (`users.{base}`). See
 // useAuth.ts for the full BASE-constant set and the runtime-vs-build-time
@@ -91,8 +92,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     fetch(`${AUTH_BASE}/providers`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((data: string[]) => setProviders(data))
+      .then((res) => (res.ok ? readJsonResponse<string[]>(res) : Promise.reject(res)))
+      .then((data) => setProviders(data))
       .catch(() => setProviders(['google', 'github']))
   }, [])
 
@@ -114,11 +115,13 @@ export default function LoginPage() {
       const res = await fetch(`${AUTH_BASE}/oauth/${provider}/login`)
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+        const data = await readJsonResponse<{ detail?: string }>(res).catch(() => ({
+          detail: `HTTP ${res.status}`,
+        }))
         throw new Error(data.detail || `Failed to initiate ${provider} login`)
       }
 
-      const data = await res.json()
+      const data = await readJsonResponse<{ authorization_url: string }>(res)
       sessionStorage.setItem('oauth_return_url', from)
       window.location.href = data.authorization_url
     } catch (err) {
@@ -145,11 +148,13 @@ export default function LoginPage() {
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+        const data = await readJsonResponse<{ detail?: string }>(res).catch(() => ({
+          detail: `HTTP ${res.status}`,
+        }))
         throw new Error(data.detail || 'Invalid credentials')
       }
 
-      const data = await res.json()
+      const data = await readJsonResponse<{ access_token: string }>(res)
       localStorage.setItem('access_token', data.access_token)
       // Refresh token is set as httpOnly cookie by the server
       navigate(from, { replace: true })
@@ -184,11 +189,13 @@ export default function LoginPage() {
       })
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+        const data = await readJsonResponse<{ detail?: string }>(res).catch(() => ({
+          detail: `HTTP ${res.status}`,
+        }))
         throw new Error(data.detail || 'Registration failed')
       }
 
-      const data = await res.json()
+      const data = await readJsonResponse<{ access_token: string }>(res)
       localStorage.setItem('access_token', data.access_token)
       // Refresh token is set as httpOnly cookie by the server
       navigate(from, { replace: true })
