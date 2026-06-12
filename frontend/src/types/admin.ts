@@ -28,3 +28,33 @@ export interface UsageAnalytics {
   api_call_count: number
   popular_narrators: PopularNarrator[]
 }
+
+export interface NodeCount {
+  label: string
+  count: number
+}
+
+export interface RelationshipCount {
+  rel_type: string
+  count: number
+}
+
+export interface DataOverview {
+  node_counts: NodeCount[]
+  relationship_counts: RelationshipCount[]
+  total_nodes: number
+  total_relationships: number
+}
+
+export interface SourceBreakdown {
+  source_corpus: string
+  hadith_count: number
+  collection_count: number
+}
+
+export interface DataSources {
+  sources: SourceBreakdown[]
+  total_hadiths: number
+  total_collections: number
+  distinct_sources: number
+}
