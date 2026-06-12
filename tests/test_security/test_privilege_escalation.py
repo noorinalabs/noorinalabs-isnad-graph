@@ -19,15 +19,19 @@ ADMIN_ENDPOINTS: list[tuple[str, str]] = [
 
 
 class TestNonAdminCannotAccessAdminRoutes:
-    """A valid token for a non-admin user must return 403 on admin endpoints."""
+    """A valid token for a non-admin user must return 404 on admin endpoints.
+
+    404 (not 403) hides the existence of the admin surface from authenticated
+    non-admins (ig#804).
+    """
 
     @pytest.mark.parametrize("method,path", ADMIN_ENDPOINTS)
-    def test_regular_user_gets_403(
+    def test_regular_user_gets_404(
         self, client: TestClient, valid_token: str, method: str, path: str
     ) -> None:
         response = client.request(method, path, headers={"Authorization": f"Bearer {valid_token}"})
-        assert response.status_code == 403, (
-            f"Non-admin user should get 403 on {method} {path}, got {response.status_code}"
+        assert response.status_code == 404, (
+            f"Non-admin user should get 404 on {method} {path}, got {response.status_code}"
         )
 
     @pytest.mark.parametrize("method,path", ADMIN_ENDPOINTS)
@@ -51,7 +55,7 @@ class TestAdminUserUpdate:
             json={"is_admin": True},
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
     def test_non_admin_cannot_suspend_user(self, client: TestClient, valid_token: str) -> None:
         response = client.patch(
@@ -59,7 +63,7 @@ class TestAdminUserUpdate:
             json={"is_suspended": True},
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
     def test_non_admin_cannot_change_role(self, client: TestClient, valid_token: str) -> None:
         response = client.patch(
@@ -67,7 +71,7 @@ class TestAdminUserUpdate:
             json={"role": "admin"},
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 class TestRoleManipulationInJWT:
@@ -92,7 +96,7 @@ class TestRoleManipulationInJWT:
             "/api/v1/admin/users",
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert response.status_code == 403, (
+        assert response.status_code == 404, (
             "Spoofed admin role in JWT should not grant admin access"
         )
 
@@ -105,4 +109,4 @@ class TestRoleManipulationInJWT:
             "/api/v1/admin/users",
             headers={"Authorization": f"Bearer {token}"},
         )
-        assert response.status_code == 403
+        assert response.status_code == 404

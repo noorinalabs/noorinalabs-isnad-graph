@@ -253,10 +253,11 @@ class TestModerationAuthEnforcement:
         app = create_app()
         app.state.neo4j = mock_neo4j
 
-        def _raise_forbidden() -> User:
-            raise HTTPException(status_code=403, detail="Admin access required")
+        def _raise_not_found() -> User:
+            # Mirrors require_admin's hide-existence 404 for non-admins (ig#804).
+            raise HTTPException(status_code=404, detail="Not Found")
 
-        app.dependency_overrides[require_admin] = _raise_forbidden
+        app.dependency_overrides[require_admin] = _raise_not_found
         return app
 
     @pytest.fixture
@@ -267,17 +268,17 @@ class TestModerationAuthEnforcement:
         resp = noauth_client.get("/api/v1/admin/moderation")
         assert resp.status_code == 401
 
-    def test_list_403(self, regular_client: TestClient) -> None:
+    def test_list_404(self, regular_client: TestClient) -> None:
         resp = regular_client.get("/api/v1/admin/moderation")
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_patch_401(self, noauth_client: TestClient) -> None:
         resp = noauth_client.patch("/api/v1/admin/moderation/some-id", json={"status": "approved"})
         assert resp.status_code == 401
 
-    def test_patch_403(self, regular_client: TestClient) -> None:
+    def test_patch_404(self, regular_client: TestClient) -> None:
         resp = regular_client.patch("/api/v1/admin/moderation/some-id", json={"status": "approved"})
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_flag_401(self, noauth_client: TestClient) -> None:
         resp = noauth_client.post(
@@ -286,9 +287,9 @@ class TestModerationAuthEnforcement:
         )
         assert resp.status_code == 401
 
-    def test_flag_403(self, regular_client: TestClient) -> None:
+    def test_flag_404(self, regular_client: TestClient) -> None:
         resp = regular_client.post(
             "/api/v1/admin/moderation/flag",
             json={"entity_type": "hadith", "entity_id": "h1", "reason": "test"},
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 404
