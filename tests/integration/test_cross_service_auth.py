@@ -281,7 +281,8 @@ class TestRoleBasedAccessControl:
                 "/api/v1/admin/users",
                 headers={"Authorization": f"Bearer {token}"},
             )
-        assert resp.status_code == 403
+        # Non-admins get 404 — the admin surface is hidden (ig#804).
+        assert resp.status_code == 404
 
     def test_moderator_blocked_from_admin_endpoints(self, client: TestClient) -> None:
         token = _make_token(roles=["moderator"])
@@ -290,7 +291,8 @@ class TestRoleBasedAccessControl:
                 "/api/v1/admin/users",
                 headers={"Authorization": f"Bearer {token}"},
             )
-        assert resp.status_code == 403
+        # Non-admins get 404 — the admin surface is hidden (ig#804).
+        assert resp.status_code == 404
 
     def test_researcher_maps_to_editor_role(
         self, client: TestClient, mock_neo4j: MagicMock

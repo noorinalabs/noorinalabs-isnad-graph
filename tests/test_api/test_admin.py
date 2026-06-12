@@ -113,10 +113,11 @@ def regular_app(mock_neo4j: MagicMock) -> FastAPI:
 
     from fastapi import HTTPException
 
-    def _raise_forbidden() -> User:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    def _raise_not_found() -> User:
+        # Mirrors require_admin's hide-existence 404 for non-admins (ig#804).
+        raise HTTPException(status_code=404, detail="Not Found")
 
-    app.dependency_overrides[require_admin] = _raise_forbidden
+    app.dependency_overrides[require_admin] = _raise_not_found
     return app
 
 
@@ -452,6 +453,6 @@ class TestAdminAuthEnforcement:
         resp = noauth_client.get("/api/v1/admin/stats")
         assert resp.status_code == 401
 
-    def test_non_admin_returns_403(self, regular_client: TestClient) -> None:
+    def test_non_admin_returns_404(self, regular_client: TestClient) -> None:
         resp = regular_client.get("/api/v1/admin/stats")
-        assert resp.status_code == 403
+        assert resp.status_code == 404

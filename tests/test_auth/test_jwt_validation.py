@@ -261,7 +261,8 @@ class TestRoleBasedAccess:
                 "/api/v1/admin/users",
                 headers={"Authorization": "Bearer viewer-token"},
             )
-        assert resp.status_code == 403
+        # Non-admins get 404, not 403 — the admin surface is hidden (ig#804).
+        assert resp.status_code == 404
 
     def test_researcher_maps_to_editor(self) -> None:
         from src.api.auth import Role

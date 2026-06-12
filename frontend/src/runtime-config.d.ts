@@ -5,6 +5,10 @@
 // `import.meta.env.VITE_USER_SERVICE_ORIGIN`. See isnad-graph#932.
 interface RuntimeConfig {
   USER_SERVICE_ORIGIN?: string
+  // Origin of the ingest-platform service that hosts the pipeline-reset
+  // endpoints (`/admin/reset/*`, ingest#73). Cross-service from this SPA —
+  // the reset UI (ig#970) resolves it the same runtime-over-build-time way.
+  INGEST_PLATFORM_ORIGIN?: string
 }
 
 interface Window {

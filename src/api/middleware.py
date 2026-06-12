@@ -284,13 +284,25 @@ def require_role(min_role: Role) -> Callable[..., object]:
 
 
 async def require_admin(request: Request) -> User:
-    """Require authenticated user with admin role. Return 403 if not admin."""
+    """Require an authenticated admin user, hiding the admin surface from others.
+
+    Returns **404 Not Found** (not 403) when an authenticated, non-admin user
+    hits an admin route, so the existence of the admin area is not disclosed to
+    anyone who could probe it with valid credentials (ig#804). The 404 detail
+    deliberately mirrors FastAPI's default ("Not Found") so the response is
+    indistinguishable from a genuinely missing route.
+
+    Anonymous / invalid-token requests still receive 401 from ``require_auth``:
+    that response is identical on every authenticated route, so it does not
+    single out the admin surface, whereas a 403-vs-404 authz differential would.
+    A 503 (auth backend unreachable) likewise propagates unchanged.
+    """
     user = await require_auth(request)
     user_role = Role(user.role) if user.role in {r.value for r in Role} else Role.VIEWER
     is_role_admin = ROLE_HIERARCHY.get(user_role, 0) >= ROLE_HIERARCHY[Role.ADMIN]
 
     if not is_role_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise HTTPException(status_code=404, detail="Not Found")
     return user
 
 

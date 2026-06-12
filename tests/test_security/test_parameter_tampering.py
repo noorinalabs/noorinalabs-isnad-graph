@@ -185,20 +185,25 @@ class TestPaginationTampering:
 class TestSearchBoundaryConditions:
     """Search query length boundary tests."""
 
-    def test_empty_search_query_rejected(self, client: TestClient, valid_token: str) -> None:
+    def test_empty_search_query_is_noop(self, client: TestClient, valid_token: str) -> None:
+        # Empty q is a clean no-op (200 + empty results), not a 422 (#966).
+        # The overlength guard below is the security-relevant boundary.
         response = client.get(
             "/api/v1/search",
             params={"q": ""},
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 422
+        assert response.status_code == 200
+        assert response.json()["results"] == []
 
-    def test_search_missing_query_rejected(self, client: TestClient, valid_token: str) -> None:
+    def test_search_missing_query_is_noop(self, client: TestClient, valid_token: str) -> None:
+        # Missing q is a clean no-op (200 + empty results), not a 422 (#966).
         response = client.get(
             "/api/v1/search",
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 422
+        assert response.status_code == 200
+        assert response.json()["results"] == []
 
     def test_search_overlength_query_rejected(self, client: TestClient, valid_token: str) -> None:
         long_query = "a" * 501

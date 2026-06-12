@@ -14,12 +14,16 @@ class TestIDORUserEndpoints:
     """Non-admin user must not be able to view or modify other users via admin routes."""
 
     def test_cannot_view_other_user_via_admin(self, client: TestClient, valid_token: str) -> None:
-        """Regular user cannot GET another user's details from admin endpoint."""
+        """Regular user cannot GET another user's details from admin endpoint.
+
+        The admin surface 404s for non-admins (ig#804), so the attempt is
+        indistinguishable from a missing route rather than a forbidden one.
+        """
         response = client.get(
             "/api/v1/admin/users/admin-user-001",
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
     def test_cannot_modify_other_user_via_admin(self, client: TestClient, valid_token: str) -> None:
         """Regular user cannot PATCH another user's record."""
@@ -28,7 +32,7 @@ class TestIDORUserEndpoints:
             json={"role": "viewer"},
             headers={"Authorization": f"Bearer {valid_token}"},
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 class TestIDEnumeration:

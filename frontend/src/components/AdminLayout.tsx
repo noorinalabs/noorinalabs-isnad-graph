@@ -8,8 +8,10 @@ const adminNavItems = [
   { to: '/admin/users', label: 'User Management' },
   { to: '/admin/health', label: 'System Health' },
   { to: '/admin/stats', label: 'Content Stats' },
+  { to: '/admin/data', label: 'Data Management' },
   { to: '/admin/analytics', label: 'Usage Analytics' },
   { to: '/admin/audit', label: 'Audit Log' },
+  { to: '/admin/reset', label: 'Pipeline Reset' },
 ]
 
 export default function AdminLayout() {
