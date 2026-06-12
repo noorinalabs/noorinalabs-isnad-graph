@@ -169,6 +169,7 @@ glanceable
 gradings
 Hadid
 hasan
+Hijri
 hiro
 hotfixes
 Hurayra
