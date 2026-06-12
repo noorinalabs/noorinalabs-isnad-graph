@@ -261,7 +261,15 @@ export default function ResetPage() {
       warning:
         'This permanently wipes MinIO, Backblaze B2, Kafka topics, the Neo4j graph, and PostgreSQL. Every ingested hadith, narrator, and chain is destroyed. There is no undo.',
       requireObliterate: true,
-      dryRun: () => resetFull('', true),
+      // The token rides the dry-run too: ingest#73's FullResetRequest makes
+      // `confirmation` a REQUIRED field under extra="forbid", so a token-less
+      // {dry_run:true} is rejected 422 by Pydantic before the handler runs —
+      // the preview would never render and the OBLITERATE gate would be
+      // unreachable. This is safe: a dry-run is server-side-inert (it routes
+      // through write_dry_run_audit and never constructs the resetter — the
+      // lazy-factory guarantee), so the token causes no wipe. The UI-side
+      // OBLITERATE gate still governs the REAL run below.
+      dryRun: () => resetFull(OBLITERATE, true),
       confirm: () => resetFull(OBLITERATE, false),
     })
 

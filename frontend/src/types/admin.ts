@@ -92,9 +92,12 @@ export interface SourceResetRequest {
 }
 
 export interface FullResetRequest {
-  // Required for the REAL /full run (server rejects 400 unless "OBLITERATE").
-  // Omitted on the dry-run preview — the token only ever travels on the real
-  // run (defense in depth: the destructive word is never sent speculatively).
+  // ingest#73 makes this a REQUIRED field under extra="forbid" — it must be
+  // "OBLITERATE" on BOTH the dry-run preview and the real run (a token-less
+  // body is rejected 422 by Pydantic before the handler runs). Optional here
+  // only so the client can still construct/exercise the rejected token-less
+  // shape in tests. The destructiveness is gated UI-side (typed confirmation)
+  // and server-side (a dry-run is inert — see ResetPage).
   confirmation?: string
   dry_run?: boolean
 }

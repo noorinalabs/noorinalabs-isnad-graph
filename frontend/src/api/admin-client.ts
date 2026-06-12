@@ -314,9 +314,11 @@ export async function resetFull(
   confirmation: string,
   dryRun: boolean,
 ): Promise<ResetResponse> {
-  // The OBLITERATE token only rides the REAL run. On the dry-run preview we
-  // send no confirmation at all (see FullResetRequest), so the destructive
-  // word is never transmitted speculatively.
+  // ingest#73 requires `confirmation:"OBLITERATE"` on BOTH dry-run and real
+  // run (REQUIRED field, extra="forbid" → a token-less body 422s before the
+  // handler runs). Callers pass the token on both; we omit it only when an
+  // empty string is given, which deliberately reproduces the rejected
+  // token-less shape so the fetch-boundary regression test can assert the 422.
   const body: FullResetRequest = { dry_run: dryRun }
   if (confirmation) {
     body.confirmation = confirmation

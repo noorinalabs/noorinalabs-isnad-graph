@@ -100,8 +100,9 @@ describe('ResetPage', () => {
     await user.click(screen.getByRole('button', { name: 'Full reset / OBLITERATE…' }))
     await user.click(screen.getByRole('button', { name: 'Run dry-run preview' }))
 
-    // Dry run sends NO confirmation token — only dry_run:true.
-    expect(resetFull).toHaveBeenNthCalledWith(1, '', true)
+    // Dry run carries the OBLITERATE token (ingest#73 requires `confirmation`
+    // even on dry-run) but with dry_run:true — server-side-inert, no wipe.
+    expect(resetFull).toHaveBeenNthCalledWith(1, 'OBLITERATE', true)
     await screen.findByText(/Dry-run preview/)
 
     const obliterateBtn = screen.getByRole('button', { name: 'Obliterate everything' })
