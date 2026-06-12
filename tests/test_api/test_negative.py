@@ -47,15 +47,23 @@ class TestNegativeInputs:
         resp = client.get(f"{NARRATORS}/' OR 1=1 --")
         assert resp.status_code == 404
 
-    def test_search_empty_query(self, client: TestClient) -> None:
-        """Empty search query should fail min_length=1 validation."""
+    def test_search_empty_query(self, client: TestClient, mock_neo4j: MagicMock) -> None:
+        """Empty search query is a clean no-op (200 + empty), not a 422 (#966)."""
         resp = client.get(f"{SEARCH}?q=")
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 0
+        assert body["results"] == []
+        mock_neo4j.execute_read.assert_not_called()
 
-    def test_search_missing_query(self, client: TestClient) -> None:
-        """Missing q parameter should fail as required."""
+    def test_search_missing_query(self, client: TestClient, mock_neo4j: MagicMock) -> None:
+        """Missing q parameter is a clean no-op (200 + empty), not a 422 (#966)."""
         resp = client.get(SEARCH)
-        assert resp.status_code == 422
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 0
+        assert body["results"] == []
+        mock_neo4j.execute_read.assert_not_called()
 
     def test_search_very_long_query(self, client: TestClient) -> None:
         """Query exceeding max_length=500 should fail validation."""
