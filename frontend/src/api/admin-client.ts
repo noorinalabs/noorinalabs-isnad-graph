@@ -5,6 +5,9 @@ import type {
   UsageAnalytics,
   DataOverview,
   DataSources,
+  ResetResponse,
+  ResetStage,
+  FullResetRequest,
 } from '../types/admin'
 import type { PaginatedResponse } from '../types/api'
 import { emitSessionExpired } from '../hooks/useAuth'
@@ -224,4 +227,101 @@ export async function fetchDataOverview(): Promise<DataOverview> {
 
 export async function fetchDataSources(): Promise<DataSources> {
   return fetchAdminJson(`${API_BASE}/data/sources`)
+}
+
+// ============================================================================
+// Pipeline reset — CROSS-SERVICE to ingest-platform (ingest#73, ig#970)
+// ----------------------------------------------------------------------------
+// These do NOT hit isnad-graph's /api/v1/admin. The reset surface lives on the
+// ingest-platform origin and is guarded by the SAME admin Bearer JWT
+// (RS256/JWKS). The origin is resolved at module-load time the same
+// runtime-over-build-time way as the user-service origin (see useAuth.ts /
+// runtime-config.d.ts): window.RUNTIME_CONFIG wins (entrypoint-injected per
+// env), then the build-time VITE value (local dev), then same-origin ''.
+// NEVER hardcode the origin — a baked URL can't target stg and prod from one
+// image digest (Contract v6, #815).
+const INGEST_PLATFORM_ORIGIN =
+  (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.INGEST_PLATFORM_ORIGIN) ||
+  import.meta.env.VITE_INGEST_PLATFORM_ORIGIN ||
+  ''
+const RESET_BASE = `${INGEST_PLATFORM_ORIGIN}/admin/reset`
+
+// Carries the HTTP status so the UI can branch on it (400 vs 422 vs 503 …)
+// instead of string-matching a message.
+export class ResetError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ResetError'
+    this.status = status
+  }
+}
+
+async function postReset(path: string, body: unknown): Promise<ResetResponse> {
+  const res = await fetch(`${RESET_BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body),
+  })
+  if (res.ok) {
+    return res.json() as Promise<ResetResponse>
+  }
+  // Pull a server-provided detail if there is one; tolerate a non-JSON body.
+  let detail = ''
+  try {
+    const parsed = (await res.json()) as { detail?: string }
+    detail = parsed?.detail ?? ''
+  } catch {
+    // non-JSON error body (e.g. a proxy 503 HTML page) — fall back to status text
+  }
+  switch (res.status) {
+    case 400:
+      // The /full guard: missing or non-"OBLITERATE" confirmation.
+      throw new ResetError(400, detail || 'Reset rejected: confirmation missing or incorrect.')
+    case 401:
+      emitSessionExpired()
+      throw new ResetError(401, 'Unauthorized: admin sign-in required.')
+    case 403:
+      throw new ResetError(403, 'Forbidden: this action requires an admin account.')
+    case 422:
+      throw new ResetError(422, detail || 'Validation error: check the stage or source value.')
+    case 503:
+      throw new ResetError(
+        503,
+        'Service unavailable: the auth key service (JWKS) is unreachable. Try again shortly.',
+      )
+    default:
+      throw new ResetError(res.status, detail || `Reset failed: ${res.status} ${res.statusText}`)
+  }
+}
+
+export async function resetStage(
+  stage: ResetStage,
+  dryRun: boolean,
+): Promise<ResetResponse> {
+  return postReset('/stage', { stage, dry_run: dryRun })
+}
+
+export async function resetSource(
+  source: string,
+  dryRun: boolean,
+): Promise<ResetResponse> {
+  return postReset('/source', { source, dry_run: dryRun })
+}
+
+export async function resetFull(
+  confirmation: string,
+  dryRun: boolean,
+): Promise<ResetResponse> {
+  // ingest#73 requires `confirmation:"OBLITERATE"` on BOTH dry-run and real
+  // run (REQUIRED field, extra="forbid" → a token-less body 422s before the
+  // handler runs). Callers pass the token on both; we omit it only when an
+  // empty string is given, which deliberately reproduces the rejected
+  // token-less shape so the fetch-boundary regression test can assert the 422.
+  const body: FullResetRequest = { dry_run: dryRun }
+  if (confirmation) {
+    body.confirmation = confirmation
+  }
+  return postReset('/full', body)
 }

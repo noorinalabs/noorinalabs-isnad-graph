@@ -11,6 +11,7 @@ const adminNavItems = [
   { to: '/admin/data', label: 'Data Management' },
   { to: '/admin/analytics', label: 'Usage Analytics' },
   { to: '/admin/audit', label: 'Audit Log' },
+  { to: '/admin/reset', label: 'Pipeline Reset' },
 ]
 
 export default function AdminLayout() {
