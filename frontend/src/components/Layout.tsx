@@ -2,7 +2,7 @@ import { Link, Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TrialBanner from './TrialBanner'
 import UserMenu from './UserMenu'
-import { PageHeaderAccent } from './icons/decorative'
+import { PageHeaderAccent } from '@noorinalabs/design-system'
 
 export default function Layout() {
   return (

@@ -10,8 +10,8 @@ import {
   GraphExplorerIcon,
   AdminIcon,
   SignOutIcon,
-} from './icons'
-import { GeometricBorder } from './icons/decorative'
+  GeometricBorder,
+} from '@noorinalabs/design-system'
 
 const navItems = [
   { to: '/narrators', label: 'Narrators', Icon: NarratorsIcon },

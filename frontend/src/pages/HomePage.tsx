@@ -8,8 +8,8 @@ import {
   CollectionsIcon,
   NarratorsIcon,
   HadithsIcon,
-} from '../components/icons'
-import { GeometricBorder } from '../components/icons/decorative'
+  GeometricBorder,
+} from '@noorinalabs/design-system'
 
 const features = [
   {
