@@ -1,5 +1,11 @@
 import type { components } from '../types/user-service'
-import type { SystemHealth, ContentStats, UsageAnalytics } from '../types/admin'
+import type {
+  SystemHealth,
+  ContentStats,
+  UsageAnalytics,
+  DataOverview,
+  DataSources,
+} from '../types/admin'
 import type { PaginatedResponse } from '../types/api'
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
@@ -210,3 +216,12 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   return fetchAdminJson(`${API_BASE}/dashboard/stats`)
 }
 
+// --- Data management (read-only) ---
+
+export async function fetchDataOverview(): Promise<DataOverview> {
+  return fetchAdminJson(`${API_BASE}/data/overview`)
+}
+
+export async function fetchDataSources(): Promise<DataSources> {
+  return fetchAdminJson(`${API_BASE}/data/sources`)
+}

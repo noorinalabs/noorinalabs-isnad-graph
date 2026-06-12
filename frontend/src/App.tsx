@@ -26,6 +26,7 @@ import ReportsPage from './pages/admin/ReportsPage'
 import ConfigPage from './pages/admin/ConfigPage'
 import AuditLogPage from './pages/admin/AuditLogPage'
 import DashboardPage from './pages/admin/DashboardPage'
+import DataManagementPage from './pages/admin/DataManagementPage'
 import ProfilePage from './pages/ProfilePage'
 import PricingPage from './pages/PricingPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -86,6 +87,7 @@ export default function App() {
                   <Route path="users" element={<UserManagementPage />} />
                   <Route path="health" element={<SystemHealthPage />} />
                   <Route path="stats" element={<ContentStatsPage />} />
+                  <Route path="data" element={<DataManagementPage />} />
                   <Route path="analytics" element={<UsageAnalyticsPage />} />
                   <Route path="moderation" element={<ModerationPage />} />
                   <Route path="reports" element={<ReportsPage />} />
