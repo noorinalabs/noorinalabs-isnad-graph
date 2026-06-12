@@ -28,9 +28,7 @@ bad data and skipped (`narrators_skipped_max_lifetime`). Both counts are reporte
 
 ## Running it
 
-### Local / CI (no live DB)
-
-Unit-tested without Docker:
+### Local unit tests (no DB)
 
 ```bash
 ENVIRONMENT=test uv run pytest tests/test_enrich/test_historical.py
@@ -39,11 +37,30 @@ ENVIRONMENT=test uv run pytest tests/test_enrich/test_historical.py
 The pure overlap logic (`compute_active_during`) and the YAML→graph-prop mapping
 are fully covered against a fake client.
 
-### Deferred live leg — staging
+### Local live verification (real Neo4j) — verified
 
-> Requires the staging Neo4j, which is only reachable from inside the cluster
-> (`bolt://neo4j:7687` does not resolve from the dev sandbox — main#631 / no local
-> Docker). Run from inside the deployed app container where `NEO4J_URI` resolves.
+The overlay has been run against a local `neo4j:5` container and confirmed to land
+real nodes and edges. The skip-guarded integration test reproduces it:
+
+```bash
+make test-integration                 # spins up neo4j:5 via testcontainers
+# or just this stage:
+ENVIRONMENT=test uv run pytest tests/integration/test_historical_overlay.py
+```
+
+Observed against a seeded graph (a full-lifespan narrator, a death-only narrator,
+and a no-dates narrator): **12 HistoricalEvent nodes** loaded, **7 ACTIVE_DURING
+edges**, the no-dates narrator skipped, the death-only narrator (al-Bukhari, d. 256
+AH) correctly linked to the Abbasid-era events (Mihna, the Bukhari/Muslim
+compilations) via its estimated window, and a second run idempotent (no
+duplicates). Node properties matched the `/timeline` read contract
+(`name` / `year_ah` / `event_type`).
+
+### Live leg — staging / deployed graph
+
+> Run from inside the deployed app container where `NEO4J_URI` resolves
+> (staging Neo4j is cluster-internal — `bolt://neo4j:7687` does not resolve from
+> outside).
 
 ```bash
 ssh noorinalabs-stg
@@ -63,13 +80,13 @@ Expected output (counts depend on how many narrators are loaded — see #963):
 ```
 
 `events linked` reflects events that gained at least one narrator edge; the event
-nodes themselves are always loaded (13 in the curated set today), so the panel
+nodes themselves are always loaded (12 in the curated set today), so the panel
 renders even when zero narrators are present yet.
 
 ### Verify
 
 ```cypher
-MATCH (e:HistoricalEvent) RETURN count(e);                       // expect >= 13
+MATCH (e:HistoricalEvent) RETURN count(e);                       // expect 12 (curated set)
 MATCH (:Narrator)-[r:ACTIVE_DURING]->(:HistoricalEvent) RETURN count(r);
 ```
 
