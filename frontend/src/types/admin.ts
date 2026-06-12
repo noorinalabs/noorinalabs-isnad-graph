@@ -1,19 +1,7 @@
-export interface AdminUser {
-  id: string
-  email: string
-  name: string
-  provider: string
-  is_admin: boolean
-  is_suspended: boolean
-  created_at: string
-  role: string | null
-}
-
-export interface UserUpdateRequest {
-  is_admin?: boolean
-  is_suspended?: boolean
-  role?: string
-}
+// User/role shapes for the admin user-management panel are sourced from the
+// user-service OpenAPI snapshot (re-exported as `AdminUser` / `Role` from
+// `../api/admin-client`) since user CRUD moved to the user-service (#805).
+// The types below back the system / content / analytics panels (#806).
 
 export interface SystemHealth {
   status: string
