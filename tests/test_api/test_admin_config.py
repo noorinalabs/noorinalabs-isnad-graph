@@ -225,10 +225,11 @@ class TestConfigAuthEnforcement:
         app = create_app()
         app.state.neo4j = mock_neo4j
 
-        def _raise_forbidden() -> User:
-            raise HTTPException(status_code=403, detail="Admin access required")
+        def _raise_not_found() -> User:
+            # Mirrors require_admin's hide-existence 404 for non-admins (ig#804).
+            raise HTTPException(status_code=404, detail="Not Found")
 
-        app.dependency_overrides[require_admin] = _raise_forbidden
+        app.dependency_overrides[require_admin] = _raise_not_found
         return app
 
     @pytest.fixture
@@ -239,22 +240,22 @@ class TestConfigAuthEnforcement:
         resp = noauth_client.get("/api/v1/admin/config")
         assert resp.status_code == 401
 
-    def test_get_config_403(self, regular_client: TestClient) -> None:
+    def test_get_config_404(self, regular_client: TestClient) -> None:
         resp = regular_client.get("/api/v1/admin/config")
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_patch_config_401(self, noauth_client: TestClient) -> None:
         resp = noauth_client.patch("/api/v1/admin/config", json={"rate_limit_per_minute": 10})
         assert resp.status_code == 401
 
-    def test_patch_config_403(self, regular_client: TestClient) -> None:
+    def test_patch_config_404(self, regular_client: TestClient) -> None:
         resp = regular_client.patch("/api/v1/admin/config", json={"rate_limit_per_minute": 10})
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_audit_401(self, noauth_client: TestClient) -> None:
         resp = noauth_client.get("/api/v1/admin/config/audit")
         assert resp.status_code == 401
 
-    def test_audit_403(self, regular_client: TestClient) -> None:
+    def test_audit_404(self, regular_client: TestClient) -> None:
         resp = regular_client.get("/api/v1/admin/config/audit")
-        assert resp.status_code == 403
+        assert resp.status_code == 404

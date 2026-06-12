@@ -138,10 +138,11 @@ class TestReportsAuthEnforcement:
         app = create_app()
         app.state.neo4j = mock_neo4j
 
-        def _raise_forbidden() -> User:
-            raise HTTPException(status_code=403, detail="Admin access required")
+        def _raise_not_found() -> User:
+            # Mirrors require_admin's hide-existence 404 for non-admins (ig#804).
+            raise HTTPException(status_code=404, detail="Not Found")
 
-        app.dependency_overrides[require_admin] = _raise_forbidden
+        app.dependency_overrides[require_admin] = _raise_not_found
         return app
 
     @pytest.fixture
@@ -152,6 +153,6 @@ class TestReportsAuthEnforcement:
         resp = noauth_client.get("/api/v1/admin/reports")
         assert resp.status_code == 401
 
-    def test_reports_403(self, regular_client: TestClient) -> None:
+    def test_reports_404(self, regular_client: TestClient) -> None:
         resp = regular_client.get("/api/v1/admin/reports")
-        assert resp.status_code == 403
+        assert resp.status_code == 404
