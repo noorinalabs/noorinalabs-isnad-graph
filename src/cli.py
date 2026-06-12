@@ -75,12 +75,40 @@ def _cmd_info() -> None:
         print("  postgres : unavailable")
 
 
+def _cmd_enrich_historical() -> None:
+    """Load HistoricalEvent nodes and link narrators by lifespan (ACTIVE_DURING).
+
+    Closes the gap behind #965: without this stage the deployed graph has no
+    HistoricalEvent nodes and the Timeline / Narrator Activity panel renders
+    empty.
+    """
+    _check_neo4j()
+
+    from src.enrich.historical import run_historical_overlay
+    from src.utils.neo4j_client import Neo4jClient
+
+    print("Running historical overlay (HistoricalEvent load + ACTIVE_DURING)...")
+    with Neo4jClient() as client:
+        result = run_historical_overlay(client)
+
+    print("=== historical overlay complete ===")
+    print(f"  events linked          : {result.events_linked}")
+    print(f"  narrators linked       : {result.narrators_linked}")
+    print(f"  ACTIVE_DURING edges    : {result.edges_created}")
+    print(f"  skipped (no dates)     : {result.narrators_skipped_no_dates}")
+    print(f"  skipped (max lifetime) : {result.narrators_skipped_max_lifetime}")
+
+
 def main() -> None:
     """Run the isnad-graph CLI."""
     parser = argparse.ArgumentParser(description="isnad-graph: Hadith Analysis Platform")
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("info", help="Show configuration and database status")
+    subparsers.add_parser(
+        "enrich-historical",
+        help="Load HistoricalEvent nodes and link narrators (ACTIVE_DURING)",
+    )
 
     args = parser.parse_args()
 
@@ -90,6 +118,8 @@ def main() -> None:
 
     if args.command == "info":
         _cmd_info()
+    elif args.command == "enrich-historical":
+        _cmd_enrich_historical()
 
 
 if __name__ == "__main__":
