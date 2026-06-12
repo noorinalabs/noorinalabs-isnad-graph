@@ -27,6 +27,7 @@ import ConfigPage from './pages/admin/ConfigPage'
 import AuditLogPage from './pages/admin/AuditLogPage'
 import DashboardPage from './pages/admin/DashboardPage'
 import DataManagementPage from './pages/admin/DataManagementPage'
+import ResetPage from './pages/admin/ResetPage'
 import ProfilePage from './pages/ProfilePage'
 import PricingPage from './pages/PricingPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -93,6 +94,7 @@ export default function App() {
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="config" element={<ConfigPage />} />
                   <Route path="audit" element={<AuditLogPage />} />
+                  <Route path="reset" element={<ResetPage />} />
                 </Route>
               </Route>
             </Route>
