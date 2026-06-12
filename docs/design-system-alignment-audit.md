@@ -127,4 +127,4 @@ Tracked below; each links back to #967. (Issue numbers filled in on filing.)
 | D — migrate ad-hoc inline `style={{}}` to DS utility/layout composition | isnad-graph | #981 | Low |
 | E — add categorical/data-viz palette tokens | design-system | noorinalabs-design-system#102 | High (unblocks B) |
 
-#967 stays **open as the audit/bucket-parent tracker** until all child buckets close.
+Issue #967 stays **open as the audit/bucket-parent tracker** until all child buckets close.
