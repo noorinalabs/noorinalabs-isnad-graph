@@ -11,6 +11,8 @@
     "lint": "eslint src/",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
+    "e2e:stg": "playwright test -c playwright.stg.config.ts",
+    "e2e:stg:ui": "playwright test -c playwright.stg.config.ts --ui",
     "gen:types": "openapi-typescript docs/openapi-snapshot.json -o src/types/user-service.d.ts"
   },
   "dependencies": {

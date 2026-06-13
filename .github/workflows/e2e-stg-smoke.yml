@@ -1,0 +1,80 @@
+# Browser-automation smoke against a DEPLOYED environment (#968).
+#
+# Deliberately NOT on `pull_request` — it drives the live stg/prod app and
+# needs deploy-environment secrets (test-user creds), which fork/PR contexts
+# don't get. Running it only on manual dispatch + a schedule means a PR
+# lacking secrets is never broken by it (the prerequisite the issue calls out).
+#
+# The public leg (login page / runtime-config) needs no creds; the
+# authenticated leg self-skips when STG_TEST_EMAIL / STG_TEST_PASSWORD are
+# absent (see frontend/tests/stg-smoke/env.ts).
+name: e2e-stg-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Environment to smoke-test'
+        type: choice
+        options: [stg, prod]
+        default: stg
+  schedule:
+    # Daily at 06:17 UTC — catch deploy/data regressions out-of-band of PRs.
+    - cron: '17 6 * * *'
+
+concurrency:
+  group: e2e-stg-smoke-${{ github.event.inputs.target_env || 'stg' }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      TARGET_ENV: ${{ github.event.inputs.target_env || 'stg' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # @noorinalabs/* resolves from GitHub Packages — see the
+          # frontend-lint-and-test job in ci.yml for the registry/token pairing.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noorinalabs'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx playwright install --with-deps chromium
+      - name: Run stg smoke suite
+        run: npm run e2e:stg
+        env:
+          # URLs default to the stg/prod vhosts in env.ts; override via repo
+          # vars if the deployed hosts ever change. Creds are secrets-only —
+          # the authenticated leg self-skips if they're unset.
+          STG_BASE_URL: ${{ vars.STG_BASE_URL }}
+          USER_SERVICE_URL: ${{ vars.STG_USER_SERVICE_URL }}
+          PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
+          PROD_USER_SERVICE_URL: ${{ vars.PROD_USER_SERVICE_URL }}
+          STG_TEST_EMAIL: ${{ secrets.STG_TEST_EMAIL }}
+          STG_TEST_PASSWORD: ${{ secrets.STG_TEST_PASSWORD }}
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stg-smoke-report-${{ env.TARGET_ENV }}
+          path: frontend/playwright-report-stg/
+          retention-days: 14
+      - name: Upload traces / screenshots (on failure)
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: stg-smoke-artifacts-${{ env.TARGET_ENV }}
+          path: frontend/test-results-stg/
+          retention-days: 14
