@@ -184,13 +184,7 @@ export default function GraphExplorerPage() {
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
       {/* --- TOOLBAR --- */}
-      <div
-        className="flex flex-wrap items-center gap-3 px-4 py-2"
-        style={{
-          borderBottom: '1px solid var(--color-border)',
-          background: 'var(--color-card)',
-        }}
-      >
+      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2">
         {/* Search */}
         <div className="relative w-[300px]">
           <input
@@ -212,11 +206,10 @@ export default function GraphExplorerPage() {
                 setSearchInput('')
                 setSearchOpen(false)
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer border-none"
+              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer border-none text-muted-foreground"
               style={{
                 background: 'none',
                 fontSize: '1rem',
-                color: 'var(--color-muted-foreground)',
               }}
               aria-label="Clear search"
             >
@@ -226,11 +219,9 @@ export default function GraphExplorerPage() {
 
           {searchOpen && searchInput && searchResults && searchResults.items.length > 0 && (
             <div
-              className="search-dropdown absolute top-full left-0 right-0 max-h-60 overflow-y-auto rounded-md"
+              className="search-dropdown absolute top-full left-0 right-0 max-h-60 overflow-y-auto rounded-md border border-border bg-card"
               style={{
                 zIndex: 'var(--z-dropdown)',
-                background: 'var(--color-card)',
-                border: '1px solid var(--color-border)',
                 boxShadow: 'var(--shadow-md)',
               }}
             >
@@ -258,9 +249,8 @@ export default function GraphExplorerPage() {
               key={d}
               onClick={() => setDepth(d)}
               title="Number of transmission steps from selected narrator"
-              className="cursor-pointer rounded-sm px-2.5 py-1"
+              className="cursor-pointer rounded-sm border border-border px-2.5 py-1"
               style={{
-                border: '1px solid var(--color-border)',
                 background:
                   d === depth ? 'var(--color-primary, oklch(0.55 0.14 45))' : 'transparent',
                 color: d === depth ? 'var(--color-primary-foreground)' : 'inherit',
@@ -280,9 +270,8 @@ export default function GraphExplorerPage() {
             <button
               key={mode}
               onClick={() => setLayoutMode(mode)}
-              className="cursor-pointer rounded-sm px-2 py-1 capitalize"
+              className="cursor-pointer rounded-sm border border-border px-2 py-1 capitalize"
               style={{
-                border: '1px solid var(--color-border)',
                 background:
                   mode === layoutMode
                     ? 'var(--color-primary, oklch(0.55 0.14 45))'
@@ -323,8 +312,8 @@ export default function GraphExplorerPage() {
         {highlightedChainNodeIds && (
           <button
             onClick={() => setHighlightedChainNodeIds(null)}
-            className="btn"
-            style={{ fontSize: '0.875rem', color: 'var(--color-primary)' }}
+            className="btn text-primary"
+            style={{ fontSize: '0.875rem' }}
           >
             Clear highlight
           </button>
@@ -336,10 +325,8 @@ export default function GraphExplorerPage() {
       {/* --- Node limit warning --- */}
       {overLimit && (
         <div
-          className="px-4 py-2"
+          className="bg-warning px-4 py-2 text-warning-foreground"
           style={{
-            background: 'var(--color-warning)',
-            color: 'var(--color-warning-foreground)',
             fontSize: '0.875rem',
           }}
         >
@@ -360,8 +347,7 @@ export default function GraphExplorerPage() {
         {/* --- GRAPH CANVAS --- */}
         <div
           ref={containerRef}
-          className="relative flex-1"
-          style={{ background: 'var(--color-background)' }}
+          className="relative flex-1 bg-background"
           role="application"
           aria-label="Narrator transmission network graph"
         >
@@ -417,10 +403,8 @@ export default function GraphExplorerPage() {
           {/* Hover tooltip */}
           {hoveredNode && (
             <div
-              className="pointer-events-none absolute top-3 left-3 z-10 max-w-[280px] rounded-md px-3 py-2"
+              className="pointer-events-none absolute top-3 left-3 z-10 max-w-[280px] rounded-md border border-border bg-card px-3 py-2"
               style={{
-                background: 'var(--color-card)',
-                border: '1px solid var(--color-border)',
                 fontSize: '0.8rem',
                 boxShadow: 'var(--shadow-md)',
               }}
@@ -447,11 +431,9 @@ export default function GraphExplorerPage() {
           {/* Legend panel */}
           {legendOpen && (
             <div
-              className="absolute top-3 z-10 w-[220px] rounded-md p-3"
+              className="absolute top-3 z-10 w-[220px] rounded-md border border-border bg-card p-3"
               style={{
                 right: detailOpen ? 340 : 12,
-                background: 'var(--color-card)',
-                border: '1px solid var(--color-border)',
                 fontSize: '0.8rem',
                 boxShadow: 'var(--shadow-md)',
               }}
@@ -513,10 +495,8 @@ export default function GraphExplorerPage() {
                   key={btn.label}
                   title={btn.title}
                   aria-label={btn.title}
-                  className="h-8 w-8 cursor-pointer rounded-sm"
+                  className="h-8 w-8 cursor-pointer rounded-sm border border-border bg-card"
                   style={{
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-card)',
                     fontSize: '1rem',
                   }}
                 >
@@ -530,30 +510,24 @@ export default function GraphExplorerPage() {
         {/* --- DETAIL PANEL --- */}
         {detailOpen && selectedNarratorId && (
           <div
-            className="w-[320px] shrink-0 overflow-y-auto p-4"
-            style={{
-              borderLeft: '1px solid var(--color-border)',
-              background: 'var(--color-card)',
-            }}
+            className="w-[320px] shrink-0 overflow-y-auto border-l border-border bg-card p-4"
           >
             <div className="mb-4 flex items-center justify-between">
               <span
-                className="uppercase"
+                className="uppercase text-muted-foreground"
                 style={{
                   fontSize: '0.75rem',
                   letterSpacing: '0.05em',
-                  color: 'var(--color-muted-foreground)',
                 }}
               >
                 Narrator
               </span>
               <button
                 onClick={() => setDetailOpen(false)}
-                className="cursor-pointer border-none"
+                className="cursor-pointer border-none text-muted-foreground"
                 style={{
                   background: 'none',
                   fontSize: '1rem',
-                  color: 'var(--color-muted-foreground)',
                 }}
                 aria-label="Close detail panel"
               >
@@ -580,12 +554,9 @@ export default function GraphExplorerPage() {
 
       {/* --- STATUS BAR --- */}
       <div
-        className="flex gap-6 px-4 py-1"
+        className="flex gap-6 border-t border-border bg-card px-4 py-1 text-muted-foreground"
         style={{
-          borderTop: '1px solid var(--color-border)',
           fontSize: '0.75rem',
-          color: 'var(--color-muted-foreground)',
-          background: 'var(--color-card)',
         }}
       >
         <span>
@@ -673,17 +644,13 @@ function NarratorDetailPanel({
 
       {/* Network statistics */}
       <div
-        className="mb-4 pt-3"
-        style={{
-          borderTop: '1px solid var(--color-border)',
-        }}
+        className="mb-4 border-t border-border pt-3"
       >
         <div
-          className="mb-2 uppercase"
+          className="mb-2 uppercase text-muted-foreground"
           style={{
             fontSize: '0.75rem',
             letterSpacing: '0.05em',
-            color: 'var(--color-muted-foreground)',
           }}
         >
           Network Statistics
@@ -721,18 +688,14 @@ function NarratorDetailPanel({
 
       {/* Chains */}
       <div
-        className="mb-4 pt-3"
-        style={{
-          borderTop: '1px solid var(--color-border)',
-        }}
+        className="mb-4 border-t border-border pt-3"
       >
         <div className="mb-2 flex items-center justify-between">
           <span
-            className="uppercase"
+            className="uppercase text-muted-foreground"
             style={{
               fontSize: '0.75rem',
               letterSpacing: '0.05em',
-              color: 'var(--color-muted-foreground)',
             }}
           >
             Chains ({chainsTotal} total)
@@ -746,9 +709,8 @@ function NarratorDetailPanel({
             <div
               key={c.chain_id}
               onClick={() => onChainSelect(c)}
-              className="cursor-pointer px-0 py-1.5"
+              className="cursor-pointer border-b border-border px-0 py-1.5"
               style={{
-                borderBottom: '1px solid var(--color-border)',
                 fontSize: '0.8rem',
               }}
             >
@@ -774,11 +736,9 @@ function NarratorDetailPanel({
       {/* Link to full profile */}
       <Link
         to={`/narrators/${narrator.id}`}
-        className="block rounded-md p-2 text-center no-underline"
+        className="block rounded-md border border-border p-2 text-center text-primary no-underline"
         style={{
-          color: 'var(--color-primary)',
           fontSize: '0.85rem',
-          border: '1px solid var(--color-border)',
         }}
       >
         View Full Profile

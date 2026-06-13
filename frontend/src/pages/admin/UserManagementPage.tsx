@@ -106,10 +106,9 @@ export default function UserManagementPage() {
                     <td>
                       <button
                         onClick={() => setDetailUserId(u.id)}
-                        className="cursor-pointer border-none p-0 underline"
+                        className="cursor-pointer border-none p-0 text-primary underline"
                         style={{
                           background: 'none',
-                          color: 'var(--color-primary)',
                           fontFamily: 'inherit',
                           fontSize: 'inherit',
                         }}
@@ -175,9 +174,8 @@ export default function UserManagementPage() {
           onClick={() => setDetailUserId(null)}
         >
           <div
-            className="rounded-lg p-6 min-w-[400px] max-w-[600px]"
+            className="rounded-lg bg-card p-6 min-w-[400px] max-w-[600px]"
             style={{
-              background: 'var(--color-card)',
               boxShadow: 'var(--shadow-lg)',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -219,7 +217,7 @@ export default function UserManagementPage() {
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>
+      <div className="text-muted-foreground" style={{ fontSize: 'var(--text-xs)' }}>
         {label}
       </div>
       <div className="font-medium">{value}</div>

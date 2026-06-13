@@ -108,38 +108,34 @@ export default function PricingPage() {
 
   return (
     <div
-      className="min-h-screen px-6 py-10"
-      style={{ background: 'var(--color-background)' }}
+      className="min-h-screen bg-background px-6 py-10"
     >
       <div className="mx-auto max-w-[1200px]">
         {/* Header */}
         <div className="mb-10 text-center">
           <Link
             to="/"
-            className="mb-6 inline-block no-underline"
+            className="mb-6 inline-block text-primary no-underline"
             style={{
               fontFamily: 'var(--font-heading)',
               fontSize: 'var(--text-sm)',
-              color: 'var(--color-primary)',
             }}
           >
             &larr; Back to Isnad Graph
           </Link>
           <h1
-            className="mb-3 font-bold"
+            className="mb-3 font-bold text-foreground"
             style={{
               fontFamily: 'var(--font-heading)',
               fontSize: 'var(--text-3xl)',
-              color: 'var(--color-foreground)',
             }}
           >
             Choose your plan
           </h1>
           <p
-            className="mx-auto mb-8 max-w-[600px]"
+            className="mx-auto mb-8 max-w-[600px] text-muted-foreground"
             style={{
               fontSize: 'var(--text-lg)',
-              color: 'var(--color-muted-foreground)',
               lineHeight: 1.6,
             }}
           >
@@ -148,10 +144,7 @@ export default function PricingPage() {
           </p>
 
           {/* Billing toggle */}
-          <div
-            className="inline-flex items-center gap-3 rounded-full p-1"
-            style={{ background: 'var(--color-accent)' }}
-          >
+          <div className="inline-flex items-center gap-3 rounded-full bg-accent p-1">
             <button
               onClick={() => setInterval('monthly')}
               className="cursor-pointer rounded-full border-none px-5 py-2 font-semibold"
@@ -190,11 +183,9 @@ export default function PricingPage() {
             >
               Annual
               <span
-                className="ml-2 rounded-full px-2 py-0.5 font-bold"
+                className="ml-2 rounded-full bg-primary px-2 py-0.5 font-bold text-primary-foreground"
                 style={{
                   fontSize: 'var(--text-xs)',
-                  background: 'var(--color-primary)',
-                  color: 'var(--color-primary-foreground)',
                 }}
               >
                 Save 17%
@@ -217,9 +208,8 @@ export default function PricingPage() {
             return (
               <div
                 key={tier.id}
-                className="relative flex flex-col rounded-xl p-8"
+                className="relative flex flex-col rounded-xl bg-card p-8"
                 style={{
-                  background: 'var(--color-card)',
                   border: tier.popular
                     ? '2px solid var(--color-primary)'
                     : 'var(--border-width-thin) solid var(--color-border)',
@@ -228,7 +218,7 @@ export default function PricingPage() {
               >
                 {tier.popular && (
                   <div
-                    className="absolute rounded-full px-4 py-1 font-bold uppercase whitespace-nowrap"
+                    className="absolute rounded-full bg-primary px-4 py-1 font-bold text-primary-foreground uppercase whitespace-nowrap"
                     style={{
                       top: -12,
                       left: '50%',
@@ -236,8 +226,6 @@ export default function PricingPage() {
                       fontSize: 'var(--text-xs)',
                       fontFamily: 'var(--font-heading)',
                       letterSpacing: '0.05em',
-                      background: 'var(--color-primary)',
-                      color: 'var(--color-primary-foreground)',
                     }}
                   >
                     Most popular
@@ -245,21 +233,19 @@ export default function PricingPage() {
                 )}
 
                 <h2
-                  className="mb-1 font-bold"
+                  className="mb-1 font-bold text-foreground"
                   style={{
                     fontFamily: 'var(--font-heading)',
                     fontSize: 'var(--text-xl)',
-                    color: 'var(--color-foreground)',
                   }}
                 >
                   {tier.name}
                 </h2>
 
                 <p
-                  className="mb-6"
+                  className="mb-6 text-muted-foreground"
                   style={{
                     fontSize: 'var(--text-sm)',
-                    color: 'var(--color-muted-foreground)',
                   }}
                 >
                   {tier.description}
@@ -268,11 +254,10 @@ export default function PricingPage() {
                 <div className="mb-6">
                   {isEnterprise ? (
                     <span
-                      className="font-bold"
+                      className="font-bold text-foreground"
                       style={{
                         fontFamily: 'var(--font-heading)',
                         fontSize: 'var(--text-3xl)',
-                        color: 'var(--color-foreground)',
                       }}
                     >
                       Custom
@@ -280,21 +265,19 @@ export default function PricingPage() {
                   ) : (
                     <>
                       <span
-                        className="font-bold"
+                        className="font-bold text-foreground"
                         style={{
                           fontFamily: 'var(--font-heading)',
                           fontSize: 'var(--text-3xl)',
-                          color: 'var(--color-foreground)',
                         }}
                       >
                         {formatPrice(tier.monthlyPrice!, interval)}
                       </span>
                       {tier.monthlyPrice! > 0 && (
                         <span
-                          className="ml-1"
+                          className="ml-1 text-muted-foreground"
                           style={{
                             fontSize: 'var(--text-sm)',
-                            color: 'var(--color-muted-foreground)',
                           }}
                         >
                           /mo{tier.id === 'team' ? '/user' : ''}
@@ -302,10 +285,9 @@ export default function PricingPage() {
                       )}
                       {tier.monthlyPrice! > 0 && interval === 'annual' && (
                         <div
-                          className="mt-1"
+                          className="mt-1 text-muted-foreground"
                           style={{
                             fontSize: 'var(--text-xs)',
-                            color: 'var(--color-muted-foreground)',
                           }}
                         >
                           Billed annually (${(tier.monthlyPrice! * 10).toFixed(2)}/year)
@@ -318,12 +300,10 @@ export default function PricingPage() {
                 {/* CTA */}
                 {isCurrent ? (
                   <div
-                    className="mb-6 rounded-md p-3 text-center font-semibold"
+                    className="mb-6 rounded-md border-2 border-primary p-3 text-center font-semibold text-primary"
                     style={{
-                      border: '2px solid var(--color-primary)',
                       fontFamily: 'var(--font-body)',
                       fontSize: 'var(--text-sm)',
-                      color: 'var(--color-primary)',
                     }}
                   >
                     Current plan
@@ -331,12 +311,10 @@ export default function PricingPage() {
                 ) : isEnterprise ? (
                   <a
                     href="mailto:contact@noorinalabs.com?subject=Enterprise%20inquiry"
-                    className="mb-6 block rounded-md p-3 text-center font-semibold no-underline"
+                    className="mb-6 block rounded-md bg-accent p-3 text-center font-semibold text-foreground no-underline"
                     style={{
-                      background: 'var(--color-accent)',
                       fontFamily: 'var(--font-body)',
                       fontSize: 'var(--text-sm)',
-                      color: 'var(--color-foreground)',
                       transition: 'opacity var(--duration-fast) var(--ease-default)',
                     }}
                   >
@@ -368,10 +346,9 @@ export default function PricingPage() {
                   {tier.features.map((feature) => (
                     <li
                       key={feature}
-                      className="flex items-start gap-2"
+                      className="flex items-start gap-2 text-foreground"
                       style={{
                         fontSize: 'var(--text-sm)',
-                        color: 'var(--color-foreground)',
                       }}
                     >
                       <CheckIcon />
