@@ -1,6 +1,30 @@
 {
   "components": {
     "schemas": {
+      "AuthProviderInfo": {
+        "description": "A single available authentication method for `GET /auth/providers`.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "enabled"
+        ],
+        "title": "AuthProviderInfo",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -92,6 +116,23 @@
           "code_verifier"
         ],
         "title": "OAuthLoginResponse",
+        "type": "object"
+      },
+      "ProvidersResponse": {
+        "description": "List of authentication methods the service supports + their enabled state.",
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/AuthProviderInfo"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "title": "ProvidersResponse",
         "type": "object"
       },
       "RefreshRequest": {
@@ -2310,6 +2351,28 @@
           }
         },
         "summary": "Oauth Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/providers": {
+      "get": {
+        "description": "List the auth methods this service supports and whether each is enabled.\n\nEmail/password is always available; each OAuth provider is `enabled` only\nwhen its credentials are configured. The frontend uses this to render the\ncorrect set of login buttons.",
+        "operationId": "list_providers_auth_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvidersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
         "tags": [
           "auth"
         ]

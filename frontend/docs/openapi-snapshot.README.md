@@ -38,6 +38,18 @@ sibling follow-up (filed once user-service publishes its first stable snapshot).
 > that commit and `npm run gen:types` re-run in the same change. The CI drift
 > gate enforces consistency between the snapshot and the generated `.d.ts`.
 
+### Surgical additions (not from a full re-sync)
+
+The baseline row above is the last *full* snapshot. Individual paths/schemas
+that the frontend started consuming before the next full re-sync are added
+surgically (only the relevant `paths` + `components/schemas` entries, modelled
+to match the user-service contract), then `npm run gen:types` is re-run. They
+will be subsumed by the next full re-sync.
+
+| Added | From user-service | Issue |
+|---|---|---|
+| `GET /auth/providers` (`ProvidersResponse`, `AuthProviderInfo`) | [`4587935`](https://github.com/noorinalabs/noorinalabs-user-service/commit/4587935) — `feat(auth): email login/register/providers endpoints (#43)` | [isnad-graph#1010](https://github.com/noorinalabs/noorinalabs-isnad-graph/issues/1010) |
+
 ## How to re-sync
 
 When user-service publishes a new release (or whenever the consumer side needs
