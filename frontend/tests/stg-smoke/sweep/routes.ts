@@ -52,6 +52,13 @@ const COLLECTION_ID = process.env.SWEEP_COLLECTION_ID ?? 'bukhari'
 /**
  * Public routes — reachable without a session. Exercised anonymously by
  * `exploratory.sweep.public.ts`.
+ *
+ * INTENTIONAL EXCLUSION: `auth/callback/:provider` (App.tsx:59) is NOT swept.
+ * It's an OAuth redirect-landing that only renders meaningfully mid-flow (it
+ * consumes a provider `code`/`state` from a live OAuth round-trip); navigating
+ * to it cold produces an error state by design, so including it would
+ * manufacture a false "broken route" rather than catalog a real gap. Every
+ * other `src/App.tsx` route IS covered (public here, protected + admin below).
  */
 export const PUBLIC_ROUTES: SweepRoute[] = [
   {
@@ -68,6 +75,13 @@ export const PUBLIC_ROUTES: SweepRoute[] = [
     area: 'billing',
     access: 'public',
     interactions: 'plan tiers render',
+  },
+  {
+    path: '/billing/checkout',
+    label: 'Checkout',
+    area: 'billing',
+    access: 'public',
+    interactions: 'checkout surface (payment integration may be a known deferral)',
   },
   {
     path: '/check-email',
@@ -100,7 +114,7 @@ export const PUBLIC_ROUTES: SweepRoute[] = [
 
 /**
  * Authenticated routes — require a live session. Exercised by
- * `exploratory.sweep.auth.spec.ts` (self-skips without stg creds).
+ * `exploratory.sweep.auth.ts` (self-skips without stg creds).
  */
 export const AUTH_ROUTES: SweepRoute[] = [
   {

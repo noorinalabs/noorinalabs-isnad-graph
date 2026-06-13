@@ -12,7 +12,7 @@
  * Playwright runs tests across parallel workers in separate processes. A single
  * shared `catalog.json` mutated by every test would race. Instead each route
  * visit writes ONE self-contained record to `sweep-results/records/<slug>.json`,
- * and `aggregate.ts` (run after the sweep) folds them into `sweep-catalog.json`
+ * and `aggregate.mjs` (run after the sweep) folds them into `sweep-catalog.json`
  * plus a human-readable `SWEEP-CATALOG.md`. Append-only, race-free.
  */
 import { expect, type Page, type Response } from '@playwright/test'
@@ -23,7 +23,7 @@ import type { SweepRoute } from './routes'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-/** Output roots — gitignored; consumed by `aggregate.ts` and CI artifact upload. */
+/** Output roots — gitignored; consumed by `aggregate.mjs` and CI artifact upload. */
 export const RESULTS_DIR = join(here, '..', '..', '..', 'sweep-results')
 export const RECORDS_DIR = join(RESULTS_DIR, 'records')
 export const SHOTS_DIR = join(RESULTS_DIR, 'screenshots')
@@ -102,6 +102,12 @@ export async function visitAndCatalog(page: Page, route: SweepRoute): Promise<Ro
   page.on('requestfailed', onRequestFailed)
   page.on('pageerror', onPageError)
 
+  // Heuristic caveat (acceptable for a triage tool — flag, don't trust blindly):
+  // `networkidle` can time out → `load-error` on routes that hold a connection
+  // open or poll (the `/graph` force-graph canvas, live-search on `/search`,
+  // `/compare`); and the empty-state regex below can match legitimate "no
+  // results" copy on `/search`/`/compare`. Treat load-error/empty-state on those
+  // three as "needs a human glance at the screenshot", not a hard verdict.
   let loadError: string | null = null
   try {
     await page.goto(route.path, { waitUntil: 'networkidle', timeout: 45_000 })
