@@ -26,9 +26,9 @@ function providerLabel(provider: string): string {
 function roleBadgeColor(role: string | null): string {
   switch (role) {
     case 'admin':
-      return 'var(--color-destructive, #ef4444)'
+      return 'var(--color-destructive)'
     case 'researcher':
-      return 'var(--color-warning, #f59e0b)'
+      return 'var(--color-warning)'
     case 'reader':
       return 'var(--color-primary)'
     default:
@@ -172,7 +172,7 @@ export default function ProfilePage() {
                 fontSize: 'var(--text-xs)',
                 fontWeight: 600,
                 borderRadius: 'var(--radius-full)',
-                color: '#fff',
+                color: 'var(--color-primary-foreground)',
                 background: roleBadgeColor(profile.role),
               }}
             >
