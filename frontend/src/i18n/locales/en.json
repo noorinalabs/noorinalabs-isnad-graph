@@ -37,6 +37,12 @@
   },
   "errors": {
     "notFoundTitle": "Page not found",
-    "notFoundBody": "The page you are looking for does not exist or has been moved."
+    "notFoundBody": "The page you are looking for does not exist or has been moved.",
+    "apiSessionExpired": "Your session has expired — please sign in again.",
+    "apiForbidden": "You don't have access to this.",
+    "apiNotFound": "We couldn't find what you were looking for.",
+    "apiRateLimited": "Too many requests — please wait a moment and try again.",
+    "apiServer": "Something went wrong on our end. Please try again shortly.",
+    "apiGeneric": "Something went wrong. Please try again."
   }
 }
