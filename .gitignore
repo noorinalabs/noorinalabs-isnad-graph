@@ -23,6 +23,10 @@ coverage/
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+# stg smoke harness (#968) — generated report/results + seeded auth state
+frontend/test-results-stg/
+frontend/playwright-report-stg/
+frontend/tests/stg-smoke/.auth/
 
 # Terraform
 terraform/.terraform/
