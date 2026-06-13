@@ -4,6 +4,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { readJsonResponse } from '../lib/authJson'
+import type { components } from '../types/user-service'
+
+// Generated from the user-service OpenAPI snapshot (see frontend/docs/
+// openapi-snapshot.json → `npm run gen:types`). Using the generated type means a
+// contract drift on `GET /auth/providers` fails typecheck rather than silently
+// at runtime — the exact class of bug #1007 fixed (string[] vs object). #1010.
+type ProvidersResponse = components['schemas']['ProvidersResponse']
 
 // Absolute URL targeting the user-service vhost (`users.{base}`). See
 // useAuth.ts for the full BASE-constant set and the runtime-vs-build-time
@@ -93,9 +100,7 @@ export default function LoginPage() {
   useEffect(() => {
     fetch(`${AUTH_BASE}/providers`)
       .then((res) =>
-        res.ok
-          ? readJsonResponse<{ providers: { id: string; enabled: boolean }[] }>(res)
-          : Promise.reject(res),
+        res.ok ? readJsonResponse<ProvidersResponse>(res) : Promise.reject(res),
       )
       .then((data) => setProviders(data.providers.filter((p) => p.enabled).map((p) => p.id)))
       .catch(() => setProviders(['google', 'github']))
