@@ -182,21 +182,11 @@ export default function GraphExplorerPage() {
   const overLimit = allNodes.length > NODE_LIMIT
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
       {/* --- TOOLBAR --- */}
-      <div
-        style={{
-          padding: '0.5rem 1rem',
-          borderBottom: '1px solid var(--color-border)',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '0.75rem',
-          background: 'var(--color-card)',
-        }}
-      >
+      <div className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2">
         {/* Search */}
-        <div style={{ position: 'relative', width: 300 }}>
+        <div className="relative w-[300px]">
           <input
             ref={searchRef}
             type="text"
@@ -207,8 +197,7 @@ export default function GraphExplorerPage() {
               setSearchOpen(true)
             }}
             onFocus={() => setSearchOpen(true)}
-            className="form-input"
-            style={{ width: '100%', paddingRight: '2rem' }}
+            className="form-input w-full pr-8"
             aria-label="Search for a narrator"
           />
           {searchInput && (
@@ -217,16 +206,10 @@ export default function GraphExplorerPage() {
                 setSearchInput('')
                 setSearchOpen(false)
               }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer border-none text-muted-foreground"
               style={{
-                position: 'absolute',
-                right: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
                 background: 'none',
-                border: 'none',
-                cursor: 'pointer',
                 fontSize: '1rem',
-                color: 'var(--color-muted-foreground)',
               }}
               aria-label="Clear search"
             >
@@ -236,18 +219,9 @@ export default function GraphExplorerPage() {
 
           {searchOpen && searchInput && searchResults && searchResults.items.length > 0 && (
             <div
-              className="search-dropdown"
+              className="search-dropdown absolute top-full left-0 right-0 max-h-60 overflow-y-auto rounded-md border border-border bg-card"
               style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
                 zIndex: 'var(--z-dropdown)',
-                background: 'var(--color-card)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                maxHeight: 240,
-                overflowY: 'auto',
                 boxShadow: 'var(--shadow-md)',
               }}
             >
@@ -255,17 +229,10 @@ export default function GraphExplorerPage() {
                 <div
                   key={n.id}
                   onClick={() => handleSelectSearch(n.id)}
-                  className="search-dropdown-item"
-                  style={{
-                    padding: '0.5rem 0.75rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
+                  className="search-dropdown-item flex cursor-pointer items-center justify-between px-3 py-2"
                 >
                   <span>{n.name_en}</span>
-                  <span dir="rtl" lang="ar" style={{ color: 'var(--color-muted-foreground)', fontSize: '0.875rem' }}>
+                  <span dir="rtl" lang="ar" className="muted-text" style={{ fontSize: '0.875rem' }}>
                     {n.name_ar}
                   </span>
                 </div>
@@ -275,21 +242,18 @@ export default function GraphExplorerPage() {
         </div>
 
         {/* Depth control */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Depth:</span>
+        <div className="flex items-center gap-1">
+          <span className="muted-text" style={{ fontSize: '0.875rem' }}>Depth:</span>
           {[1, 2, 3].map((d) => (
             <button
               key={d}
               onClick={() => setDepth(d)}
               title="Number of transmission steps from selected narrator"
+              className="cursor-pointer rounded-sm border border-border px-2.5 py-1"
               style={{
-                padding: '0.25rem 0.625rem',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
                 background:
                   d === depth ? 'var(--color-primary, oklch(0.55 0.14 45))' : 'transparent',
                 color: d === depth ? 'var(--color-primary-foreground)' : 'inherit',
-                cursor: 'pointer',
                 fontWeight: d === depth ? 600 : 400,
                 fontSize: '0.875rem',
               }}
@@ -300,24 +264,20 @@ export default function GraphExplorerPage() {
         </div>
 
         {/* Layout toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Layout:</span>
+        <div className="flex items-center gap-1">
+          <span className="muted-text" style={{ fontSize: '0.875rem' }}>Layout:</span>
           {(['force', 'hierarchy', 'radial'] as LayoutMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setLayoutMode(mode)}
+              className="cursor-pointer rounded-sm border border-border px-2 py-1 capitalize"
               style={{
-                padding: '0.25rem 0.5rem',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-sm)',
                 background:
                   mode === layoutMode
                     ? 'var(--color-primary, oklch(0.55 0.14 45))'
                     : 'transparent',
                 color: mode === layoutMode ? 'var(--color-primary-foreground)' : 'inherit',
-                cursor: 'pointer',
                 fontSize: '0.8rem',
-                textTransform: 'capitalize',
               }}
             >
               {mode}
@@ -352,23 +312,21 @@ export default function GraphExplorerPage() {
         {highlightedChainNodeIds && (
           <button
             onClick={() => setHighlightedChainNodeIds(null)}
-            className="btn"
-            style={{ fontSize: '0.875rem', color: 'var(--color-primary)' }}
+            className="btn text-primary"
+            style={{ fontSize: '0.875rem' }}
           >
             Clear highlight
           </button>
         )}
 
-        {isLoading && <span style={{ fontSize: '0.875rem', color: 'var(--color-muted-foreground)' }}>Loading...</span>}
+        {isLoading && <span className="muted-text" style={{ fontSize: '0.875rem' }}>Loading...</span>}
       </div>
 
       {/* --- Node limit warning --- */}
       {overLimit && (
         <div
+          className="bg-warning px-4 py-2 text-warning-foreground"
           style={{
-            padding: '0.5rem 1rem',
-            background: 'var(--color-warning)',
-            color: 'var(--color-warning-foreground)',
             fontSize: '0.875rem',
           }}
         >
@@ -376,8 +334,8 @@ export default function GraphExplorerPage() {
           {NODE_LIMIT}. Apply filters or reduce depth.
           <button
             onClick={() => setFilterOpen(true)}
-            className="btn"
-            style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}
+            className="btn ml-2"
+            style={{ fontSize: '0.8rem' }}
           >
             Open Filters
           </button>
@@ -385,15 +343,11 @@ export default function GraphExplorerPage() {
       )}
 
       {/* --- MAIN CONTENT --- */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div className="relative flex flex-1 overflow-hidden">
         {/* --- GRAPH CANVAS --- */}
         <div
           ref={containerRef}
-          style={{
-            flex: 1,
-            position: 'relative',
-            background: 'var(--color-background)',
-          }}
+          className="relative flex-1 bg-background"
           role="application"
           aria-label="Narrator transmission network graph"
         >
@@ -409,7 +363,7 @@ export default function GraphExplorerPage() {
               height={dimensions.height}
             />
           ) : (
-            <div className="empty-state" style={{ height: '100%' }}>
+            <div className="empty-state h-full">
               <div className="empty-state-icon">
                 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                   <circle cx="16" cy="16" r="4" />
@@ -425,20 +379,16 @@ export default function GraphExplorerPage() {
               <div className="empty-state-body">
                 Search for a narrator to explore the transmission network.
               </div>
-              <p style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--spacing-4)' }}>
+              <p className="mt-4" style={{ fontSize: 'var(--text-sm)' }}>
                 Try:{' '}
                 {SUGGESTED_NARRATORS.map((name, i) => (
                   <span key={name}>
                     {i > 0 && ', '}
                     <button
                       onClick={() => handleSuggestedSearch(name)}
-                      className="link-primary"
+                      className="link-primary cursor-pointer border-none p-0 underline"
                       style={{
                         background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        padding: 0,
                         font: 'inherit',
                       }}
                     >
@@ -453,22 +403,13 @@ export default function GraphExplorerPage() {
           {/* Hover tooltip */}
           {hoveredNode && (
             <div
+              className="pointer-events-none absolute top-3 left-3 z-10 max-w-[280px] rounded-md border border-border bg-card px-3 py-2"
               style={{
-                position: 'absolute',
-                top: 12,
-                left: 12,
-                background: 'var(--color-card)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.5rem 0.75rem',
                 fontSize: '0.8rem',
-                pointerEvents: 'none',
-                zIndex: 10,
-                maxWidth: 280,
                 boxShadow: 'var(--shadow-md)',
               }}
             >
-              <div style={{ fontWeight: 600 }}>
+              <div className="font-semibold">
                 {hoveredNode.name_en || hoveredNode.label}
               </div>
               {hoveredNode.name_ar && (
@@ -490,25 +431,18 @@ export default function GraphExplorerPage() {
           {/* Legend panel */}
           {legendOpen && (
             <div
+              className="absolute top-3 z-10 w-[220px] rounded-md border border-border bg-card p-3"
               style={{
-                position: 'absolute',
-                top: 12,
                 right: detailOpen ? 340 : 12,
-                background: 'var(--color-card)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '0.75rem',
                 fontSize: '0.8rem',
-                zIndex: 10,
-                width: 220,
                 boxShadow: 'var(--shadow-md)',
               }}
             >
-              <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Legend</div>
+              <div className="mb-2 font-semibold">Legend</div>
 
-              <div style={{ marginBottom: '0.5rem' }}>
-                <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Node size: degree</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="mb-2">
+                <div className="mb-1 font-medium">Node size: degree</div>
+                <div className="flex items-center gap-2">
                   <svg width="8" height="8">
                     <circle cx="4" cy="4" r="3" fill="var(--color-muted-foreground)" />
                   </svg>
@@ -524,28 +458,23 @@ export default function GraphExplorerPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '0.5rem' }}>
-                <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+              <div className="mb-2">
+                <div className="mb-1 font-medium">
                   Node color: community
                 </div>
                 {communities.map(([cid, count]) => (
-                  <div key={cid} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <div key={cid} className="flex items-center gap-1">
                     <span
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        background: communityColor(cid),
-                      }}
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ background: communityColor(cid) }}
                     />
                     Community {cid} ({count})
                   </div>
                 ))}
               </div>
 
-              <div style={{ marginBottom: '0.5rem' }}>
-                <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+              <div className="mb-2">
+                <div className="mb-1 font-medium">
                   Edge: transmission direction
                 </div>
                 <div>Solid = TRANSMITTED_TO</div>
@@ -557,17 +486,7 @@ export default function GraphExplorerPage() {
 
           {/* Zoom controls */}
           {allNodes.length > 0 && (
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 40,
-                left: 12,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                zIndex: 10,
-              }}
-            >
+            <div className="absolute bottom-10 left-3 z-10 flex flex-col gap-0.5">
               {[
                 { label: '+', title: 'Zoom in' },
                 { label: '-', title: 'Zoom out' },
@@ -576,13 +495,8 @@ export default function GraphExplorerPage() {
                   key={btn.label}
                   title={btn.title}
                   aria-label={btn.title}
+                  className="h-8 w-8 cursor-pointer rounded-sm border border-border bg-card"
                   style={{
-                    width: 32,
-                    height: 32,
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'var(--color-card)',
-                    cursor: 'pointer',
                     fontSize: '1rem',
                   }}
                 >
@@ -596,41 +510,24 @@ export default function GraphExplorerPage() {
         {/* --- DETAIL PANEL --- */}
         {detailOpen && selectedNarratorId && (
           <div
-            style={{
-              width: 320,
-              borderLeft: '1px solid var(--color-border)',
-              background: 'var(--color-card)',
-              overflowY: 'auto',
-              padding: '1rem',
-              flexShrink: 0,
-            }}
+            className="w-[320px] shrink-0 overflow-y-auto border-l border-border bg-card p-4"
           >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-              }}
-            >
+            <div className="mb-4 flex items-center justify-between">
               <span
+                className="uppercase text-muted-foreground"
                 style={{
                   fontSize: '0.75rem',
-                  textTransform: 'uppercase',
                   letterSpacing: '0.05em',
-                  color: 'var(--color-muted-foreground)',
                 }}
               >
                 Narrator
               </span>
               <button
                 onClick={() => setDetailOpen(false)}
+                className="cursor-pointer border-none text-muted-foreground"
                 style={{
                   background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
                   fontSize: '1rem',
-                  color: 'var(--color-muted-foreground)',
                 }}
                 aria-label="Close detail panel"
               >
@@ -649,7 +546,7 @@ export default function GraphExplorerPage() {
                 }}
               />
             ) : (
-              <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.875rem' }}>Loading details...</p>
+              <p className="muted-text" style={{ fontSize: '0.875rem' }}>Loading details...</p>
             )}
           </div>
         )}
@@ -657,14 +554,9 @@ export default function GraphExplorerPage() {
 
       {/* --- STATUS BAR --- */}
       <div
+        className="flex gap-6 border-t border-border bg-card px-4 py-1 text-muted-foreground"
         style={{
-          padding: '0.25rem 1rem',
-          borderTop: '1px solid var(--color-border)',
           fontSize: '0.75rem',
-          color: 'var(--color-muted-foreground)',
-          display: 'flex',
-          gap: '1.5rem',
-          background: 'var(--color-card)',
         }}
       >
         <span>
@@ -700,51 +592,51 @@ function NarratorDetailPanel({
         <div
           dir="rtl"
           lang="ar"
+          className="mb-1"
           style={{
             fontSize: '1.25rem',
             fontFamily: "var(--font-arabic, 'Noto Naskh Arabic', serif)",
-            marginBottom: '0.25rem',
           }}
         >
           {narrator.name_ar}
         </div>
       )}
-      <div style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem' }}>
+      <div className="mb-4 font-medium" style={{ fontSize: '1rem' }}>
         {narrator.name_en}
       </div>
 
       {/* Metadata */}
-      <div style={{ fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1rem' }}>
+      <div className="mb-4" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
         {narrator.kunya && (
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Kunya:</span> {narrator.kunya}
+            <span className="muted-text">Kunya:</span> {narrator.kunya}
           </div>
         )}
         {narrator.nisba && (
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Nisba:</span> {narrator.nisba}
+            <span className="muted-text">Nisba:</span> {narrator.nisba}
           </div>
         )}
         {narrator.generation && (
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Generation:</span> {narrator.generation}
+            <span className="muted-text">Generation:</span> {narrator.generation}
           </div>
         )}
         <div>
-          <span style={{ color: 'var(--color-muted-foreground)' }}>Birth:</span>{' '}
+          <span className="muted-text">Birth:</span>{' '}
           {narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : '\u2014'}
           {' | '}
-          <span style={{ color: 'var(--color-muted-foreground)' }}>Death:</span>{' '}
+          <span className="muted-text">Death:</span>{' '}
           {narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : '\u2014'}
         </div>
         {narrator.sect_affiliation && (
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Sect:</span> {narrator.sect_affiliation}
+            <span className="muted-text">Sect:</span> {narrator.sect_affiliation}
           </div>
         )}
         {narrator.trustworthiness_consensus && (
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Trustworthiness:</span>{' '}
+            <span className="muted-text">Trustworthiness:</span>{' '}
             {narrator.trustworthiness_consensus}
           </div>
         )}
@@ -752,53 +644,42 @@ function NarratorDetailPanel({
 
       {/* Network statistics */}
       <div
-        style={{
-          borderTop: '1px solid var(--color-border)',
-          paddingTop: '0.75rem',
-          marginBottom: '1rem',
-        }}
+        className="mb-4 border-t border-border pt-3"
       >
         <div
+          className="mb-2 uppercase text-muted-foreground"
           style={{
             fontSize: '0.75rem',
-            textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            color: 'var(--color-muted-foreground)',
-            marginBottom: '0.5rem',
           }}
         >
           Network Statistics
         </div>
         <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Teachers (in):</span> {narrator.in_degree ?? '\u2014'}
+            <span className="muted-text">Teachers (in):</span> {narrator.in_degree ?? '\u2014'}
           </div>
           <div>
-            <span style={{ color: 'var(--color-muted-foreground)' }}>Students (out):</span>{' '}
+            <span className="muted-text">Students (out):</span>{' '}
             {narrator.out_degree ?? '\u2014'}
           </div>
           {narrator.betweenness_centrality != null && (
             <div>
-              <span style={{ color: 'var(--color-muted-foreground)' }}>Betweenness:</span>{' '}
+              <span className="muted-text">Betweenness:</span>{' '}
               {narrator.betweenness_centrality.toFixed(4)}
             </div>
           )}
           {narrator.pagerank != null && (
             <div>
-              <span style={{ color: 'var(--color-muted-foreground)' }}>PageRank:</span> {narrator.pagerank.toFixed(4)}
+              <span className="muted-text">PageRank:</span> {narrator.pagerank.toFixed(4)}
             </div>
           )}
           {narrator.community_id != null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <span style={{ color: 'var(--color-muted-foreground)' }}>Community:</span> {narrator.community_id}
+            <div className="flex items-center gap-1">
+              <span className="muted-text">Community:</span> {narrator.community_id}
               <span
-                style={{
-                  display: 'inline-block',
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  background: communityColor(narrator.community_id),
-                }}
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: communityColor(narrator.community_id) }}
               />
             </div>
           )}
@@ -807,62 +688,42 @@ function NarratorDetailPanel({
 
       {/* Chains */}
       <div
-        style={{
-          borderTop: '1px solid var(--color-border)',
-          paddingTop: '0.75rem',
-          marginBottom: '1rem',
-        }}
+        className="mb-4 border-t border-border pt-3"
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '0.5rem',
-          }}
-        >
+        <div className="mb-2 flex items-center justify-between">
           <span
+            className="uppercase text-muted-foreground"
             style={{
               fontSize: '0.75rem',
-              textTransform: 'uppercase',
               letterSpacing: '0.05em',
-              color: 'var(--color-muted-foreground)',
             }}
           >
             Chains ({chainsTotal} total)
           </span>
         </div>
-        <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+        <div className="max-h-[200px] overflow-y-auto">
           {chains.length === 0 && (
-            <div style={{ color: 'var(--color-muted-foreground)', fontSize: '0.85rem' }}>No chains found.</div>
+            <div className="muted-text" style={{ fontSize: '0.85rem' }}>No chains found.</div>
           )}
           {chains.map((c) => (
             <div
               key={c.chain_id}
               onClick={() => onChainSelect(c)}
+              className="cursor-pointer border-b border-border px-0 py-1.5"
               style={{
-                padding: '0.375rem 0',
-                borderBottom: '1px solid var(--color-border)',
-                cursor: 'pointer',
                 fontSize: '0.8rem',
               }}
             >
-              <div style={{ fontWeight: 500 }}>
-                {c.grade && <span style={{ color: 'var(--color-muted-foreground)' }}>[{c.grade}]</span>}{' '}
+              <div className="font-medium">
+                {c.grade && <span className="muted-text">[{c.grade}]</span>}{' '}
                 {c.matn_en || c.hadith_id}
               </div>
               {c.matn_ar && (
                 <div
                   dir="rtl"
                   lang="ar"
-                  style={{
-                    color: 'var(--color-muted-foreground)',
-                    fontSize: '0.75rem',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: '100%',
-                  }}
+                  className="muted-text max-w-full truncate"
+                  style={{ fontSize: '0.75rem' }}
                 >
                   {c.matn_ar}
                 </div>
@@ -875,15 +736,9 @@ function NarratorDetailPanel({
       {/* Link to full profile */}
       <Link
         to={`/narrators/${narrator.id}`}
+        className="block rounded-md border border-border p-2 text-center text-primary no-underline"
         style={{
-          display: 'block',
-          textAlign: 'center',
-          color: 'var(--color-primary)',
           fontSize: '0.85rem',
-          textDecoration: 'none',
-          padding: '0.5rem',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-md)',
         }}
       >
         View Full Profile
