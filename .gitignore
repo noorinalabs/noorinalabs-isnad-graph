@@ -27,6 +27,8 @@ frontend/playwright-report/
 frontend/test-results-stg/
 frontend/playwright-report-stg/
 frontend/tests/stg-smoke/.auth/
+# exploratory sweep (#969) — per-route records, screenshots, generated catalog
+frontend/sweep-results/
 
 # Terraform
 terraform/.terraform/
