@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { useSubscription } from '../hooks/useSubscription'
 import { useTheme } from '../hooks/useTheme'
@@ -16,6 +17,7 @@ function providerLabel(provider: string): string {
 }
 
 export default function UserMenu() {
+  const { t } = useTranslation()
   const { user, logout, signOutAll, role } = useAuth()
   const { isTrial, daysRemaining, subscription } = useSubscription()
   const { resolvedTheme, toggle } = useTheme()
@@ -60,7 +62,7 @@ export default function UserMenu() {
     <div ref={menuRef} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        aria-label="User menu"
+        aria-label={t('userMenu.openMenu')}
         aria-expanded={open}
         aria-haspopup="true"
         style={{
@@ -88,7 +90,7 @@ export default function UserMenu() {
           style={{
             position: 'absolute',
             top: 'calc(100% + var(--spacing-2))',
-            right: 0,
+            insetInlineEnd: 0,
             minWidth: 240,
             background: 'var(--color-card)',
             border: 'var(--border-width-thin) solid var(--color-border)',
@@ -139,13 +141,13 @@ export default function UserMenu() {
           {/* My Profile */}
           <button role="menuitem" onClick={() => { setOpen(false); navigate('/profile') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--spacing-3)', padding: 'var(--spacing-3) var(--spacing-4)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--color-foreground)', textAlign: 'left', borderBottom: 'var(--border-width-thin) solid var(--color-border)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-            My Profile
+            {t('userMenu.myProfile')}
           </button>
 
           {/* Preferences */}
           <button role="menuitem" onClick={() => { setOpen(false); navigate('/profile') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--spacing-3)', padding: 'var(--spacing-3) var(--spacing-4)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 'var(--text-sm)', color: 'var(--color-foreground)', textAlign: 'left', borderBottom: 'var(--border-width-thin) solid var(--color-border)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-            Preferences
+            {t('userMenu.preferences')}
           </button>
 
           {/* Subscription info */}
@@ -162,12 +164,15 @@ export default function UserMenu() {
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>
                 {isTrial ? (
                   <span>
-                    Trial: <strong style={{ color: daysRemaining <= 2 ? 'var(--color-destructive)' : 'var(--color-foreground)' }}>
-                      {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} left
+                    {t('userMenu.trialLabel')}{' '}
+                    <strong style={{ color: daysRemaining <= 2 ? 'var(--color-destructive)' : 'var(--color-foreground)' }}>
+                      {t('userMenu.daysLeft', { count: daysRemaining })}
                     </strong>
                   </span>
                 ) : (
-                  <span style={{ textTransform: 'capitalize' }}>{subscription.tier} plan</span>
+                  <span style={{ textTransform: 'capitalize' }}>
+                    {t('userMenu.planSuffix', { tier: subscription.tier })}
+                  </span>
                 )}
               </div>
               <Link
@@ -180,7 +185,7 @@ export default function UserMenu() {
                   textDecoration: 'none',
                 }}
               >
-                {isTrial ? 'Upgrade' : 'Plans'}
+                {isTrial ? t('userMenu.upgrade') : t('userMenu.plans')}
               </Link>
             </div>
           )}
@@ -224,7 +229,7 @@ export default function UserMenu() {
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
-            Switch to {resolvedTheme === 'dark' ? 'light' : 'dark'} mode
+            {resolvedTheme === 'dark' ? t('userMenu.switchToLight') : t('userMenu.switchToDark')}
           </button>
 
           {/* Sign out */}
@@ -255,7 +260,7 @@ export default function UserMenu() {
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            Sign out
+            {t('userMenu.signOut')}
           </button>
 
           {/* Sign out everywhere */}
@@ -287,7 +292,7 @@ export default function UserMenu() {
               <line x1="16" y1="4" x2="16" y2="8" />
               <line x1="14" y1="6" x2="18" y2="6" />
             </svg>
-            Sign out everywhere
+            {t('userMenu.signOutEverywhere')}
           </button>
         </div>
       )}

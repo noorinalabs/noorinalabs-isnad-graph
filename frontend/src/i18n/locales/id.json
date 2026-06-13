@@ -1,0 +1,42 @@
+{
+  "common": {
+    "platformTagline": "Platform Analisis Hadis",
+    "returnHome": "Kembali ke beranda",
+    "loading": "Memuat…"
+  },
+  "nav": {
+    "ariaLabel": "Navigasi utama",
+    "narrators": "Perawi",
+    "hadiths": "Hadis",
+    "collections": "Koleksi",
+    "search": "Cari",
+    "timeline": "Lini Masa",
+    "compare": "Bandingkan",
+    "graphExplorer": "Penjelajah Grafik",
+    "adminDashboard": "Dasbor Admin",
+    "signOut": "Keluar"
+  },
+  "userMenu": {
+    "openMenu": "Menu pengguna",
+    "myProfile": "Profil Saya",
+    "preferences": "Preferensi",
+    "switchToLight": "Beralih ke mode terang",
+    "switchToDark": "Beralih ke mode gelap",
+    "signOut": "Keluar",
+    "signOutEverywhere": "Keluar dari semua perangkat",
+    "upgrade": "Tingkatkan",
+    "plans": "Paket",
+    "trialLabel": "Uji coba:",
+    "daysLeft_one": "Sisa {{count}} hari",
+    "daysLeft_other": "Sisa {{count}} hari",
+    "planSuffix": "Paket {{tier}}"
+  },
+  "language": {
+    "label": "Bahasa",
+    "select": "Pilih bahasa"
+  },
+  "errors": {
+    "notFoundTitle": "Halaman tidak ditemukan",
+    "notFoundBody": "Halaman yang Anda cari tidak ada atau telah dipindahkan."
+  }
+}
