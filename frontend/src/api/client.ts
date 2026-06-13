@@ -83,8 +83,13 @@ export async function fetchHadithParallels(id: string): Promise<ParallelsRespons
 export async function fetchParallelPairs(
   page = 1,
   limit = 20,
+  crossSect?: boolean,
 ): Promise<ParallelPairsResponse> {
-  return fetchJson(`${API_BASE}/parallels?page=${page}&limit=${limit}`)
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (crossSect !== undefined) {
+    params.set('cross_sect', String(crossSect))
+  }
+  return fetchJson(`${API_BASE}/parallels?${params.toString()}`)
 }
 
 export async function fetchCollections(

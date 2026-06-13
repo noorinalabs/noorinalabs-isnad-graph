@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
@@ -20,19 +22,34 @@ router = APIRouter()
 def list_parallels(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100),
+    cross_sect: bool | None = Query(
+        None,
+        description=(
+            "Optional facet. Omit to span both sects (intra-sunni, intra-shia, AND "
+            "cross-sect); pass true for cross-sect only, false for intra-sect only."
+        ),
+    ),
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> ParallelPairsResponse:
-    """Return paginated list of all parallel hadith pairs with similarity scores."""
+    """Return paginated list of parallel hadith pairs with similarity scores.
+
+    Spans every sect combination by default — sunni-sunni, shia-shia, and
+    sunni-shia. ``cross_sect`` is an optional facet, not a mandatory filter.
+    """
+    where = "WHERE r.cross_sect = $cross_sect" if cross_sect is not None else ""
+    filter_params: dict[str, Any] = {} if cross_sect is None else {"cross_sect": cross_sect}
+
     count_rows = neo4j.execute_read(
-        "MATCH (:Hadith)-[r:PARALLEL_OF]->(:Hadith) RETURN count(r) AS total",
-        {},
+        f"MATCH (:Hadith)-[r:PARALLEL_OF]->(:Hadith) {where} RETURN count(r) AS total",
+        filter_params,
     )
     total = count_rows[0]["total"] if count_rows else 0
 
     skip = (page - 1) * limit
     rows = neo4j.execute_read(
-        """
+        f"""
         MATCH (a:Hadith)-[r:PARALLEL_OF]->(b:Hadith)
+        {where}
         RETURN a.id AS a_id, a.source_corpus AS a_corpus,
                b.id AS b_id, b.source_corpus AS b_corpus,
                r.similarity_score AS similarity_score,
@@ -42,7 +59,7 @@ def list_parallels(
         SKIP $skip
         LIMIT $limit
         """,
-        {"skip": skip, "limit": limit},
+        {**filter_params, "skip": skip, "limit": limit},
     )
 
     items = [
