@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { createElement } from 'react'
 import type { components } from '../types/user-service'
+import { refreshAccessToken } from '../api/token-refresh'
 
 export type UserRole = 'trial' | 'reader' | 'researcher' | 'admin'
 
@@ -78,41 +79,18 @@ export function deriveHighestRole(roleNames: string[]): UserRole {
 // Vite can bake only one VITE_* value into the bundle (Contract v6, #815).
 // Falls back to the build-time `VITE_USER_SERVICE_ORIGIN` for local `npm run dev`
 // (no entrypoint), then to '' (same-origin). See isnad-graph#932 / deploy#245 step 5.
+//
+// The `/auth/token/refresh` exchange itself now lives in `api/token-refresh.ts`
+// (single source of truth, shared with the data clients per #1016) — hence no
+// AUTH_BASE / getCsrfToken here anymore.
 const USER_SERVICE_ORIGIN =
   (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.USER_SERVICE_ORIGIN) ||
   import.meta.env.VITE_USER_SERVICE_ORIGIN ||
   ''
-const AUTH_BASE = `${USER_SERVICE_ORIGIN}/auth`
 const USER_BASE = `${USER_SERVICE_ORIGIN}/api/v1/users`
 const SESSIONS_BASE = `${USER_SERVICE_ORIGIN}/api/v1/sessions`
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-
-function getCsrfToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
-  return match?.[1] ?? ''
-}
-
-async function refreshAccessToken(): Promise<string | null> {
-  try {
-    const res = await fetch(`${AUTH_BASE}/token/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': getCsrfToken(),
-      },
-    })
-
-    if (!res.ok) return null
-
-    const data = await res.json()
-    localStorage.setItem('access_token', data.access_token)
-    return data.access_token as string
-  } catch {
-    return null
-  }
-}
 
 /**
  * Event emitted when an API call receives a 401 mid-session.

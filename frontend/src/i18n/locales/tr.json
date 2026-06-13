@@ -37,6 +37,12 @@
   },
   "errors": {
     "notFoundTitle": "Sayfa bulunamadı",
-    "notFoundBody": "Aradığınız sayfa mevcut değil veya taşınmış."
+    "notFoundBody": "Aradığınız sayfa mevcut değil veya taşınmış.",
+    "apiSessionExpired": "Oturumunuzun süresi doldu — lütfen tekrar giriş yapın.",
+    "apiForbidden": "Buna erişim izniniz yok.",
+    "apiNotFound": "Aradığınız şey bulunamadı.",
+    "apiRateLimited": "Çok fazla istek — lütfen biraz bekleyip tekrar deneyin.",
+    "apiServer": "Tarafımızda bir şeyler ters gitti. Lütfen birazdan tekrar deneyin.",
+    "apiGeneric": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
   }
 }

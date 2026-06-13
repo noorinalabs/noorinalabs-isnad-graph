@@ -18,16 +18,29 @@ import type {
 
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
+import { refreshAccessToken } from './token-refresh'
+import { apiError } from './api-error'
 
 const API_BASE = '/api/v1'
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
-  if (!res.ok) {
+  let res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
+  if (res.status === 401) {
+    // The access token has likely expired mid-session. Try a single refresh
+    // (shared across concurrent 401s) and retry the request ONCE with the new
+    // token before giving up — only a genuinely expired/revoked refresh cookie
+    // forces the session-expired modal. getAuthHeaders() re-reads the freshly
+    // persisted token. (#1016)
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
+    }
     if (res.status === 401) {
       emitSessionExpired()
     }
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+  }
+  if (!res.ok) {
+    throw apiError(res)
   }
   return res.json() as Promise<T>
 }
@@ -176,7 +189,7 @@ export async function updateModerationItem(
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  if (!res.ok) throw apiError(res)
   return res.json() as Promise<ModerationItem>
 }
 
@@ -190,7 +203,7 @@ export async function flagContent(
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ entity_type: entityType, entity_id: entityId, reason }),
   })
-  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  if (!res.ok) throw apiError(res)
   return res.json() as Promise<ModerationItem>
 }
 
@@ -200,16 +213,28 @@ export async function flagContent(
 // (free tier / admin), not an error. Resolve it to null and let callers
 // branch on `subscription === null`. Other non-OK statuses throw as usual.
 export async function fetchSubscriptionOrNull(): Promise<SubscriptionResponse | null> {
-  const res = await fetch(`${API_BASE}/subscriptions/me`, {
+  let res = await fetch(`${API_BASE}/subscriptions/me`, {
     headers: getAuthHeaders(),
     credentials: 'include',
   })
-  if (res.status === 404) return null
-  if (!res.ok) {
+  // Same refresh-then-retry-once recovery as fetchJson: a mid-session access
+  // token expiry must not force a logout while the refresh cookie is still
+  // valid. (#1016)
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      res = await fetch(`${API_BASE}/subscriptions/me`, {
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      })
+    }
     if (res.status === 401) {
       emitSessionExpired()
     }
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+  }
+  if (res.status === 404) return null
+  if (!res.ok) {
+    throw apiError(res)
   }
   return res.json() as Promise<SubscriptionResponse>
 }
