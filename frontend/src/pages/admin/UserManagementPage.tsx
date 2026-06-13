@@ -75,9 +75,9 @@ export default function UserManagementPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: '1rem' }}>
+      <div className="mb-4">
         <h2>User Management</h2>
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-muted-foreground)' }}>
+        <p className="small-muted">
           Users and roles are managed by the user-service. Admin access requires
           the <code>admin</code> role on your user-service account.
         </p>
@@ -106,15 +106,12 @@ export default function UserManagementPage() {
                     <td>
                       <button
                         onClick={() => setDetailUserId(u.id)}
+                        className="cursor-pointer border-none p-0 underline"
                         style={{
                           background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
                           color: 'var(--color-primary)',
-                          textDecoration: 'underline',
                           fontFamily: 'inherit',
                           fontSize: 'inherit',
-                          padding: 0,
                         }}
                       >
                         {u.display_name ?? u.email}
@@ -128,7 +125,7 @@ export default function UserManagementPage() {
                     </td>
                     <td>
                       <select
-                        className="form-input"
+                        className="form-input w-[130px] p-1"
                         value={deriveHighestRole(currentRoles)}
                         onChange={(e) =>
                           roleMutation.mutate({
@@ -139,7 +136,6 @@ export default function UserManagementPage() {
                         }
                         disabled={roleMutation.isPending || !roles}
                         aria-label={`Role for ${u.display_name ?? u.email}`}
-                        style={{ width: 130, padding: '0.25rem' }}
                       >
                         {roleOptions.map((r) => (
                           <option key={r} value={r}>
@@ -174,32 +170,22 @@ export default function UserManagementPage() {
 
       {detailUserId && userDetail && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
           onClick={() => setDetailUserId(null)}
         >
           <div
+            className="rounded-lg p-6 min-w-[400px] max-w-[600px]"
             style={{
               background: 'var(--color-card)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--spacing-6)',
-              minWidth: 400,
-              maxWidth: 600,
               boxShadow: 'var(--shadow-lg)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: 'var(--spacing-4)', fontFamily: 'var(--font-heading)' }}>
+            <h3 className="mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
               User Detail
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-3)' }}>
+            <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
               <DetailField label="Name" value={userDetail.display_name ?? '—'} />
               <DetailField label="Email" value={userDetail.email} />
               <DetailField
@@ -218,9 +204,8 @@ export default function UserManagementPage() {
               />
             </div>
             <button
-              className="btn"
+              className="btn mt-4"
               onClick={() => setDetailUserId(null)}
-              style={{ marginTop: 'var(--spacing-4)' }}
             >
               Close
             </button>
@@ -237,7 +222,7 @@ function DetailField({ label, value }: { label: string; value: string }) {
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-muted-foreground)' }}>
         {label}
       </div>
-      <div style={{ fontWeight: 500 }}>{value}</div>
+      <div className="font-medium">{value}</div>
     </div>
   )
 }

@@ -95,7 +95,7 @@ function CheckIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      style={{ flexShrink: 0, marginTop: 2 }}
+      className="shrink-0 mt-0.5"
     >
       <polyline points="20 6 9 17 4 12" />
     </svg>
@@ -108,45 +108,38 @@ export default function PricingPage() {
 
   return (
     <div
-      style={{
-        minHeight: '100vh',
-        background: 'var(--color-background)',
-        padding: 'var(--spacing-10) var(--spacing-6)',
-      }}
+      className="min-h-screen px-6 py-10"
+      style={{ background: 'var(--color-background)' }}
     >
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div className="mx-auto max-w-[1200px]">
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-10)' }}>
+        <div className="mb-10 text-center">
           <Link
             to="/"
+            className="mb-6 inline-block no-underline"
             style={{
-              display: 'inline-block',
-              marginBottom: 'var(--spacing-6)',
               fontFamily: 'var(--font-heading)',
               fontSize: 'var(--text-sm)',
               color: 'var(--color-primary)',
-              textDecoration: 'none',
             }}
           >
             &larr; Back to Isnad Graph
           </Link>
           <h1
+            className="mb-3 font-bold"
             style={{
               fontFamily: 'var(--font-heading)',
               fontSize: 'var(--text-3xl)',
-              fontWeight: 700,
               color: 'var(--color-foreground)',
-              marginBottom: 'var(--spacing-3)',
             }}
           >
             Choose your plan
           </h1>
           <p
+            className="mx-auto mb-8 max-w-[600px]"
             style={{
               fontSize: 'var(--text-lg)',
               color: 'var(--color-muted-foreground)',
-              maxWidth: 600,
-              margin: '0 auto var(--spacing-8)',
               lineHeight: 1.6,
             }}
           >
@@ -156,25 +149,15 @@ export default function PricingPage() {
 
           {/* Billing toggle */}
           <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--spacing-3)',
-              padding: 'var(--spacing-1)',
-              background: 'var(--color-accent)',
-              borderRadius: 'var(--radius-full)',
-            }}
+            className="inline-flex items-center gap-3 rounded-full p-1"
+            style={{ background: 'var(--color-accent)' }}
           >
             <button
               onClick={() => setInterval('monthly')}
+              className="cursor-pointer rounded-full border-none px-5 py-2 font-semibold"
               style={{
-                padding: 'var(--spacing-2) var(--spacing-5)',
-                borderRadius: 'var(--radius-full)',
-                border: 'none',
                 fontFamily: 'var(--font-body)',
                 fontSize: 'var(--text-sm)',
-                fontWeight: 600,
-                cursor: 'pointer',
                 background:
                   interval === 'monthly' ? 'var(--color-card)' : 'transparent',
                 color:
@@ -190,14 +173,10 @@ export default function PricingPage() {
             </button>
             <button
               onClick={() => setInterval('annual')}
+              className="cursor-pointer rounded-full border-none px-5 py-2 font-semibold"
               style={{
-                padding: 'var(--spacing-2) var(--spacing-5)',
-                borderRadius: 'var(--radius-full)',
-                border: 'none',
                 fontFamily: 'var(--font-body)',
                 fontSize: 'var(--text-sm)',
-                fontWeight: 600,
-                cursor: 'pointer',
                 background:
                   interval === 'annual' ? 'var(--color-card)' : 'transparent',
                 color:
@@ -211,12 +190,9 @@ export default function PricingPage() {
             >
               Annual
               <span
+                className="ml-2 rounded-full px-2 py-0.5 font-bold"
                 style={{
-                  marginLeft: 'var(--spacing-2)',
-                  padding: 'var(--spacing-0_5) var(--spacing-2)',
                   fontSize: 'var(--text-xs)',
-                  fontWeight: 700,
-                  borderRadius: 'var(--radius-full)',
                   background: 'var(--color-primary)',
                   color: 'var(--color-primary-foreground)',
                 }}
@@ -229,12 +205,9 @@ export default function PricingPage() {
 
         {/* Tier cards */}
         <div
+          className="mx-auto grid gap-6 max-w-[1100px]"
           style={{
-            display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 'var(--spacing-6)',
-            maxWidth: 1100,
-            margin: '0 auto',
           }}
         >
           {tiers.map((tier) => {
@@ -244,36 +217,27 @@ export default function PricingPage() {
             return (
               <div
                 key={tier.id}
+                className="relative flex flex-col rounded-xl p-8"
                 style={{
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: 'var(--spacing-8)',
                   background: 'var(--color-card)',
                   border: tier.popular
                     ? '2px solid var(--color-primary)'
                     : 'var(--border-width-thin) solid var(--color-border)',
-                  borderRadius: 'var(--radius-xl)',
                   boxShadow: tier.popular ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
                 }}
               >
                 {tier.popular && (
                   <div
+                    className="absolute rounded-full px-4 py-1 font-bold uppercase whitespace-nowrap"
                     style={{
-                      position: 'absolute',
                       top: -12,
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      padding: 'var(--spacing-1) var(--spacing-4)',
                       fontSize: 'var(--text-xs)',
-                      fontWeight: 700,
                       fontFamily: 'var(--font-heading)',
-                      textTransform: 'uppercase',
                       letterSpacing: '0.05em',
-                      borderRadius: 'var(--radius-full)',
                       background: 'var(--color-primary)',
                       color: 'var(--color-primary-foreground)',
-                      whiteSpace: 'nowrap',
                     }}
                   >
                     Most popular
@@ -281,38 +245,33 @@ export default function PricingPage() {
                 )}
 
                 <h2
+                  className="mb-1 font-bold"
                   style={{
                     fontFamily: 'var(--font-heading)',
                     fontSize: 'var(--text-xl)',
-                    fontWeight: 700,
                     color: 'var(--color-foreground)',
-                    marginBottom: 'var(--spacing-1)',
                   }}
                 >
                   {tier.name}
                 </h2>
 
                 <p
+                  className="mb-6"
                   style={{
                     fontSize: 'var(--text-sm)',
                     color: 'var(--color-muted-foreground)',
-                    marginBottom: 'var(--spacing-6)',
                   }}
                 >
                   {tier.description}
                 </p>
 
-                <div
-                  style={{
-                    marginBottom: 'var(--spacing-6)',
-                  }}
-                >
+                <div className="mb-6">
                   {isEnterprise ? (
                     <span
+                      className="font-bold"
                       style={{
                         fontFamily: 'var(--font-heading)',
                         fontSize: 'var(--text-3xl)',
-                        fontWeight: 700,
                         color: 'var(--color-foreground)',
                       }}
                     >
@@ -321,10 +280,10 @@ export default function PricingPage() {
                   ) : (
                     <>
                       <span
+                        className="font-bold"
                         style={{
                           fontFamily: 'var(--font-heading)',
                           fontSize: 'var(--text-3xl)',
-                          fontWeight: 700,
                           color: 'var(--color-foreground)',
                         }}
                       >
@@ -332,10 +291,10 @@ export default function PricingPage() {
                       </span>
                       {tier.monthlyPrice! > 0 && (
                         <span
+                          className="ml-1"
                           style={{
                             fontSize: 'var(--text-sm)',
                             color: 'var(--color-muted-foreground)',
-                            marginLeft: 'var(--spacing-1)',
                           }}
                         >
                           /mo{tier.id === 'team' ? '/user' : ''}
@@ -343,10 +302,10 @@ export default function PricingPage() {
                       )}
                       {tier.monthlyPrice! > 0 && interval === 'annual' && (
                         <div
+                          className="mt-1"
                           style={{
                             fontSize: 'var(--text-xs)',
                             color: 'var(--color-muted-foreground)',
-                            marginTop: 'var(--spacing-1)',
                           }}
                         >
                           Billed annually (${(tier.monthlyPrice! * 10).toFixed(2)}/year)
@@ -359,16 +318,12 @@ export default function PricingPage() {
                 {/* CTA */}
                 {isCurrent ? (
                   <div
+                    className="mb-6 rounded-md p-3 text-center font-semibold"
                     style={{
-                      padding: 'var(--spacing-3)',
-                      borderRadius: 'var(--radius-md)',
                       border: '2px solid var(--color-primary)',
-                      textAlign: 'center',
                       fontFamily: 'var(--font-body)',
                       fontSize: 'var(--text-sm)',
-                      fontWeight: 600,
                       color: 'var(--color-primary)',
-                      marginBottom: 'var(--spacing-6)',
                     }}
                   >
                     Current plan
@@ -376,18 +331,12 @@ export default function PricingPage() {
                 ) : isEnterprise ? (
                   <a
                     href="mailto:contact@noorinalabs.com?subject=Enterprise%20inquiry"
+                    className="mb-6 block rounded-md p-3 text-center font-semibold no-underline"
                     style={{
-                      display: 'block',
-                      padding: 'var(--spacing-3)',
-                      borderRadius: 'var(--radius-md)',
                       background: 'var(--color-accent)',
-                      textAlign: 'center',
                       fontFamily: 'var(--font-body)',
                       fontSize: 'var(--text-sm)',
-                      fontWeight: 600,
                       color: 'var(--color-foreground)',
-                      textDecoration: 'none',
-                      marginBottom: 'var(--spacing-6)',
                       transition: 'opacity var(--duration-fast) var(--ease-default)',
                     }}
                   >
@@ -397,22 +346,16 @@ export default function PricingPage() {
                   <Link
                     to="/billing/checkout"
                     state={{ tier: tier.id, interval }}
+                    className="mb-6 block rounded-md p-3 text-center font-semibold no-underline"
                     style={{
-                      display: 'block',
-                      padding: 'var(--spacing-3)',
-                      borderRadius: 'var(--radius-md)',
                       background: tier.popular
                         ? 'var(--color-primary)'
                         : 'var(--color-accent)',
-                      textAlign: 'center',
                       fontFamily: 'var(--font-body)',
                       fontSize: 'var(--text-sm)',
-                      fontWeight: 600,
                       color: tier.popular
                         ? 'var(--color-primary-foreground)'
                         : 'var(--color-foreground)',
-                      textDecoration: 'none',
-                      marginBottom: 'var(--spacing-6)',
                       transition: 'opacity var(--duration-fast) var(--ease-default)',
                     }}
                   >
@@ -421,24 +364,12 @@ export default function PricingPage() {
                 )}
 
                 {/* Features */}
-                <ul
-                  style={{
-                    listStyle: 'none',
-                    padding: 0,
-                    margin: 0,
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 'var(--spacing-3)',
-                  }}
-                >
+                <ul className="m-0 flex flex-1 list-none flex-col gap-3 p-0">
                   {tier.features.map((feature) => (
                     <li
                       key={feature}
+                      className="flex items-start gap-2"
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 'var(--spacing-2)',
                         fontSize: 'var(--text-sm)',
                         color: 'var(--color-foreground)',
                       }}
