@@ -281,7 +281,7 @@ export default function UserMenu() {
               cursor: 'pointer',
               fontFamily: 'var(--font-body)',
               fontSize: 'var(--text-sm)',
-              color: 'var(--color-destructive, #ef4444)',
+              color: 'var(--color-destructive)',
               textAlign: 'left',
             }}
           >
