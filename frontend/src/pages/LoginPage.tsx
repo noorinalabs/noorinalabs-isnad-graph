@@ -92,8 +92,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     fetch(`${AUTH_BASE}/providers`)
-      .then((res) => (res.ok ? readJsonResponse<string[]>(res) : Promise.reject(res)))
-      .then((data) => setProviders(data))
+      .then((res) =>
+        res.ok
+          ? readJsonResponse<{ providers: { id: string; enabled: boolean }[] }>(res)
+          : Promise.reject(res),
+      )
+      .then((data) => setProviders(data.providers.filter((p) => p.enabled).map((p) => p.id)))
       .catch(() => setProviders(['google', 'github']))
   }, [])
 
