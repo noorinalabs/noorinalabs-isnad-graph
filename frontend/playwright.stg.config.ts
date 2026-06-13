@@ -16,6 +16,14 @@
  *                      Always runs; needs no creds.
  *   - `smoke-auth`   — protected-route invariants; depends on `setup` and reuses
  *                      its storage-state. Self-skips when creds are absent.
+ *   - `sweep-public` — exploratory cataloging walk of the anonymous surface
+ *                      (#969). Soft checks; emits sweep-results/ records.
+ *   - `sweep-auth`   — exploratory cataloging walk of the protected + admin
+ *                      surface (#969); depends on `setup`, self-skips w/o creds.
+ *
+ * `npm run e2e:stg` runs only the smoke projects (the #968 contract). The
+ * heavier exploratory walk runs separately via `npm run e2e:sweep`, then
+ * `npm run sweep:report` aggregates the records into SWEEP-CATALOG.md.
  */
 import { defineConfig, devices } from '@playwright/test'
 import { BASE_URL, STORAGE_STATE } from './tests/stg-smoke/env'
@@ -53,6 +61,17 @@ export default defineConfig({
     {
       name: 'smoke-auth',
       testMatch: /.*\.auth\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+    },
+    {
+      name: 'sweep-public',
+      testMatch: /.*\.sweep\.public\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'sweep-auth',
+      testMatch: /.*\.sweep\.auth\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
     },

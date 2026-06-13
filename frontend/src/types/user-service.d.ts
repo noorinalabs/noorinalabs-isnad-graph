@@ -484,6 +484,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the auth methods this service supports and whether each is enabled.
+         *
+         *     Email/password is always available; each OAuth provider is `enabled` only
+         *     when its credentials are configured. The frontend uses this to render the
+         *     correct set of login buttons.
+         */
+        get: operations["list_providers_auth_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/token": {
         parameters: {
             query?: never;
@@ -588,6 +612,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AuthProviderInfo
+         * @description A single available authentication method for `GET /auth/providers`.
+         */
+        AuthProviderInfo: {
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -634,6 +670,14 @@ export interface components {
             code_verifier: string;
             /** State */
             state: string;
+        };
+        /**
+         * ProvidersResponse
+         * @description List of authentication methods the service supports + their enabled state.
+         */
+        ProvidersResponse: {
+            /** Providers */
+            providers: components["schemas"]["AuthProviderInfo"][];
         };
         /**
          * RefreshRequest
@@ -1955,6 +1999,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_providers_auth_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvidersResponse"];
                 };
             };
         };
