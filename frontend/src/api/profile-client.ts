@@ -1,5 +1,6 @@
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
+import { apiError } from './api-error'
 
 // Absolute URL targeting the user-service vhost (`users.{base}`). See
 // useAuth.ts for the full BASE-constant set and the runtime-vs-build-time
@@ -21,7 +22,7 @@ async function fetchProfileJson<T>(url: string, init?: RequestInit): Promise<T> 
     throw new Error('Unauthorized')
   }
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
   return res.json() as Promise<T>
 }
@@ -82,6 +83,6 @@ export async function revokeSession(sessionId: string): Promise<void> {
     throw new Error('Unauthorized')
   }
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
 }

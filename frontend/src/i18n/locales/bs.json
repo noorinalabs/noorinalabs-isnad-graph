@@ -38,6 +38,12 @@
   },
   "errors": {
     "notFoundTitle": "Stranica nije pronađena",
-    "notFoundBody": "Stranica koju tražite ne postoji ili je premještena."
+    "notFoundBody": "Stranica koju tražite ne postoji ili je premještena.",
+    "apiSessionExpired": "Vaša sesija je istekla — molimo prijavite se ponovo.",
+    "apiForbidden": "Nemate pristup ovome.",
+    "apiNotFound": "Nismo mogli pronaći ono što tražite.",
+    "apiRateLimited": "Previše zahtjeva — molimo pričekajte trenutak i pokušajte ponovo.",
+    "apiServer": "Nešto je pošlo po zlu na našoj strani. Molimo pokušajte ponovo uskoro.",
+    "apiGeneric": "Nešto je pošlo po zlu. Molimo pokušajte ponovo."
   }
 }

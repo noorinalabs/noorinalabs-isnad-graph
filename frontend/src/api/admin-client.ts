@@ -12,6 +12,7 @@ import type {
 import type { PaginatedResponse } from '../types/api'
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
+import { apiError } from './api-error'
 
 // --- isnad-graph admin API (system / content / analytics panels — #806) ---
 const API_BASE = '/api/v1/admin'
@@ -53,7 +54,7 @@ async function fetchAdminJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error('Unauthorized: admin access required')
   }
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
   return res.json() as Promise<T>
 }
@@ -75,7 +76,7 @@ async function fetchUserServiceJson<T>(url: string, init?: RequestInit): Promise
     throw new Error('Unauthorized: admin access required')
   }
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
   return res.json() as Promise<T>
 }
@@ -95,7 +96,7 @@ async function sendUserServiceRequest(url: string, init: RequestInit): Promise<v
     throw new Error('Unauthorized: admin access required')
   }
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
 }
 

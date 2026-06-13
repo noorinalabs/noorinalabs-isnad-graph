@@ -37,6 +37,12 @@
   },
   "errors": {
     "notFoundTitle": "Halaman tidak dijumpai",
-    "notFoundBody": "Halaman yang anda cari tidak wujud atau telah dialihkan."
+    "notFoundBody": "Halaman yang anda cari tidak wujud atau telah dialihkan.",
+    "apiSessionExpired": "Sesi anda telah tamat — sila log masuk semula.",
+    "apiForbidden": "Anda tidak mempunyai akses kepada ini.",
+    "apiNotFound": "Kami tidak dapat menemukan apa yang anda cari.",
+    "apiRateLimited": "Terlalu banyak permintaan — sila tunggu sebentar dan cuba lagi.",
+    "apiServer": "Sesuatu tidak kena di pihak kami. Sila cuba lagi sebentar lagi.",
+    "apiGeneric": "Sesuatu tidak kena. Sila cuba lagi."
   }
 }

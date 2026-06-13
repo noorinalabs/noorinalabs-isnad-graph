@@ -94,7 +94,10 @@ describe('data client 401 → refresh → retry (#1016)', () => {
       return Promise.resolve(jsonResponse({ detail: 'token expired' }, 401))
     })
 
-    await expect(fetchNarrators()).rejects.toThrow(/401/)
+    // The throw is now a typed ApiError with a friendly, localized message
+    // (ig#1017) — the raw status no longer leaks into `message`, so assert the
+    // status the error carries rather than string-matching "401".
+    await expect(fetchNarrators()).rejects.toMatchObject({ status: 401 })
 
     expect(callsTo(REFRESH_URL)).toHaveLength(1)
     // No retry — the single data call stays at one (refresh failed).

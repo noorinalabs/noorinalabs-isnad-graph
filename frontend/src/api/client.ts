@@ -19,6 +19,7 @@ import type {
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
 import { refreshAccessToken } from './token-refresh'
+import { apiError } from './api-error'
 
 const API_BASE = '/api/v1'
 
@@ -39,7 +40,7 @@ async function fetchJson<T>(url: string): Promise<T> {
     }
   }
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
   return res.json() as Promise<T>
 }
@@ -188,7 +189,7 @@ export async function updateModerationItem(
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  if (!res.ok) throw apiError(res)
   return res.json() as Promise<ModerationItem>
 }
 
@@ -202,7 +203,7 @@ export async function flagContent(
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ entity_type: entityType, entity_id: entityId, reason }),
   })
-  if (!res.ok) throw new Error(`API error: ${res.status} ${res.statusText}`)
+  if (!res.ok) throw apiError(res)
   return res.json() as Promise<ModerationItem>
 }
 
@@ -233,7 +234,7 @@ export async function fetchSubscriptionOrNull(): Promise<SubscriptionResponse | 
   }
   if (res.status === 404) return null
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`)
+    throw apiError(res)
   }
   return res.json() as Promise<SubscriptionResponse>
 }
