@@ -11,10 +11,12 @@
     "lint": "eslint src/",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
+    "e2e:stg": "playwright test -c playwright.stg.config.ts",
+    "e2e:stg:ui": "playwright test -c playwright.stg.config.ts --ui",
     "gen:types": "openapi-typescript docs/openapi-snapshot.json -o src/types/user-service.d.ts"
   },
   "dependencies": {
-    "@noorinalabs/design-system": "^0.0.4-wave10.0",
+    "@noorinalabs/design-system": "^0.0.5-wave4.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
@@ -24,9 +26,11 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3": "^7.9.0",
+    "i18next": "^24.2.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-force-graph-2d": "^1.29.1",
+    "react-i18next": "^15.4.0",
     "react-router-dom": "^7.13.2",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2"

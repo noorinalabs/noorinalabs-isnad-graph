@@ -1,0 +1,45 @@
+{
+  "common": {
+    "platformTagline": "منصة تحليل الحديث",
+    "returnHome": "العودة إلى الصفحة الرئيسية",
+    "loading": "جارٍ التحميل…"
+  },
+  "nav": {
+    "ariaLabel": "التنقل الرئيسي",
+    "narrators": "الرواة",
+    "hadiths": "الأحاديث",
+    "collections": "المجموعات",
+    "search": "بحث",
+    "timeline": "الخط الزمني",
+    "compare": "مقارنة",
+    "graphExplorer": "مستكشف الرسم البياني",
+    "adminDashboard": "لوحة تحكم المشرف",
+    "signOut": "تسجيل الخروج"
+  },
+  "userMenu": {
+    "openMenu": "قائمة المستخدم",
+    "myProfile": "ملفي الشخصي",
+    "preferences": "التفضيلات",
+    "switchToLight": "التبديل إلى الوضع الفاتح",
+    "switchToDark": "التبديل إلى الوضع الداكن",
+    "signOut": "تسجيل الخروج",
+    "signOutEverywhere": "تسجيل الخروج من جميع الأجهزة",
+    "upgrade": "ترقية",
+    "plans": "الخطط",
+    "trialLabel": "تجربة:",
+    "daysLeft_one": "بقي يوم واحد",
+    "daysLeft_two": "بقي يومان",
+    "daysLeft_few": "بقيت {{count}} أيام",
+    "daysLeft_many": "بقي {{count}} يومًا",
+    "daysLeft_other": "بقي {{count}} يوم",
+    "planSuffix": "خطة {{tier}}"
+  },
+  "language": {
+    "label": "اللغة",
+    "select": "اختر اللغة"
+  },
+  "errors": {
+    "notFoundTitle": "الصفحة غير موجودة",
+    "notFoundBody": "الصفحة التي تبحث عنها غير موجودة أو تم نقلها."
+  }
+}

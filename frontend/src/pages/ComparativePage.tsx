@@ -149,13 +149,24 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
   )
 }
 
+type SectFilter = 'all' | 'cross' | 'intra'
+
+const SECT_FILTERS: { value: SectFilter; label: string; crossSect?: boolean }[] = [
+  { value: 'all', label: 'All parallels', crossSect: undefined },
+  { value: 'intra', label: 'Within a sect', crossSect: false },
+  { value: 'cross', label: 'Cross-sect', crossSect: true },
+]
+
 export default function ComparativePage() {
   const [page, setPage] = useState(1)
+  const [sectFilter, setSectFilter] = useState<SectFilter>('all')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const compareA = searchParams.get('a') ?? ''
   const compareB = searchParams.get('b') ?? ''
+
+  const crossSect = SECT_FILTERS.find((f) => f.value === sectFilter)?.crossSect
 
   const setCompare = useCallback(
     (key: 'a' | 'b', value: string) => {
@@ -171,9 +182,14 @@ export default function ComparativePage() {
   )
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['parallel-pairs', page],
-    queryFn: () => fetchParallelPairs(page, 20),
+    queryKey: ['parallel-pairs', page, sectFilter],
+    queryFn: () => fetchParallelPairs(page, 20, crossSect),
   })
+
+  const selectSectFilter = useCallback((value: SectFilter) => {
+    setSectFilter(value)
+    setPage(1)
+  }, [])
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0
   const hasParallels = data && data.items.length > 0
@@ -183,7 +199,8 @@ export default function ComparativePage() {
     <div>
       <h2 className="page-heading">Comparative Analysis</h2>
       <p className="muted-text" style={{ marginBottom: 'var(--spacing-4)' }}>
-        Compare hadith texts side by side and browse cross-sectarian parallel pairs.
+        Compare hadith texts side by side and browse parallel pairs — within each sect
+        (sunni-sunni, shia-shia) and across the Sunni and Shia corpora.
       </p>
 
       <Tabs defaultValue={hasComparison ? 'compare' : 'browse'}>
@@ -234,6 +251,20 @@ export default function ComparativePage() {
         </TabsContent>
 
         <TabsContent value="browse">
+          <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter parallels by sect pairing">
+            {SECT_FILTERS.map((f) => (
+              <Button
+                key={f.value}
+                variant={sectFilter === f.value ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => selectSectFilter(f.value)}
+                aria-pressed={sectFilter === f.value}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+
           {isLoading && (
             <div>
               {[1, 2, 3, 4, 5].map((i) => (
@@ -255,9 +286,10 @@ export default function ComparativePage() {
               </div>
               <h3 className="empty-state-heading">No parallel hadith pairs yet</h3>
               <p className="empty-state-body">
-                Cross-sectarian parallel hadith pairs will appear here once the deduplication
-                pipeline has identified matching texts across Sunni and Shia collections.
-                You can still compare individual hadiths using the Compare tab.
+                Parallel hadith pairs — both within a single sect (sunni-sunni, shia-shia)
+                and across the Sunni and Shia collections — will appear here once the
+                deduplication pipeline has identified matching texts. You can still compare
+                individual hadiths using the Compare tab.
               </p>
             </div>
           )}
@@ -271,7 +303,7 @@ export default function ComparativePage() {
                     <th>Hadith B</th>
                     <th>Similarity</th>
                     <th>Variant Type</th>
-                    <th>Cross-Sect</th>
+                    <th>Sect Pairing</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -304,7 +336,7 @@ export default function ComparativePage() {
                         )}
                       </td>
                       <td>{pair.variant_type ?? '-'}</td>
-                      <td>{pair.cross_sect ? 'Yes' : 'No'}</td>
+                      <td>{pair.cross_sect ? 'Cross-sect' : 'Within-sect'}</td>
                       <td>
                         <Button
                           variant="ghost"

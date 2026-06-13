@@ -102,7 +102,7 @@ export default function VerifyEmailPage() {
             width: 64,
             height: 64,
             borderRadius: 'var(--radius-lg)',
-            background: success ? 'var(--color-green-500, #22c55e)' : 'var(--color-primary)',
+            background: success ? 'var(--color-success)' : 'var(--color-primary)',
             color: 'var(--color-primary-foreground)',
             transition: 'background 0.3s',
           }}

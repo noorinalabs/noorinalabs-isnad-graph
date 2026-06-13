@@ -1,10 +1,13 @@
 import { Link, Outlet } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
 import TrialBanner from './TrialBanner'
 import UserMenu from './UserMenu'
-import { PageHeaderAccent } from './icons/decorative'
+import LanguageToggle from './LanguageToggle'
+import { PageHeaderAccent } from '@noorinalabs/design-system'
 
 export default function Layout() {
+  const { t } = useTranslation()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <TrialBanner />
@@ -69,8 +72,9 @@ export default function Layout() {
           </Link>
         </div>
         <span className="small-muted" style={{ fontFamily: 'var(--font-heading)' }}>
-          Hadith Analysis Platform
+          {t('common.platformTagline')}
         </span>
+        <LanguageToggle />
         <UserMenu />
       </header>
       <div style={{ display: 'flex', flex: 1 }}>

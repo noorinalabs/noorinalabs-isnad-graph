@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import {
   NarratorsIcon,
@@ -10,25 +11,28 @@ import {
   GraphExplorerIcon,
   AdminIcon,
   SignOutIcon,
-} from './icons'
-import { GeometricBorder } from './icons/decorative'
+  GeometricBorder,
+} from '@noorinalabs/design-system'
 
+// `labelKey` indexes into the `nav.*` translation namespace; resolved at render
+// time so the sidebar re-labels live when the UI language changes.
 const navItems = [
-  { to: '/narrators', label: 'Narrators', Icon: NarratorsIcon },
-  { to: '/hadiths', label: 'Hadiths', Icon: HadithsIcon },
-  { to: '/collections', label: 'Collections', Icon: CollectionsIcon },
-  { to: '/search', label: 'Search', Icon: SearchIcon },
-  { to: '/timeline', label: 'Timeline', Icon: TimelineIcon },
-  { to: '/compare', label: 'Compare', Icon: CompareIcon },
-  { to: '/graph', label: 'Graph Explorer', Icon: GraphExplorerIcon },
-]
+  { to: '/narrators', labelKey: 'nav.narrators', Icon: NarratorsIcon },
+  { to: '/hadiths', labelKey: 'nav.hadiths', Icon: HadithsIcon },
+  { to: '/collections', labelKey: 'nav.collections', Icon: CollectionsIcon },
+  { to: '/search', labelKey: 'nav.search', Icon: SearchIcon },
+  { to: '/timeline', labelKey: 'nav.timeline', Icon: TimelineIcon },
+  { to: '/compare', labelKey: 'nav.compare', Icon: CompareIcon },
+  { to: '/graph', labelKey: 'nav.graphExplorer', Icon: GraphExplorerIcon },
+] as const
 
 export default function Sidebar() {
+  const { t } = useTranslation()
   const { user, isAdmin, signOut } = useAuth()
 
   return (
     <nav
-      aria-label="Main navigation"
+      aria-label={t('nav.ariaLabel')}
       style={{
         width: 240,
         padding: 'var(--spacing-4)',
@@ -62,7 +66,7 @@ export default function Sidebar() {
               })}
             >
               <item.Icon size={16} style={{ flexShrink: 0, opacity: 0.7 }} />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           </li>
         ))}
@@ -94,7 +98,7 @@ export default function Sidebar() {
               })}
             >
               <AdminIcon size={16} style={{ flexShrink: 0, opacity: 0.7 }} />
-              Admin Dashboard
+              {t('nav.adminDashboard')}
             </NavLink>
           </li>
         )}
@@ -144,7 +148,7 @@ export default function Sidebar() {
             }}
           >
             <SignOutIcon size={16} />
-            Sign out
+            {t('nav.signOut')}
           </button>
         </div>
       )}

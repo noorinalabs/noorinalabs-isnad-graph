@@ -12,6 +12,111 @@
  */
 
 /* ============================================================
+ * DESIGN-SYSTEM COLOR TOKENS → TAILWIND THEME (#1000)
+ * ------------------------------------------------------------
+ * The design system ships its color tokens to `:root` as plain CSS
+ * (per DS#104, so non-Tailwind consumers get them) — NOT into Tailwind's
+ * `@theme` namespace. As a result Tailwind never learned them as colors,
+ * so semantic color utilities (`bg-card`, `bg-background`, `bg-primary`,
+ * `border-border`, `text-foreground`, `text-muted-foreground`, `bg-accent`,
+ * `bg-muted`, the grading/sect/tier domain colors, …) generated NO rules —
+ * they were silent no-ops in the shipped bundle.
+ *
+ * This `@theme inline` block registers each DS `--color-*` token as a
+ * Tailwind theme color that references the DS runtime variable. Because the
+ * value is a `var()` to the DS token, the generated utilities stay
+ * light/dark-adaptive automatically (the DS swaps the variables under
+ * `:root` / `[data-theme="dark"]` / `prefers-color-scheme`). `inline` keeps
+ * Tailwind from re-emitting these variables into its own layer, so the DS
+ * `:root` definitions remain the single source of truth and win the cascade.
+ *
+ * Spacing/radius utilities already resolve (Tailwind's default scale is
+ * numerically identical to the DS scale), so only colors need bridging.
+ * ============================================================ */
+@theme inline {
+  /* Semantic */
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-foreground: var(--color-secondary-foreground);
+  --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-accent-foreground);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-foreground: var(--color-destructive-foreground);
+  --color-success: var(--color-success);
+  --color-success-foreground: var(--color-success-foreground);
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-foreground);
+  --color-info: var(--color-info);
+  --color-info-foreground: var(--color-info-foreground);
+
+  /* Surface */
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-card: var(--color-card);
+  --color-card-foreground: var(--color-card-foreground);
+  --color-popover: var(--color-popover);
+  --color-popover-foreground: var(--color-popover-foreground);
+
+  /* Interactive */
+  --color-border: var(--color-border);
+  --color-input: var(--color-input);
+  --color-ring: var(--color-ring);
+
+  /* Brand — landing-page palette */
+  --color-brand-navy: var(--color-brand-navy);
+  --color-brand-navy-light: var(--color-brand-navy-light);
+  --color-brand-navy-dark: var(--color-brand-navy-dark);
+  --color-brand-gold: var(--color-brand-gold);
+  --color-brand-gold-light: var(--color-brand-gold-light);
+  --color-brand-gold-dark: var(--color-brand-gold-dark);
+
+  /* Domain — hadith grading */
+  --color-sahih: var(--color-sahih);
+  --color-sahih-bg: var(--color-sahih-bg);
+  --color-hasan: var(--color-hasan);
+  --color-hasan-bg: var(--color-hasan-bg);
+  --color-daif: var(--color-daif);
+  --color-daif-bg: var(--color-daif-bg);
+  --color-mawdu: var(--color-mawdu);
+  --color-mawdu-bg: var(--color-mawdu-bg);
+
+  /* Domain — sect indicators */
+  --color-sunni: var(--color-sunni);
+  --color-sunni-bg: var(--color-sunni-bg);
+  --color-shia: var(--color-shia);
+  --color-shia-bg: var(--color-shia-bg);
+
+  /* Domain — narrator reliability tiers */
+  --color-tier-thiqah: var(--color-tier-thiqah);
+  --color-tier-thiqah-bg: var(--color-tier-thiqah-bg);
+  --color-tier-saduq: var(--color-tier-saduq);
+  --color-tier-saduq-bg: var(--color-tier-saduq-bg);
+  --color-tier-daif-narrator: var(--color-tier-daif-narrator);
+  --color-tier-daif-narrator-bg: var(--color-tier-daif-narrator-bg);
+  --color-tier-matruk: var(--color-tier-matruk);
+  --color-tier-matruk-bg: var(--color-tier-matruk-bg);
+  --color-tier-kadhdhab: var(--color-tier-kadhdhab);
+  --color-tier-kadhdhab-bg: var(--color-tier-kadhdhab-bg);
+
+  /* Visualization (also consumed by ForceGraph via getComputedStyle) */
+  --color-viz-accent: var(--color-viz-accent);
+  --color-viz-categorical-1: var(--color-viz-categorical-1);
+  --color-viz-categorical-2: var(--color-viz-categorical-2);
+  --color-viz-categorical-3: var(--color-viz-categorical-3);
+  --color-viz-categorical-4: var(--color-viz-categorical-4);
+  --color-viz-categorical-5: var(--color-viz-categorical-5);
+  --color-viz-categorical-6: var(--color-viz-categorical-6);
+  --color-viz-categorical-7: var(--color-viz-categorical-7);
+  --color-viz-categorical-8: var(--color-viz-categorical-8);
+  --color-viz-categorical-9: var(--color-viz-categorical-9);
+  --color-viz-categorical-10: var(--color-viz-categorical-10);
+}
+
+/* ============================================================
  * OAUTH PROVIDER BRAND TOKENS
  * Brand colors for third-party OAuth buttons. These are provider-
  * mandated values and intentionally not part of the shared DS.

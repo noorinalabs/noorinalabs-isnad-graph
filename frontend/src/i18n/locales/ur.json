@@ -1,0 +1,42 @@
+{
+  "common": {
+    "platformTagline": "حدیث تجزیہ پلیٹ فارم",
+    "returnHome": "ہوم پیج پر واپس جائیں",
+    "loading": "لوڈ ہو رہا ہے…"
+  },
+  "nav": {
+    "ariaLabel": "مرکزی نیویگیشن",
+    "narrators": "راوی",
+    "hadiths": "احادیث",
+    "collections": "مجموعے",
+    "search": "تلاش",
+    "timeline": "ٹائم لائن",
+    "compare": "موازنہ",
+    "graphExplorer": "گراف ایکسپلورر",
+    "adminDashboard": "ایڈمن ڈیش بورڈ",
+    "signOut": "سائن آؤٹ"
+  },
+  "userMenu": {
+    "openMenu": "صارف مینو",
+    "myProfile": "میرا پروفائل",
+    "preferences": "ترجیحات",
+    "switchToLight": "لائٹ موڈ پر جائیں",
+    "switchToDark": "ڈارک موڈ پر جائیں",
+    "signOut": "سائن آؤٹ",
+    "signOutEverywhere": "تمام آلات سے سائن آؤٹ کریں",
+    "upgrade": "اپ گریڈ",
+    "plans": "پلانز",
+    "trialLabel": "آزمائش:",
+    "daysLeft_one": "{{count}} دن باقی",
+    "daysLeft_other": "{{count}} دن باقی",
+    "planSuffix": "{{tier}} پلان"
+  },
+  "language": {
+    "label": "زبان",
+    "select": "زبان منتخب کریں"
+  },
+  "errors": {
+    "notFoundTitle": "صفحہ نہیں ملا",
+    "notFoundBody": "آپ جس صفحے کو تلاش کر رہے ہیں وہ موجود نہیں ہے یا منتقل کر دیا گیا ہے۔"
+  }
+}
