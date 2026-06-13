@@ -1,0 +1,92 @@
+# Exploratory browser-automation sweep against a DEPLOYED environment (#969).
+#
+# Walks every app route (anonymous + authenticated + admin) and catalogs what
+# works vs what's missing/broken into sweep-results/SWEEP-CATALOG.md. Like the
+# #968 smoke harness this is NOT on `pull_request` — it drives the live stg/prod
+# app and needs deploy-environment secrets. Manual dispatch + a weekly schedule
+# means a PR lacking secrets is never broken by it.
+#
+# The sweep is SOFT: a broken route is recorded (and shows red in the HTML
+# report) but never aborts the walk, so one bad page can't hide the rest. The
+# job always uploads the catalog + report artifacts.
+name: e2e-stg-sweep
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: 'Environment to sweep'
+        type: choice
+        options: [stg, prod]
+        default: stg
+  schedule:
+    # Weekly, Mondays 07:11 UTC — heavier than the daily smoke; out-of-band of PRs.
+    - cron: '11 7 * * 1'
+
+concurrency:
+  group: e2e-stg-sweep-${{ github.event.inputs.target_env || 'stg' }}
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      TARGET_ENV: ${{ github.event.inputs.target_env || 'stg' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # @noorinalabs/* resolves from GitHub Packages — see ci.yml for the
+          # registry/token pairing.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@noorinalabs'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx playwright install --with-deps chromium
+      - name: Run exploratory sweep
+        # The sweep is soft (records gaps, never aborts), but a hard infra
+        # failure (e.g. Playwright crash) should still surface — so don't mask
+        # the run's exit here; the report/catalog upload below is `if: always()`.
+        run: npm run e2e:sweep
+        env:
+          STG_BASE_URL: ${{ vars.STG_BASE_URL }}
+          USER_SERVICE_URL: ${{ vars.STG_USER_SERVICE_URL }}
+          PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
+          PROD_USER_SERVICE_URL: ${{ vars.PROD_USER_SERVICE_URL }}
+          STG_TEST_EMAIL: ${{ secrets.STG_TEST_EMAIL }}
+          STG_TEST_PASSWORD: ${{ secrets.STG_TEST_PASSWORD }}
+          # Known-good detail-route ids for the target env (optional; fall back
+          # to fixture ids in routes.ts when unset).
+          SWEEP_NARRATOR_ID: ${{ vars.SWEEP_NARRATOR_ID }}
+          SWEEP_HADITH_ID: ${{ vars.SWEEP_HADITH_ID }}
+          SWEEP_COLLECTION_ID: ${{ vars.SWEEP_COLLECTION_ID }}
+      - name: Aggregate catalog
+        if: always()
+        run: npm run sweep:report
+      - name: Upload sweep catalog (json + markdown + screenshots)
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sweep-catalog-${{ env.TARGET_ENV }}
+          path: frontend/sweep-results/
+          retention-days: 30
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: sweep-report-${{ env.TARGET_ENV }}
+          path: frontend/playwright-report-stg/
+          retention-days: 30
+      - name: Surface catalog in the run summary
+        if: always()
+        run: cat sweep-results/SWEEP-CATALOG.md >> "$GITHUB_STEP_SUMMARY" || true
