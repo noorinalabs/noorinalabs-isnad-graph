@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 export default function NotFoundPage() {
+  const { t } = useTranslation()
   return (
     <div className="error-page">
       {/* Disconnected graph node icon */}
@@ -20,12 +22,10 @@ export default function NotFoundPage() {
         </svg>
       </div>
       <div className="error-page-code">404</div>
-      <div className="error-page-title">Page not found</div>
-      <div className="error-page-body">
-        The page you are looking for does not exist or has been moved.
-      </div>
+      <div className="error-page-title">{t('errors.notFoundTitle')}</div>
+      <div className="error-page-body">{t('errors.notFoundBody')}</div>
       <Link to="/" className="btn-primary" style={{ textDecoration: 'none' }}>
-        Return home
+        {t('common.returnHome')}
       </Link>
     </div>
   )

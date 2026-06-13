@@ -1,0 +1,42 @@
+{
+  "common": {
+    "platformTagline": "Hadis Analiz Platformu",
+    "returnHome": "Ana sayfaya dön",
+    "loading": "Yükleniyor…"
+  },
+  "nav": {
+    "ariaLabel": "Ana gezinme",
+    "narrators": "Raviler",
+    "hadiths": "Hadisler",
+    "collections": "Koleksiyonlar",
+    "search": "Ara",
+    "timeline": "Zaman çizelgesi",
+    "compare": "Karşılaştır",
+    "graphExplorer": "Grafik Gezgini",
+    "adminDashboard": "Yönetim Paneli",
+    "signOut": "Çıkış yap"
+  },
+  "userMenu": {
+    "openMenu": "Kullanıcı menüsü",
+    "myProfile": "Profilim",
+    "preferences": "Tercihler",
+    "switchToLight": "Açık moda geç",
+    "switchToDark": "Koyu moda geç",
+    "signOut": "Çıkış yap",
+    "signOutEverywhere": "Her yerden çıkış yap",
+    "upgrade": "Yükselt",
+    "plans": "Planlar",
+    "trialLabel": "Deneme:",
+    "daysLeft_one": "{{count}} gün kaldı",
+    "daysLeft_other": "{{count}} gün kaldı",
+    "planSuffix": "{{tier}} planı"
+  },
+  "language": {
+    "label": "Dil",
+    "select": "Dil seçin"
+  },
+  "errors": {
+    "notFoundTitle": "Sayfa bulunamadı",
+    "notFoundBody": "Aradığınız sayfa mevcut değil veya taşınmış."
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "common": {
+    "platformTagline": "Platforma za analizu hadisa",
+    "returnHome": "Povratak na početnu",
+    "loading": "Učitavanje…"
+  },
+  "nav": {
+    "ariaLabel": "Glavna navigacija",
+    "narrators": "Prenosioci",
+    "hadiths": "Hadisi",
+    "collections": "Zbirke",
+    "search": "Pretraga",
+    "timeline": "Vremenska linija",
+    "compare": "Uporedi",
+    "graphExplorer": "Istraživač grafa",
+    "adminDashboard": "Administratorska ploča",
+    "signOut": "Odjava"
+  },
+  "userMenu": {
+    "openMenu": "Korisnički meni",
+    "myProfile": "Moj profil",
+    "preferences": "Postavke",
+    "switchToLight": "Pređi na svijetli način",
+    "switchToDark": "Pređi na tamni način",
+    "signOut": "Odjava",
+    "signOutEverywhere": "Odjavi se sa svih uređaja",
+    "upgrade": "Nadogradi",
+    "plans": "Planovi",
+    "trialLabel": "Probni period:",
+    "daysLeft_one": "Preostao {{count}} dan",
+    "daysLeft_few": "Preostala {{count}} dana",
+    "daysLeft_other": "Preostalo {{count}} dana",
+    "planSuffix": "{{tier}} plan"
+  },
+  "language": {
+    "label": "Jezik",
+    "select": "Odaberi jezik"
+  },
+  "errors": {
+    "notFoundTitle": "Stranica nije pronađena",
+    "notFoundBody": "Stranica koju tražite ne postoji ili je premještena."
+  }
+}

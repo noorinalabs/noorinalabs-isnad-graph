@@ -1,0 +1,42 @@
+{
+  "common": {
+    "platformTagline": "Hadith Analysis Platform",
+    "returnHome": "Return home",
+    "loading": "Loading…"
+  },
+  "nav": {
+    "ariaLabel": "Main navigation",
+    "narrators": "Narrators",
+    "hadiths": "Hadiths",
+    "collections": "Collections",
+    "search": "Search",
+    "timeline": "Timeline",
+    "compare": "Compare",
+    "graphExplorer": "Graph Explorer",
+    "adminDashboard": "Admin Dashboard",
+    "signOut": "Sign out"
+  },
+  "userMenu": {
+    "openMenu": "User menu",
+    "myProfile": "My Profile",
+    "preferences": "Preferences",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode",
+    "signOut": "Sign out",
+    "signOutEverywhere": "Sign out everywhere",
+    "upgrade": "Upgrade",
+    "plans": "Plans",
+    "trialLabel": "Trial:",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left",
+    "planSuffix": "{{tier}} plan"
+  },
+  "language": {
+    "label": "Language",
+    "select": "Select language"
+  },
+  "errors": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you are looking for does not exist or has been moved."
+  }
+}
