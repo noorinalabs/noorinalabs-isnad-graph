@@ -23,6 +23,19 @@ import { apiError } from './api-error'
 
 const API_BASE = '/api/v1'
 
+// Subscriptions live in the user-service, not the isnad-graph API. Resolve its
+// origin at runtime from `window.RUNTIME_CONFIG` (injected by the container
+// entrypoint), falling back to the build-time `VITE_USER_SERVICE_ORIGIN`, then
+// to same-origin. This mirrors useAuth.ts / profile-client.ts / admin-client.ts.
+// Without this, `/subscriptions/me` hit the isnad-graph origin — which has no
+// such route — and 404'd on every authenticated page, silently treating every
+// user (including real subscribers) as un-subscribed. (#1026)
+const USER_SERVICE_ORIGIN =
+  (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.USER_SERVICE_ORIGIN) ||
+  import.meta.env.VITE_USER_SERVICE_ORIGIN ||
+  ''
+const SUBSCRIPTIONS_BASE = `${USER_SERVICE_ORIGIN}/api/v1/subscriptions`
+
 async function fetchJson<T>(url: string): Promise<T> {
   let res = await fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
   if (res.status === 401) {
@@ -213,7 +226,7 @@ export async function flagContent(
 // (free tier / admin), not an error. Resolve it to null and let callers
 // branch on `subscription === null`. Other non-OK statuses throw as usual.
 export async function fetchSubscriptionOrNull(): Promise<SubscriptionResponse | null> {
-  let res = await fetch(`${API_BASE}/subscriptions/me`, {
+  let res = await fetch(`${SUBSCRIPTIONS_BASE}/me`, {
     headers: getAuthHeaders(),
     credentials: 'include',
   })
@@ -223,7 +236,7 @@ export async function fetchSubscriptionOrNull(): Promise<SubscriptionResponse | 
   if (res.status === 401) {
     const refreshed = await refreshAccessToken()
     if (refreshed) {
-      res = await fetch(`${API_BASE}/subscriptions/me`, {
+      res = await fetch(`${SUBSCRIPTIONS_BASE}/me`, {
         headers: getAuthHeaders(),
         credentials: 'include',
       })
