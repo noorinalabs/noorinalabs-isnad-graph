@@ -135,6 +135,9 @@ def list_hadiths(
     source_corpus: str | None = Query(None, description="Filter by source corpus"),
     grade: str | None = Query(None, description="Filter by grade"),
     q: str | None = Query(None, description="Search hadith text content"),
+    narrator: str | None = Query(
+        None, description="Filter to hadiths whose isnad contains this narrator (id)"
+    ),
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> PaginatedResponse[HadithResponse]:
     """Return a paginated list of hadiths with optional filters."""
@@ -160,6 +163,18 @@ def list_hadiths(
             "(toLower(h.matn_ar) CONTAINS toLower($q) OR toLower(h.matn_en) CONTAINS toLower($q))"
         )
         params["q"] = q
+    if narrator:
+        # A narrator is "in the isnad" of hadith h when they either directly
+        # NARRATED h, or are an endpoint of one of h's TRANSMITTED_TO edges
+        # (those edges carry hadith_id — the per-hadith chain lives on the
+        # edge properties, not on Chain nodes; see #1032). The existential
+        # subqueries keep the outer count(h)/properties(h) query a simple scan.
+        where_clauses.append(
+            "(EXISTS { MATCH (na:Narrator {id: $narrator})-[:NARRATED]->(h) } "
+            "OR EXISTS { MATCH (na:Narrator {id: $narrator})-[t:TRANSMITTED_TO]-(:Narrator) "
+            "WHERE t.hadith_id = h.id })"
+        )
+        params["narrator"] = narrator
 
     where = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
