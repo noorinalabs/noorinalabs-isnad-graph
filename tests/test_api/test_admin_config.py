@@ -67,6 +67,7 @@ class TestGetConfig:
         assert data["feature_flags"] == {}
         assert data["max_search_results"] == 100
         assert data["max_pagination_limit"] == 100
+        assert data["log_retention_days"] == 7
 
     def test_from_db(self, admin_client: TestClient, mock_pg: MagicMock) -> None:
         def fake_execute(query: str, params: object = None) -> list[dict[str, object]]:
@@ -142,6 +143,82 @@ class TestUpdateConfig:
             json={"rate_limit_per_minute": "not_a_number"},
         )
         assert resp.status_code == 422
+
+
+class TestLogRetention:
+    """ig#1038 — configurable 'keep last X days' log retention knob."""
+
+    def test_round_trip(self, admin_client: TestClient, mock_pg: MagicMock) -> None:
+        # Persist a new value, then read it back from the (mocked) DB.
+        resp = admin_client.patch(
+            "/api/v1/admin/config",
+            json={"log_retention_days": 30},
+        )
+        assert resp.status_code == 200
+        calls = mock_pg.execute.call_args_list
+        upserts = [c for c in calls if "INSERT INTO system_config" in str(c)]
+        # The serialized value lands in the upsert params.
+        assert any("log_retention_days" in str(c) and "30" in str(c) for c in upserts)
+
+        def fake_execute(query: str, params: object = None) -> list[dict[str, object]]:
+            if "SELECT key, value FROM system_config" in query:
+                return [{"key": "log_retention_days", "value": "30"}]
+            return []
+
+        mock_pg.execute.side_effect = fake_execute
+        read_back = admin_client.get("/api/v1/admin/config")
+        assert read_back.status_code == 200
+        assert read_back.json()["log_retention_days"] == 30
+
+    def test_rejects_below_min(self, admin_client: TestClient) -> None:
+        resp = admin_client.patch("/api/v1/admin/config", json={"log_retention_days": 0})
+        assert resp.status_code == 422
+
+    def test_rejects_above_max(self, admin_client: TestClient) -> None:
+        resp = admin_client.patch("/api/v1/admin/config", json={"log_retention_days": 366})
+        assert resp.status_code == 422
+
+    def test_non_admin_cannot_set(self, mock_neo4j: MagicMock) -> None:
+        from fastapi import HTTPException
+
+        from src.api.app import create_app
+
+        app = create_app()
+        app.state.neo4j = mock_neo4j
+
+        def _raise_not_found() -> User:
+            raise HTTPException(status_code=404, detail="Not Found")
+
+        app.dependency_overrides[require_admin] = _raise_not_found
+        client = TestClient(app)
+        resp = client.patch("/api/v1/admin/config", json={"log_retention_days": 14})
+        assert resp.status_code == 404
+
+    def test_propagates_to_loki_on_change(
+        self, admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Updating the knob drives the Loki runtime overrides write (enforcement).
+        import src.api.routes.admin.config as config_route
+
+        calls: list[int] = []
+        monkeypatch.setattr(config_route, "apply_loki_retention", lambda days: calls.append(days))
+
+        resp = admin_client.patch("/api/v1/admin/config", json={"log_retention_days": 45})
+        assert resp.status_code == 200
+        assert calls == [45]
+
+    def test_no_loki_write_for_unrelated_change(
+        self, admin_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A config update that doesn't touch retention must not write the Loki file.
+        import src.api.routes.admin.config as config_route
+
+        calls: list[int] = []
+        monkeypatch.setattr(config_route, "apply_loki_retention", lambda days: calls.append(days))
+
+        resp = admin_client.patch("/api/v1/admin/config", json={"rate_limit_per_minute": 120})
+        assert resp.status_code == 200
+        assert calls == []
 
 
 class TestConfigAudit:

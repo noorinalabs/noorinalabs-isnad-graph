@@ -3,13 +3,28 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import HadithDetailPage from "../HadithDetailPage"
-import { fetchHadith, fetchHadithParallels } from "../../api/client"
-import type { Hadith, ParallelsResponse } from "../../types/api"
+import {
+  fetchHadith,
+  fetchHadithParallels,
+  fetchHadithChain,
+} from "../../api/client"
+import type {
+  Hadith,
+  ParallelsResponse,
+  ChainVisualization,
+} from "../../types/api"
 
 vi.mock("../../api/client", () => ({
   fetchHadith: vi.fn(),
   fetchHadithParallels: vi.fn(),
+  fetchHadithChain: vi.fn(),
 }))
+
+const EMPTY_CHAIN: ChainVisualization = {
+  hadith_id: "bukhari:1",
+  nodes: [],
+  edges: [],
+}
 
 function makeHadith(overrides: Partial<Hadith> = {}): Hadith {
   return {
@@ -18,7 +33,8 @@ function makeHadith(overrides: Partial<Hadith> = {}): Hadith {
     matn_en: "Actions are but by intentions",
     isnad_raw_ar: null,
     isnad_raw_en: null,
-    grade_composite: "Sahih",
+    grade_composite: "Sahih - Authentic",
+    grade_normalized: "sahih",
     topic_tags: ["intention", "worship"],
     source_corpus: "Sahih al-Bukhari",
     collection_name: "Bukhari",
@@ -47,6 +63,8 @@ function renderAt(path = "/hadiths/bukhari:1") {
 describe("HadithDetailPage", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no chain edges. Tests that exercise the chain override this.
+    vi.mocked(fetchHadithChain).mockResolvedValue(EMPTY_CHAIN)
     // Clipboard polyfill — jsdom omits navigator.clipboard.writeText
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -104,9 +122,10 @@ describe("HadithDetailPage", () => {
       expect(
         screen.getByText("Actions are but by intentions"),
       ).toBeInTheDocument()
-      expect(
-        screen.getByText("Sahih", { selector: "span" }),
-      ).toBeInTheDocument()
+      // Raw free-text grade is shown verbatim, coloured from the normalized token.
+      const badge = screen.getByText("Sahih - Authentic", { selector: "span" })
+      expect(badge).toBeInTheDocument()
+      expect(badge).toHaveClass("text-sahih")
       // Metadata fields
       expect(screen.getByText("Collection")).toBeInTheDocument()
       expect(screen.getByText("Bukhari")).toBeInTheDocument()
@@ -201,6 +220,97 @@ describe("HadithDetailPage", () => {
         "href",
         "/compare?a=bukhari:1&b=kafi:1",
       )
+    })
+  })
+
+  describe("isnad chain (#1032)", () => {
+    it("renders the chain narrators in transmission order from the chain edges", async () => {
+      vi.mocked(fetchHadith).mockResolvedValue(makeHadith())
+      vi.mocked(fetchHadithParallels).mockResolvedValue({
+        hadith_id: "bukhari:1",
+        parallels: [],
+        total: 0,
+      })
+      const chain: ChainVisualization = {
+        hadith_id: "bukhari:1",
+        nodes: [
+          {
+            id: "nar:umar",
+            label: "Umar",
+            name_ar: "عمر بن الخطاب",
+            name_en: "Umar ibn al-Khattab",
+            type: "narrator",
+            generation: "companion",
+            community_id: null,
+            in_degree: null,
+            out_degree: null,
+            betweenness_centrality: null,
+            pagerank: null,
+            sect_affiliation: null,
+            trustworthiness_consensus: null,
+            death_year_ah: null,
+            birth_year_ah: null,
+            kunya: null,
+            nisba: null,
+          },
+          {
+            id: "nar:zuhri",
+            label: "al-Zuhri",
+            name_ar: "محمد بن مسلم الزهري",
+            name_en: "Ibn Shihab al-Zuhri",
+            type: "narrator",
+            generation: "tabi_tabiin",
+            community_id: null,
+            in_degree: null,
+            out_degree: null,
+            betweenness_centrality: null,
+            pagerank: null,
+            sect_affiliation: null,
+            trustworthiness_consensus: null,
+            death_year_ah: null,
+            birth_year_ah: null,
+            kunya: null,
+            nisba: null,
+          },
+        ],
+        edges: [
+          {
+            source: "nar:umar",
+            target: "nar:zuhri",
+            relationship: "TRANSMITTED_TO",
+            weight: 1,
+            position: 0,
+          },
+        ],
+      }
+      vi.mocked(fetchHadithChain).mockResolvedValue(chain)
+      renderAt()
+
+      const chainList = await screen.findByRole("list", {
+        name: /isnad chain in transmission order/i,
+      })
+      expect(chainList).toBeInTheDocument()
+      expect(screen.getByText("عمر بن الخطاب")).toBeInTheDocument()
+      expect(screen.getByText("محمد بن مسلم الزهري")).toBeInTheDocument()
+      // Narrators link to their detail pages
+      const umarLink = screen.getByRole("link", { name: /Umar ibn al-Khattab/i })
+      expect(umarLink).toHaveAttribute("href", "/narrators/nar%3Aumar")
+    })
+
+    it("shows an empty-state message when the hadith has no chain edges", async () => {
+      vi.mocked(fetchHadith).mockResolvedValue(makeHadith())
+      vi.mocked(fetchHadithParallels).mockResolvedValue({
+        hadith_id: "bukhari:1",
+        parallels: [],
+        total: 0,
+      })
+      // EMPTY_CHAIN is the beforeEach default
+      renderAt()
+
+      await screen.findByText("Bukhari 1", { selector: "h2" })
+      expect(
+        screen.getByText(/No isnad chain available for this hadith yet/i),
+      ).toBeInTheDocument()
     })
   })
 

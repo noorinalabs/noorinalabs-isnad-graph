@@ -53,11 +53,11 @@ describe("DashboardPage", () => {
     })
   })
 
-  it("renders all StatCards when user stats are present", async () => {
+  it("renders all StatCards from the real user counts", async () => {
     const stats: DashboardStats = {
       total_users: 1234,
       active_users: 987,
-      suspended_users: 12,
+      deactivated_users: 12,
       new_registrations_7d: 45,
       active_sessions: 56,
       users_by_role: [
@@ -71,10 +71,11 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("Admin Dashboard")).toBeInTheDocument()
     expect(screen.getByText("Total Users")).toBeInTheDocument()
-    expect(screen.getByText("1234")).toBeInTheDocument()
+    // Counts are locale-formatted (thousands separators).
+    expect(screen.getByText("1,234")).toBeInTheDocument()
     expect(screen.getByText("Active Users")).toBeInTheDocument()
     expect(screen.getByText("987")).toBeInTheDocument()
-    expect(screen.getByText("Suspended Users")).toBeInTheDocument()
+    expect(screen.getByText("Deactivated Users")).toBeInTheDocument()
     expect(screen.getByText("12")).toBeInTheDocument()
     expect(screen.getByText("New (7d)")).toBeInTheDocument()
     expect(screen.getByText("45")).toBeInTheDocument()
@@ -85,6 +86,9 @@ describe("DashboardPage", () => {
   it("renders the users-by-role table when the list is non-empty", async () => {
     const stats: DashboardStats = {
       total_users: 100,
+      active_users: 100,
+      deactivated_users: 0,
+      new_registrations_7d: 0,
       active_sessions: 5,
       users_by_role: [
         { role: ROLE_A, count: 60 },
@@ -106,43 +110,12 @@ describe("DashboardPage", () => {
     expect(screen.getByText("10")).toBeInTheDocument()
   })
 
-  it("omits a StatCard when the corresponding field is undefined", async () => {
-    const stats: DashboardStats = {
-      // total_users / active_users / suspended_users / new_registrations_7d omitted
-      active_sessions: 7,
-      users_by_role: [{ role: ROLE_ADMIN, count: 1 }],
-    }
-    vi.mocked(fetchDashboardStats).mockResolvedValue(stats)
-    renderPage()
-
-    await screen.findByText("Active Sessions")
-    expect(screen.queryByText("Total Users")).not.toBeInTheDocument()
-    expect(screen.queryByText("Active Users")).not.toBeInTheDocument()
-    expect(screen.queryByText("Suspended Users")).not.toBeInTheDocument()
-    expect(screen.queryByText("New (7d)")).not.toBeInTheDocument()
-    expect(screen.getByText("Active Sessions")).toBeInTheDocument()
-    expect(screen.getByText("7")).toBeInTheDocument()
-  })
-
-  it("renders the cross-service migration placeholder when user stats are absent and users_by_role is empty", async () => {
-    const stats: DashboardStats = {
-      active_sessions: 9,
-      users_by_role: [],
-    }
-    vi.mocked(fetchDashboardStats).mockResolvedValue(stats)
-    renderPage()
-
-    await screen.findByText("Active Sessions")
-    expect(
-      screen.getByText(/User statistics have moved to user-service/i),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/see #806/)).toBeInTheDocument()
-    expect(screen.queryByText("Users by Role")).not.toBeInTheDocument()
-  })
-
-  it("does NOT render the placeholder when any user-stat field is present, even with empty users_by_role", async () => {
+  it("omits the users-by-role table when the role list is empty", async () => {
     const stats: DashboardStats = {
       total_users: 5,
+      active_users: 5,
+      deactivated_users: 0,
+      new_registrations_7d: 1,
       active_sessions: 1,
       users_by_role: [],
     }
@@ -150,9 +123,6 @@ describe("DashboardPage", () => {
     renderPage()
 
     await screen.findByText("Total Users")
-    expect(
-      screen.queryByText(/User statistics have moved to user-service/i),
-    ).not.toBeInTheDocument()
     expect(screen.queryByText("Users by Role")).not.toBeInTheDocument()
   })
 

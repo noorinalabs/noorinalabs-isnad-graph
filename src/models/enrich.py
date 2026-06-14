@@ -2,7 +2,25 @@
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["EnrichSummary", "HistoricalResult", "MetricsResult", "TopicResult"]
+__all__ = [
+    "EmbeddingLoadResult",
+    "EnrichSummary",
+    "HistoricalResult",
+    "MetricsResult",
+    "TopicResult",
+]
+
+
+class EmbeddingLoadResult(BaseModel):
+    """Result of the semantic-search embedding load (hadith vectors → pgvector)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    hadiths_loaded: int
+    embeddings_loaded: int
+    skipped_empty: int
+    model_name: str
+    dim: int
 
 
 class MetricsResult(BaseModel):

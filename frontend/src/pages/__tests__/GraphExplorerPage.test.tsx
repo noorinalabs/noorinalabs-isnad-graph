@@ -19,8 +19,15 @@
  * actual canvas drawing of D3 belong in Playwright (golden path / accessibility),
  * not Vitest — see frontend/tests/e2e/graph.spec.ts.
  *
- * The narrator-search dropdown, depth/layout toggles, reset behavior, suggested-
- * narrator quick-links, and detail-panel open/close are all covered here.
+ * `fetchNarrators` is called from two places with different signatures: the
+ * default-graph SEED query (`fetchNarrators(1, 100)` — no `q`) and the search-box
+ * query (`fetchNarrators(1, 10, q)` — with `q`). The mock below is argument-aware
+ * so the two are controlled independently via the module-scoped `seedItems` /
+ * `searchItems` arrays — seed defaults to empty so search-focused tests are not
+ * perturbed by the auto-seed (#1031).
+ *
+ * The narrator-search dropdown, depth/layout toggles, reset behavior, ID-seeded
+ * suggestion chips, default auto-seed, and detail-panel open/close are all covered here.
  */
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -116,6 +123,14 @@ function makeNode(overrides: Partial<GraphNode> = {}): GraphNode {
   }
 }
 
+function page(items: Narrator[]): PaginatedResponse<Narrator> {
+  return { items, total: items.length, page: 1, limit: Math.max(items.length, 10) }
+}
+
+// Independently-controlled fixtures for the two fetchNarrators call sites.
+let seedItems: Narrator[] = []
+let searchItems: Narrator[] = []
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -131,6 +146,12 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  seedItems = []
+  searchItems = []
+  // Argument-aware: the seed query passes no `q`; the search query passes one.
+  vi.mocked(fetchNarrators).mockImplementation((_page, _limit, q) =>
+    Promise.resolve(page(q ? searchItems : seedItems)),
+  )
   // ResizeObserver isn't in jsdom — minimal stub so the resize-effect doesn't throw.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(globalThis as any).ResizeObserver = class {
@@ -140,22 +161,18 @@ beforeEach(() => {
   }
 })
 
-describe("GraphExplorerPage — empty state", () => {
-  it("renders the empty-state message and suggested narrators by default", () => {
+describe("GraphExplorerPage — empty state (no seed data)", () => {
+  it("renders the empty-state message when there is no seed data", () => {
     renderPage()
     expect(screen.getByText("No graph data")).toBeInTheDocument()
     expect(
       screen.getByText(/Search for a narrator to explore/i),
     ).toBeInTheDocument()
-    // Suggested narrators rendered as buttons
-    expect(screen.getByRole("button", { name: "Abu Hurayra" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "al-Zuhri" })).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "Malik ibn Anas" }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "Aisha bint Abi Bakr" }),
-    ).toBeInTheDocument()
+  })
+
+  it("renders no suggestion chips when seed data is unavailable", () => {
+    renderPage()
+    expect(screen.queryByText(/^Try:/)).not.toBeInTheDocument()
   })
 
   it("renders 0 nodes / 0 edges in the status bar by default", () => {
@@ -166,6 +183,85 @@ describe("GraphExplorerPage — empty state", () => {
   it("does NOT render the ForceGraph stub when there are no nodes", () => {
     renderPage()
     expect(screen.queryByTestId("force-graph-stub")).not.toBeInTheDocument()
+  })
+})
+
+describe("GraphExplorerPage — default auto-seed (#1031)", () => {
+  it("seeds the highest-degree narrator's network on load with no user interaction", async () => {
+    // Two candidates; the second is the higher-degree hub and must be chosen.
+    seedItems = [
+      makeNarrator({ id: "low", name_en: "Low Degree", in_degree: 1, out_degree: 1 }),
+      makeNarrator({ id: "hub", name_en: "Big Hub", in_degree: 100, out_degree: 200 }),
+    ]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "hub",
+      nodes: [makeNode({ id: "hub" }), makeNode({ id: "n2", label: "n2" })],
+      edges: [
+        { source: "hub", target: "n2", relationship: "TRANSMITTED_TO", weight: 1 },
+      ],
+      teachers: 1,
+      students: 1,
+    })
+
+    renderPage()
+
+    const stub = await screen.findByTestId("force-graph-stub")
+    expect(stub).toHaveAttribute("data-selected", "hub")
+    expect(stub).toHaveAttribute("data-node-count", "2")
+    // The ego-network query was issued for the highest-degree narrator.
+    expect(fetchGraphNetwork).toHaveBeenCalledWith("hub", 1)
+  })
+})
+
+describe("GraphExplorerPage — ID-seeded suggestion chips (#1031)", () => {
+  it("renders one-click chips from real seed narrators", async () => {
+    seedItems = [
+      makeNarrator({ id: "low", name_en: "Low Degree", in_degree: 1, out_degree: 0 }),
+      makeNarrator({ id: "hub", name_en: "Big Hub", in_degree: 100, out_degree: 50 }),
+    ]
+    // Seed network is empty so the empty state (and its chips) stays rendered.
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "hub",
+      nodes: [],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+
+    renderPage()
+
+    const hubChip = await screen.findByRole("button", { name: "Big Hub" })
+    const lowChip = screen.getByRole("button", { name: "Low Degree" })
+    expect(hubChip).toBeInTheDocument()
+    expect(lowChip).toBeInTheDocument()
+  })
+
+  it("selects the narrator by id in a single click (no name-search round-trip)", async () => {
+    const user = userEvent.setup()
+    seedItems = [
+      makeNarrator({ id: "hub", name_en: "Big Hub", in_degree: 100, out_degree: 50 }),
+      makeNarrator({ id: "other", name_en: "Other Narrator", in_degree: 5, out_degree: 5 }),
+    ]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "hub",
+      nodes: [],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+
+    renderPage()
+
+    const otherChip = await screen.findByRole("button", { name: "Other Narrator" })
+    await user.click(otherChip)
+
+    // One click issues the network query for that narrator's id directly.
+    await waitFor(() => {
+      expect(fetchGraphNetwork).toHaveBeenCalledWith("other", 1)
+    })
+    // The search box was not used to resolve the chip.
+    const input = screen.getByLabelText("Search for a narrator") as HTMLInputElement
+    expect(input.value).toBe("")
   })
 })
 
@@ -211,56 +307,23 @@ describe("GraphExplorerPage — toolbar controls", () => {
 
   it("opens the search dropdown when typing", async () => {
     const user = userEvent.setup()
-    // Use a name that's NOT in the suggested-narrator list, so the dropdown
-    // match is unambiguous and the suggested-list duplicate doesn't confuse
-    // text queries.
-    const results: PaginatedResponse<Narrator> = {
-      items: [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    }
-    vi.mocked(fetchNarrators).mockResolvedValue(results)
+    // Use a name that's NOT a seed chip, so the dropdown match is unambiguous.
+    searchItems = [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })]
 
     renderPage()
     const input = screen.getByLabelText("Search for a narrator")
     await user.type(input, "Sufy")
     await waitFor(() => {
-      expect(fetchNarrators).toHaveBeenCalled()
+      expect(fetchNarrators).toHaveBeenCalledWith(1, 10, "Sufy")
     })
     expect(await screen.findByText("Sufyan al-Thawri")).toBeInTheDocument()
-  })
-})
-
-describe("GraphExplorerPage — suggested narrator quick-search", () => {
-  it("focuses the search input and pre-fills it when a suggested narrator is clicked", async () => {
-    const user = userEvent.setup()
-    vi.mocked(fetchNarrators).mockResolvedValue({
-      items: [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
-
-    renderPage()
-    await user.click(screen.getByRole("button", { name: "al-Zuhri" }))
-
-    const input = screen.getByLabelText(
-      "Search for a narrator",
-    ) as HTMLInputElement
-    expect(input.value).toBe("al-Zuhri")
   })
 })
 
 describe("GraphExplorerPage — network data integration", () => {
   it("renders the ForceGraph stub when network data is loaded via search selection", async () => {
     const user = userEvent.setup()
-    vi.mocked(fetchNarrators).mockResolvedValue({
-      items: [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
+    searchItems = [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })]
 
     const network: NarratorNetworkResponse = {
       narrator_id: "n1",
@@ -297,12 +360,7 @@ describe("GraphExplorerPage — network data integration", () => {
 
   it("opens the detail panel and renders narrator metadata after selection", async () => {
     const user = userEvent.setup()
-    vi.mocked(fetchNarrators).mockResolvedValue({
-      items: [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
+    searchItems = [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })]
     vi.mocked(fetchGraphNetwork).mockResolvedValue({
       narrator_id: "n1",
       nodes: [makeNode({ id: "n1" })],
@@ -344,12 +402,7 @@ describe("GraphExplorerPage — network data integration", () => {
 
   it("closes the detail panel when the close button is clicked", async () => {
     const user = userEvent.setup()
-    vi.mocked(fetchNarrators).mockResolvedValue({
-      items: [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
+    searchItems = [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })]
     vi.mocked(fetchGraphNetwork).mockResolvedValue({
       narrator_id: "n1",
       nodes: [makeNode({ id: "n1" })],
@@ -383,12 +436,7 @@ describe("GraphExplorerPage — network data integration", () => {
 
   it("resets all state when Reset is clicked", async () => {
     const user = userEvent.setup()
-    vi.mocked(fetchNarrators).mockResolvedValue({
-      items: [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
+    searchItems = [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })]
     vi.mocked(fetchGraphNetwork).mockResolvedValue({
       narrator_id: "n1",
       nodes: [makeNode({ id: "n1" })],
@@ -421,17 +469,45 @@ describe("GraphExplorerPage — network data integration", () => {
     expect(screen.getByText("No graph data")).toBeInTheDocument()
     expect(screen.getByText("0 nodes, 0 edges")).toBeInTheDocument()
   })
+
+  it("does not re-seed the default graph after an explicit Reset", async () => {
+    const user = userEvent.setup()
+    // Seed data is present — but a Reset must leave the canvas blank, not
+    // immediately repopulate it with the default subgraph (#1031).
+    seedItems = [makeNarrator({ id: "hub", name_en: "Big Hub", in_degree: 100, out_degree: 50 })]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "hub",
+      nodes: [makeNode({ id: "hub" })],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+    vi.mocked(fetchNarrator).mockResolvedValue(makeNarrator({ id: "hub" }))
+    vi.mocked(fetchNarratorChains).mockResolvedValue({
+      narrator_id: "hub",
+      chains: [],
+      total: 0,
+    })
+
+    renderPage()
+    // Auto-seed renders the default graph first.
+    await screen.findByTestId("force-graph-stub")
+
+    await user.click(screen.getByRole("button", { name: "Reset" }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("force-graph-stub")).not.toBeInTheDocument()
+    })
+    // Stays blank — the auto-seed effect must not fire again.
+    expect(screen.getByText("No graph data")).toBeInTheDocument()
+    expect(screen.getByText("0 nodes, 0 edges")).toBeInTheDocument()
+  })
 })
 
 describe("GraphExplorerPage — over-limit warning", () => {
   it("renders the over-limit banner when more than NODE_LIMIT nodes are loaded", async () => {
     const user = userEvent.setup()
-    vi.mocked(fetchNarrators).mockResolvedValue({
-      items: [makeNarrator({ id: "big", name_en: "Big Network" })],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
+    searchItems = [makeNarrator({ id: "big", name_en: "Big Network" })]
     // 5001 nodes — exceeds the page's NODE_LIMIT (5000)
     const bigNodes = Array.from({ length: 5001 }, (_, i) =>
       makeNode({ id: `n${i}` }),

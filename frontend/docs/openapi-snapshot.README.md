@@ -49,6 +49,7 @@ will be subsumed by the next full re-sync.
 | Added | From user-service | Issue |
 |---|---|---|
 | `GET /auth/providers` (`ProvidersResponse`, `AuthProviderInfo`) | [`4587935`](https://github.com/noorinalabs/noorinalabs-user-service/commit/4587935) — `feat(auth): email login/register/providers endpoints (#43)` | [isnad-graph#1010](https://github.com/noorinalabs/noorinalabs-isnad-graph/issues/1010) |
+| `GET /api/v1/users/stats` (`UserStats`, `RoleCount`) | [user-service#167](https://github.com/noorinalabs/noorinalabs-user-service/pull/167) — `feat(users): admin user-stats endpoint for dashboard counts` | [isnad-graph#1051](https://github.com/noorinalabs/noorinalabs-isnad-graph/issues/1051) |
 
 ## How to re-sync
 

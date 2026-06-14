@@ -27,25 +27,20 @@ router = APIRouter()
 def get_narrator_chains(
     narrator_id: str,
     limit: int = Query(20, ge=1, le=100),
-    max_depth: int = Query(5, ge=1, le=10),
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> NarratorChainsResponse:
-    """Return all isnad chains passing through a narrator.
+    """Return the isnad chains (hadiths) a narrator appears in.
 
-    The ``max_depth`` parameter controls how many TRANSMITTED_TO hops to
-    traverse when discovering indirect chains (default 5, max 10).
+    A narrator "appears in" a hadith's isnad when they either directly
+    ``NARRATED`` the hadith or are an endpoint of one of that hadith's
+    ``TRANSMITTED_TO`` edges. Those edges carry ``hadith_id`` and
+    ``position_in_chain`` — the per-hadith chain lives on the edge properties,
+    not on reified ``Chain`` nodes (there are none in the graph; see #1032).
 
-    Performance notes:
-    - Variable-length path traversal cost grows exponentially with depth.
-      PROFILE on a 50k-narrator graph shows ~2x query time per additional hop.
-    - Default depth of 5 covers the vast majority of real isnad chains
-      (Prophet -> Companion -> Successor -> ... -> Collector is typically 4-7).
-    - Depth 10 is the upper bound; chains longer than 10 are exceedingly rare.
-    - The query uses UNION to separate direct NARRATED matches (index lookup,
-      fast) from variable-length traversal (expensive), avoiding redundant
-      expansion on the direct-match set.
-    - Index hint: ensure ``CREATE INDEX narrator_id FOR (n:Narrator) ON (n.id)``
-      exists so the anchor node lookup is O(1).
+    Each returned row summarises one hadith whose chain includes this narrator.
+    The chain is identified by its hadith id (``chain_id == hadith_id``); the
+    full ordered chain for a hadith is available from
+    ``GET /graph/hadith/{hadith_id}/chain``.
     """
     # Verify narrator exists
     exists = neo4j.execute_read(
@@ -55,29 +50,23 @@ def get_narrator_chains(
     if not exists:
         raise HTTPException(status_code=404, detail=f"Narrator '{narrator_id}' not found")
 
-    # Schema uses NARRATED (narrator->hadith) and TRANSMITTED_TO (narrator->narrator).
-    # A narrator appears in a hadith's chain if they directly NARRATED it or are
-    # connected via TRANSMITTED_TO edges to a narrator who NARRATED it.
-    # Chain nodes store narrator_ids lists, so we can also match via that property.
-    #
-    # The max_depth parameter is interpolated into the Cypher pattern rather than
-    # passed as a query parameter because Neo4j does not support parameterized
-    # variable-length relationship bounds.
+    # Isnad membership is recorded two ways, both keyed off the narrator: a
+    # direct NARRATED edge, or any TRANSMITTED_TO edge tagged with the hadith
+    # id. The UNION-ed subquery collects both, DISTINCT de-duplicates hadiths
+    # reached by both paths, and ORDER BY / LIMIT run over the merged set.
     rows = neo4j.execute_read(
-        f"""
-        MATCH (n:Narrator {{id: $id}})-[:NARRATED]->(h:Hadith)
-        OPTIONAL MATCH (c:Chain {{hadith_id: h.id}})
-        RETURN c.id AS chain_id, h.id AS hadith_id, h.matn_ar AS matn_ar,
-               h.matn_en AS matn_en, h.grade AS grade
-        ORDER BY h.id
-        LIMIT $limit
-        UNION
-        MATCH (n:Narrator {{id: $id}})-[:TRANSMITTED_TO*1..{max_depth}]-(:Narrator)
-              -[:NARRATED]->(h:Hadith)
-        WHERE NOT EXISTS {{ MATCH (n)-[:NARRATED]->(h) }}
-        OPTIONAL MATCH (c:Chain {{hadith_id: h.id}})
-        RETURN c.id AS chain_id, h.id AS hadith_id, h.matn_ar AS matn_ar,
-               h.matn_en AS matn_en, h.grade AS grade
+        """
+        CALL {
+            MATCH (n:Narrator {id: $id})-[:NARRATED]->(h:Hadith)
+            RETURN h
+            UNION
+            MATCH (n:Narrator {id: $id})-[t:TRANSMITTED_TO]-(:Narrator)
+            MATCH (h:Hadith {id: t.hadith_id})
+            RETURN h
+        }
+        WITH DISTINCT h
+        RETURN h.id AS hadith_id, h.matn_ar AS matn_ar, h.matn_en AS matn_en,
+               coalesce(h.grade_composite, h.grade) AS grade
         ORDER BY h.id
         LIMIT $limit
         """,
@@ -85,7 +74,7 @@ def get_narrator_chains(
     )
     chains = [
         ChainSummary(
-            chain_id=r["chain_id"],
+            chain_id=r["hadith_id"],
             hadith_id=r["hadith_id"],
             matn_ar=r["matn_ar"],
             matn_en=r.get("matn_en"),
@@ -104,7 +93,15 @@ def get_hadith_chain(
     hadith_id: str,
     neo4j: Neo4jClient = Depends(get_neo4j),
 ) -> ChainVisualization:
-    """Return full chain visualization data for a hadith (nodes + edges for D3/vis.js)."""
+    """Return the ordered isnad chain for a hadith (nodes + edges for D3/vis.js).
+
+    The chain is reconstructed from the hadith's own ``TRANSMITTED_TO`` edges,
+    which carry ``hadith_id`` and ``position_in_chain``. There are no reified
+    ``Chain`` nodes in the graph (#1032), so the chain *is* the set of edges
+    tagged with this hadith id. Edges are returned ordered by
+    ``position_in_chain`` (carried on each edge as ``position``) so the consumer
+    can render the chain in transmission order.
+    """
     exists = neo4j.execute_read(
         "MATCH (h:Hadith {id: $id}) RETURN h.id AS id",
         {"id": hadith_id},
@@ -112,21 +109,18 @@ def get_hadith_chain(
     if not exists:
         raise HTTPException(status_code=404, detail=f"Hadith '{hadith_id}' not found")
 
-    # Find all narrator TRANSMITTED_TO edges for narrators that are part of
-    # this hadith's chain.  A narrator belongs to the chain if they NARRATED
-    # the hadith or transmitted to someone who did.
+    # A hadith's isnad is the TRANSMITTED_TO edges tagged with its id, ordered
+    # by position_in_chain. Each edge links two consecutive narrators in the
+    # chain; the node set is the union of those edges' endpoints.
     rows = neo4j.execute_read(
         """
-        MATCH (n:Narrator)-[:NARRATED]->(h:Hadith {id: $id})
-        OPTIONAL MATCH (c:Chain {hadith_id: h.id})
-        WITH h, c, collect(n) AS direct
-        OPTIONAL MATCH (src:Narrator)-[:TRANSMITTED_TO]->(tgt:Narrator)
-        WHERE tgt IN direct OR src IN direct
-        RETURN c.id AS chain_id,
+        MATCH (src:Narrator)-[t:TRANSMITTED_TO {hadith_id: $id}]->(tgt:Narrator)
+        RETURN t.position_in_chain AS position,
                src.id AS source_id, src.name_ar AS source_name_ar,
                src.name_en AS source_name_en, src.generation AS source_gen,
                tgt.id AS target_id, tgt.name_ar AS target_name_ar,
                tgt.name_en AS target_name_en, tgt.generation AS target_gen
+        ORDER BY t.position_in_chain
         """,
         {"id": hadith_id},
     )
@@ -150,6 +144,7 @@ def get_hadith_chain(
                 source=r["source_id"],
                 target=r["target_id"],
                 relationship="TRANSMITTED_TO",
+                position=r.get("position"),
             )
         )
 

@@ -53,6 +53,73 @@ def test_search_fulltext_returns_results(client: TestClient, mock_neo4j: MagicMo
     assert "count(" in count_query
 
 
+def test_search_populates_facet_metadata(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """Results carry the facet metadata the search page filters on (#1036).
+
+    Narrators get a derived ``century`` (from death year); hadiths get
+    ``collection``, a normalized ``grade`` token, and ``topics``.
+    """
+    mock_neo4j.execute_read.side_effect = [
+        # narrator full-text search — death_year_ah drives the century facet
+        [
+            {
+                "id": "nar-1",
+                "name_ar": "الزهري",
+                "name_en": "al-Zuhri",
+                "death_year_ah": 124,
+                "score": 2.0,
+            }
+        ],
+        # hadith full-text search — raw grade is normalized to its canonical token
+        [
+            {
+                "id": "had-1",
+                "matn_ar": "نص",
+                "matn_en": "matn text",
+                "score": 1.0,
+                "collection_name": "Sahih al-Bukhari",
+                "topic_tags": ["intentions"],
+                "grade": "Sahih - Authentic",
+            }
+        ],
+        [{"total": 1}],  # narrator count
+        [{"total": 1}],  # hadith count
+    ]
+    resp = client.get("/api/v1/search?q=test")
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+
+    narrator = next(r for r in results if r["type"] == "narrator")
+    assert narrator["century"] == 2  # 124 AH -> 2nd century
+    assert narrator["collection"] is None
+    assert narrator["topics"] == []
+
+    hadith = next(r for r in results if r["type"] == "hadith")
+    assert hadith["collection"] == "Sahih al-Bukhari"
+    assert hadith["grade"] == "sahih"  # normalized from "Sahih - Authentic"
+    assert hadith["topics"] == ["intentions"]
+    assert hadith["century"] is None
+
+
+def test_search_facet_metadata_defaults_when_absent(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """Missing graph properties leave facet fields null/empty, not erroring (#1036)."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"id": "nar-1", "name_ar": "x", "name_en": "n", "score": 1.0}],
+        [{"id": "had-1", "matn_ar": "m", "matn_en": "h", "score": 1.0}],
+        [{"total": 1}],
+        [{"total": 1}],
+    ]
+    resp = client.get("/api/v1/search?q=test")
+    assert resp.status_code == 200
+    for r in resp.json()["results"]:
+        assert r["century"] is None
+        assert r["collection"] is None
+        assert r["grade"] is None
+        assert r["topics"] == []
+
+
 def test_search_total_exceeds_limit(client: TestClient, mock_neo4j: MagicMock) -> None:
     """total reflects the true match count even when results are capped at limit."""
     narrator_hits = [
@@ -213,6 +280,44 @@ def test_semantic_search_returns_results_when_pg_available(client: TestClient, a
     assert body["results"][0]["score"] == 0.92
 
     # Clean up override
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_embeds_query_at_runtime(client: TestClient, app: object) -> None:
+    """The query is embedded into a pgvector literal, not matched by exact text.
+
+    Regression for #1049: the old implementation looked the query up by
+    ``WHERE text = %s``, so an arbitrary query returned nothing even with
+    embeddings loaded. The endpoint must now pass an embedded *vector* to the
+    ``<=>`` operator.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "ranked hadith", "score": 0.7}],
+        [{"total": 12}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=prayer in congregation&limit=5")
+    assert resp.status_code == 200
+
+    # First pg.execute is the ranked data query; its first bound param must be the
+    # embedded query vector (a pgvector literal), never the raw query string.
+    data_sql, data_params = mock_pg.execute.call_args_list[0].args
+    vector_literal = data_params[0]
+    assert vector_literal.startswith("[") and vector_literal.endswith("]")
+    assert "prayer in congregation" not in str(data_params)
+    # The cast `%s::vector` keeps the literal a bound parameter, never inline SQL.
+    assert "%s::vector" in data_sql
+    assert data_params[-1] == 5  # limit threaded through
+
     del app.dependency_overrides[get_pg]
 
 

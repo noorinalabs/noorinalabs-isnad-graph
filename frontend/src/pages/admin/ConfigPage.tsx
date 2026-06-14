@@ -9,6 +9,7 @@ interface SystemConfig {
   feature_flags: Record<string, boolean>
   max_search_results: number
   max_pagination_limit: number
+  log_retention_days: number
 }
 
 interface ConfigAuditEntry {
@@ -74,6 +75,7 @@ export default function ConfigPage() {
         rate_limit_per_minute: config.rate_limit_per_minute,
         max_search_results: config.max_search_results,
         max_pagination_limit: config.max_pagination_limit,
+        log_retention_days: config.log_retention_days,
         cors_origins: [...config.cors_origins],
         feature_flags: { ...config.feature_flags },
       })
@@ -104,6 +106,9 @@ export default function ConfigPage() {
     }
     if (formData.max_pagination_limit !== config?.max_pagination_limit) {
       update.max_pagination_limit = formData.max_pagination_limit
+    }
+    if (formData.log_retention_days !== config?.log_retention_days) {
+      update.log_retention_days = formData.log_retention_days
     }
     const newOrigins = corsInput.split(',').map((s) => s.trim()).filter(Boolean)
     if (JSON.stringify(newOrigins) !== JSON.stringify(config?.cors_origins)) {
@@ -208,6 +213,26 @@ export default function ConfigPage() {
             className="form-input-block"
           />
         </label>
+      </section>
+
+      <section className="section-mb">
+        <h2>Log Retention</h2>
+        <label>
+          Keep last N days of logs
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={formData.log_retention_days ?? 7}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, log_retention_days: Number(e.target.value) }))
+            }
+            className="form-input-block"
+          />
+        </label>
+        <p className="muted-text">
+          Application logs older than this are rotated/deleted (1–365 days). Frees disk on the VPS.
+        </p>
       </section>
 
       <section className="section-mb">

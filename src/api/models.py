@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PaginatedResponse[T](BaseModel):
@@ -87,7 +87,8 @@ class HadithResponse(BaseModel):
                     "matn_en": "Actions are judged by intentions.",
                     "isnad_raw_ar": "حدثنا الحميدي...",
                     "isnad_raw_en": None,
-                    "grade_composite": "sahih",
+                    "grade_composite": "Sahih - Authentic",
+                    "grade_normalized": "sahih",
                     "topic_tags": ["intentions", "sincerity"],
                     "source_corpus": "bukhari",
                     "has_shia_parallel": True,
@@ -103,6 +104,7 @@ class HadithResponse(BaseModel):
     isnad_raw_ar: str | None = None
     isnad_raw_en: str | None = None
     grade_composite: str | None = None
+    grade_normalized: str | None = None
     topic_tags: list[str] = []
     source_corpus: str
     collection_name: str | None = None
@@ -117,6 +119,7 @@ class HadithFacetsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_corpus: list[str]
+    grades: list[str] = []
 
 
 class CollectionResponse(BaseModel):
@@ -215,6 +218,10 @@ class GraphEdge(BaseModel):
     target: str
     relationship: str
     weight: int = 1
+    # Ordinal position of this edge within a single hadith's isnad chain
+    # (from the TRANSMITTED_TO.position_in_chain edge property). Only set by
+    # the per-hadith chain endpoint; None for network/aggregate edges.
+    position: int | None = None
 
 
 class ChainSummary(BaseModel):
@@ -265,7 +272,15 @@ class NarratorNetworkResponse(BaseModel):
 
 
 class SearchResult(BaseModel):
-    """A single search result."""
+    """A single search result.
+
+    Beyond the display fields, results carry the facet metadata the search page
+    filters on client-side (collection / grade / century / topic). Each field is
+    populated only for the result types it applies to and left null/empty
+    otherwise: ``collection`` + ``grade`` + ``topics`` for hadiths, ``century``
+    for narrators. ``grade`` is the canonical normalized token (see
+    ``src.utils.grades.normalize_grade``), not the raw scholar string. (#1036)
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -274,6 +289,10 @@ class SearchResult(BaseModel):
     title: str
     title_ar: str
     score: float
+    collection: str | None = None
+    grade: str | None = None
+    century: int | None = None
+    topics: list[str] = []
 
 
 class SearchResultsResponse(BaseModel):
@@ -389,8 +408,40 @@ class SystemHealthResponse(BaseModel):
     redis: bool
 
 
+class CollectionStat(BaseModel):
+    """Per-collection hadith count for the corpus-scope breakdown."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    sect: str
+    hadith_count: int
+
+
+class SectStat(BaseModel):
+    """Per-sect aggregate of the loaded corpus."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sect: str
+    hadith_count: int
+    collection_count: int
+
+
 class ContentStatsResponse(BaseModel):
-    """Content statistics for the admin dashboard."""
+    """Content statistics for the admin dashboard.
+
+    ``narrator_count`` is the raw ``Narrator`` node count. It currently
+    overstates the number of *distinct real narrators* because isnad
+    segmentation is incomplete — many nodes are still whole/partial chain
+    strings rather than individual narrators (da#158). The frontend labels it
+    accordingly; a segmented figure will replace it once da#158 lands.
+
+    ``collections`` / ``sects`` give the corpus *scope* so the totals are not
+    read as a complete corpus — the loaded data is the Sunni Kutub al-Sittah
+    (plus a Riyad as-Salihin fragment); no Shia collections are loaded yet.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -398,6 +449,8 @@ class ContentStatsResponse(BaseModel):
     narrator_count: int
     collection_count: int
     coverage_pct: float
+    collections: list[CollectionStat] = Field(default_factory=list)
+    sects: list[SectStat] = Field(default_factory=list)
 
 
 class PopularNarrator(BaseModel):
@@ -556,6 +609,9 @@ class SystemConfig(BaseModel):
     feature_flags: dict[str, bool] = {}
     max_search_results: int = 100
     max_pagination_limit: int = 100
+    # Days of application logs to retain before rotation/deletion. Surfaced in the
+    # admin Config panel; the persisted value drives Loki retention (deploy#451).
+    log_retention_days: int = Field(default=7, ge=1, le=365)
 
 
 class SystemConfigUpdate(BaseModel):
@@ -566,6 +622,7 @@ class SystemConfigUpdate(BaseModel):
     feature_flags: dict[str, bool] | None = None
     max_search_results: int | None = None
     max_pagination_limit: int | None = None
+    log_retention_days: int | None = Field(default=None, ge=1, le=365)
 
 
 class ConfigAuditEntry(BaseModel):

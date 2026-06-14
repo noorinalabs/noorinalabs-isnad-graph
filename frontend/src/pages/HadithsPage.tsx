@@ -1,8 +1,14 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { fetchHadiths, fetchCollections, fetchHadithFacets } from '../api/client'
+import {
+  fetchHadiths,
+  fetchCollections,
+  fetchHadithFacets,
+  fetchNarrators,
+} from '../api/client'
+import { gradeLabel } from '../lib/grades'
 
 const PAGE_SIZES = [25, 50, 100] as const
 
@@ -16,7 +22,25 @@ export default function HadithsPage() {
   const [sourceCorpus, setSourceCorpus] = useState('')
   const [grade, setGrade] = useState('')
   const [jumpPage, setJumpPage] = useState('')
+  // Narrator-in-isnad filter (#1050): the selected narrator id drives the query,
+  // while the text input drives a debounced suggestion lookup.
+  const [narratorId, setNarratorId] = useState('')
+  const [narratorLabel, setNarratorLabel] = useState('')
+  const [narratorInput, setNarratorInput] = useState('')
+  const [narratorQuery, setNarratorQuery] = useState('')
   const navigate = useNavigate()
+
+  // Debounce the narrator search so we don't fire a request per keystroke.
+  useEffect(() => {
+    const handle = setTimeout(() => setNarratorQuery(narratorInput.trim()), 250)
+    return () => clearTimeout(handle)
+  }, [narratorInput])
+
+  const { data: narratorSuggestions } = useQuery({
+    queryKey: ['narrator-suggest', narratorQuery],
+    queryFn: () => fetchNarrators(1, 8, narratorQuery),
+    enabled: narratorQuery.length >= 2 && !narratorId,
+  })
 
   const filters = useMemo(
     () => ({
@@ -24,9 +48,26 @@ export default function HadithsPage() {
       source_corpus: sourceCorpus || undefined,
       grade: grade || undefined,
       q: searchQuery || undefined,
+      narrator: narratorId || undefined,
     }),
-    [collection, sourceCorpus, grade, searchQuery],
+    [collection, sourceCorpus, grade, searchQuery, narratorId],
   )
+
+  const selectNarrator = (id: string, label: string) => {
+    setNarratorId(id)
+    setNarratorLabel(label)
+    setNarratorInput('')
+    setNarratorQuery('')
+    setPage(1)
+  }
+
+  const clearNarrator = () => {
+    setNarratorId('')
+    setNarratorLabel('')
+    setNarratorInput('')
+    setNarratorQuery('')
+    setPage(1)
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['hadiths', page, limit, filters],
@@ -69,10 +110,11 @@ export default function HadithsPage() {
     setGrade('')
     setSearchInput('')
     setSearchQuery('')
+    clearNarrator()
     setPage(1)
   }
 
-  const hasActiveFilters = collection || sourceCorpus || grade || searchQuery
+  const hasActiveFilters = collection || sourceCorpus || grade || searchQuery || narratorId
 
   // Fetch source corpus options from API
   const { data: facetsData, isLoading: facetsLoading } = useQuery({
@@ -178,14 +220,128 @@ export default function HadithsPage() {
           }}
         >
           <option value="">{t('hadiths.allGrades')}</option>
-          {/* Grade names are scholarly classification terms that mirror the
-              untransformed API grade values shown in result badges, so per the
-              i18n scope policy (#703/#998) they are intentionally left as-is. */}
-          <option value="sahih">Sahih</option>
-          <option value="hasan">Hasan</option>
-          <option value="da'if">Da'if</option>
-          <option value="mawdu'">Mawdu'</option>
+          {/* Options come from the API facets (the normalized grades actually
+              present in the data). Grade names are scholarly classification terms
+              that mirror the untransformed API grade values shown in result
+              badges, so per the i18n scope policy (#703/#998) the labels are
+              intentionally left as-is. */}
+          {(facetsData?.grades ?? []).map((token) => (
+            <option key={token} value={token}>
+              {gradeLabel(token)}
+            </option>
+          ))}
         </select>
+
+        {/* Narrator-in-isnad filter (#1050) — a debounced narrator search whose
+            selection applies the `narrator` query param. */}
+        <div style={{ position: 'relative' }}>
+          {narratorId ? (
+            <span
+              className="badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid var(--color-border)',
+                borderRadius: '0.375rem',
+                background: 'var(--color-muted)',
+                color: 'var(--color-foreground)',
+              }}
+            >
+              {narratorLabel}
+              <button
+                type="button"
+                onClick={clearNarrator}
+                aria-label={t('hadiths.removeNarratorFilter')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--color-muted-foreground)',
+                  fontWeight: 'bold',
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ) : (
+            <input
+              type="text"
+              value={narratorInput}
+              onChange={(e) => setNarratorInput(e.target.value)}
+              placeholder={t('hadiths.narratorPlaceholder')}
+              aria-label={t('hadiths.narratorFilterLabel')}
+              role="combobox"
+              aria-expanded={!!narratorSuggestions?.items.length}
+              aria-controls="narrator-suggestions"
+              autoComplete="off"
+              style={{
+                padding: '0.5rem 0.75rem',
+                border: '1px solid var(--color-border)',
+                borderRadius: '0.375rem',
+                background: 'var(--color-background)',
+                color: 'var(--color-foreground)',
+                minWidth: '220px',
+              }}
+            />
+          )}
+          {!narratorId && narratorSuggestions && narratorSuggestions.items.length > 0 && (
+            <ul
+              id="narrator-suggestions"
+              role="listbox"
+              style={{
+                position: 'absolute',
+                zIndex: 10,
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: '0.25rem',
+                maxHeight: '240px',
+                overflowY: 'auto',
+                listStyle: 'none',
+                padding: 0,
+                border: '1px solid var(--color-border)',
+                borderRadius: '0.375rem',
+                background: 'var(--color-background)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+              }}
+            >
+              {narratorSuggestions.items.map((n) => (
+                <li key={n.id} role="option" aria-selected={false}>
+                  <button
+                    type="button"
+                    onClick={() => selectNarrator(n.id, n.name_en || n.name_ar)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.5rem 0.75rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-foreground)',
+                    }}
+                  >
+                    <span>{n.name_en || n.name_ar}</span>
+                    {n.name_en && (
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: '0.8rem',
+                          color: 'var(--color-muted-foreground)',
+                        }}
+                      >
+                        {n.name_ar}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {hasActiveFilters && (
           <button
@@ -248,7 +404,11 @@ export default function HadithsPage() {
                     <td>
                       {h.grade_composite && (
                         <span
-                          className={`badge ${h.grade_composite.toLowerCase() === 'sahih' ? 'badge-sahih' : 'badge-other-grade'}`}
+                          className={`badge ${
+                            h.grade_normalized === 'sahih' || h.grade_normalized === 'hasan_sahih'
+                              ? 'badge-sahih'
+                              : 'badge-other-grade'
+                          }`}
                         >
                           {h.grade_composite}
                         </span>

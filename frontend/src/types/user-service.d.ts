@@ -310,6 +310,26 @@ export interface paths {
         patch: operations["update_current_user_profile_api_v1_users_me_patch"];
         trace?: never;
     };
+    "/api/v1/users/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Stats
+         * @description Return aggregate user counts for the admin dashboard (admin only).
+         */
+        get: operations["get_user_stats_api_v1_users_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}": {
         parameters: {
             query?: never;
@@ -711,6 +731,13 @@ export interface components {
              */
             role_id: string;
         };
+        /** RoleCount */
+        RoleCount: {
+            /** Count */
+            count: number;
+            /** Role */
+            role: string;
+        };
         /** RoleRead */
         RoleRead: {
             /**
@@ -983,6 +1010,28 @@ export interface components {
             locale: string | null;
             /** Roles */
             roles?: string[];
+        };
+        /**
+         * UserStats
+         * @description Aggregate user counts for the admin dashboard.
+         *
+         *     ``deactivated_users`` counts soft-deleted accounts (``is_active = false``);
+         *     the service has no separate "suspended" state. ``active_sessions`` is the
+         *     number of non-revoked, unexpired session rows across all users.
+         */
+        UserStats: {
+            /** Active Sessions */
+            active_sessions: number;
+            /** Active Users */
+            active_users: number;
+            /** By Role */
+            by_role: components["schemas"]["RoleCount"][];
+            /** Deactivated Users */
+            deactivated_users: number;
+            /** New Registrations 7D */
+            new_registrations_7d: number;
+            /** Total Users */
+            total_users: number;
         };
         /** UserUpdate */
         UserUpdate: {
@@ -1661,6 +1710,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_stats_api_v1_users_stats_get: {
+        parameters: {
+            query?: never;
+            header: {
+                authorization: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserStats"];
                 };
             };
             /** @description Validation Error */

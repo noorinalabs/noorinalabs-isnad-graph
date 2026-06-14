@@ -99,6 +99,37 @@ def _cmd_enrich_historical() -> None:
     print(f"  skipped (max lifetime) : {result.narrators_skipped_max_lifetime}")
 
 
+def _cmd_embed_hadiths(batch_size: int, limit: int | None) -> None:
+    """Compute hadith embeddings and load them into pgvector.
+
+    Closes the gap behind #1049: with no embeddings loaded, ``/search/semantic``
+    has nothing to cosine-match and always returns empty. This is the
+    reproducible mechanism — re-running is idempotent (every write is an upsert).
+    The embedding model is selected by ``EMBEDDING_MODEL`` (default ``hashing``,
+    the dependency-free encoder; set a sentence-transformers model on the cluster
+    for the production load).
+    """
+    _check_neo4j()
+
+    from src.enrich.embeddings import get_embedder, run_embedding_load
+    from src.utils.neo4j_client import Neo4jClient
+    from src.utils.pg_client import PgClient
+
+    embedder = get_embedder()
+    print(f"Embedding hadiths (model={embedder.model_name}, dim={embedder.dim})...")
+    with Neo4jClient() as neo4j, PgClient() as pg:
+        result = run_embedding_load(
+            neo4j, pg, embedder=embedder, batch_size=batch_size, limit=limit
+        )
+
+    print("=== embedding load complete ===")
+    print(f"  hadiths loaded     : {result.hadiths_loaded}")
+    print(f"  embeddings loaded  : {result.embeddings_loaded}")
+    print(f"  skipped (no matn)  : {result.skipped_empty}")
+    print(f"  model              : {result.model_name}")
+    print(f"  dim                : {result.dim}")
+
+
 def main() -> None:
     """Run the isnad-graph CLI."""
     parser = argparse.ArgumentParser(description="isnad-graph: Hadith Analysis Platform")
@@ -108,6 +139,16 @@ def main() -> None:
     subparsers.add_parser(
         "enrich-historical",
         help="Load HistoricalEvent nodes and link narrators (ACTIVE_DURING)",
+    )
+    embed_parser = subparsers.add_parser(
+        "embed-hadiths",
+        help="Compute hadith embeddings and load them into pgvector (semantic search)",
+    )
+    embed_parser.add_argument(
+        "--batch-size", type=int, default=256, help="Embedding/upsert batch size (default 256)"
+    )
+    embed_parser.add_argument(
+        "--limit", type=int, default=None, help="Only embed the first N hadiths (default: all)"
     )
 
     args = parser.parse_args()
@@ -120,6 +161,8 @@ def main() -> None:
         _cmd_info()
     elif args.command == "enrich-historical":
         _cmd_enrich_historical()
+    elif args.command == "embed-hadiths":
+        _cmd_embed_hadiths(args.batch_size, args.limit)
 
 
 if __name__ == "__main__":
