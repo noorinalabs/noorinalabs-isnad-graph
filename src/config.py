@@ -149,6 +149,22 @@ class SecurityHeaderSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SECURITY_")
 
 
+class LokiSettings(BaseSettings):
+    """Loki log-retention runtime override (ig#1038 / deploy#451).
+
+    Path to the hot-reloadable Loki ``runtime_config`` overrides file. The admin
+    "log retention (days)" control rewrites ``overrides.<tenant>.retention_period``
+    in this file in place; Loki re-reads it every ``runtime_config.period`` (30s)
+    with no restart. On the VPS this is the ``loki_runtime`` volume mounted into
+    the api container at ``/etc/loki/runtime``; absent in local/dev (the write is
+    then a no-op and the DB-persisted value remains the source of truth).
+    """
+
+    runtime_overrides_path: str = "/etc/loki/runtime/overrides.yaml"
+
+    model_config = SettingsConfigDict(env_prefix="LOKI_")
+
+
 class Settings(BaseSettings):
     """Root application settings, composed from nested service settings."""
 
@@ -158,6 +174,7 @@ class Settings(BaseSettings):
     rate_limit: RateLimitSettings = RateLimitSettings()
     auth: AuthSettings = AuthSettings()
     security_headers: SecurityHeaderSettings = SecurityHeaderSettings()
+    loki: LokiSettings = LokiSettings()
 
     cors_origins: list[str] = ["http://localhost:3000"]
 

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.auth import User
 from src.api.deps import get_pg
+from src.api.loki_retention import apply_loki_retention
 from src.api.middleware import require_admin
 from src.api.models import (
     FORBIDDEN_CONFIG_KEYS,
@@ -135,6 +136,13 @@ def update_config(
             """,
             (key, old_serialized, new_serialized, admin.id),
         )
+
+    # Propagate log retention to Loki's hot-reloadable runtime overrides so the
+    # new window takes effect without a redeploy (ig#1038 / deploy#451). The DB
+    # write above is the source of truth; this file write is best-effort and a
+    # no-op when the loki_runtime volume is not mounted (local/dev).
+    if "log_retention_days" in updates:
+        apply_loki_retention(int(updates["log_retention_days"]))
 
     return _load_config(pg)
 
