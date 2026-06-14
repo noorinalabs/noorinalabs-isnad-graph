@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PaginatedResponse[T](BaseModel):
@@ -392,8 +392,40 @@ class SystemHealthResponse(BaseModel):
     redis: bool
 
 
+class CollectionStat(BaseModel):
+    """Per-collection hadith count for the corpus-scope breakdown."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    sect: str
+    hadith_count: int
+
+
+class SectStat(BaseModel):
+    """Per-sect aggregate of the loaded corpus."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sect: str
+    hadith_count: int
+    collection_count: int
+
+
 class ContentStatsResponse(BaseModel):
-    """Content statistics for the admin dashboard."""
+    """Content statistics for the admin dashboard.
+
+    ``narrator_count`` is the raw ``Narrator`` node count. It currently
+    overstates the number of *distinct real narrators* because isnad
+    segmentation is incomplete — many nodes are still whole/partial chain
+    strings rather than individual narrators (da#158). The frontend labels it
+    accordingly; a segmented figure will replace it once da#158 lands.
+
+    ``collections`` / ``sects`` give the corpus *scope* so the totals are not
+    read as a complete corpus — the loaded data is the Sunni Kutub al-Sittah
+    (plus a Riyad as-Salihin fragment); no Shia collections are loaded yet.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -401,6 +433,8 @@ class ContentStatsResponse(BaseModel):
     narrator_count: int
     collection_count: int
     coverage_pct: float
+    collections: list[CollectionStat] = Field(default_factory=list)
+    sects: list[SectStat] = Field(default_factory=list)
 
 
 class PopularNarrator(BaseModel):

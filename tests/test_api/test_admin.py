@@ -300,6 +300,72 @@ class TestAdminStats:
         assert data["hadith_count"] == 100
         assert data["narrator_count"] == 50
 
+    def test_stats_empty_has_empty_breakdown(self, admin_client: TestClient) -> None:
+        # The corpus-scope fields must always be present (empty when nothing
+        # is loaded), so the frontend can render unconditionally.
+        resp = admin_client.get("/api/v1/admin/stats")
+        data = resp.json()
+        assert data["collections"] == []
+        assert data["sects"] == []
+
+    def test_stats_corpus_scope_breakdown(
+        self, admin_client: TestClient, mock_neo4j: MagicMock
+    ) -> None:
+        # First execute_read → aggregate row; second → per-collection breakdown.
+        mock_neo4j.execute_read.side_effect = [
+            [
+                {
+                    "hadith_count": 14552,
+                    "narrator_count": 50,
+                    "collection_count": 2,
+                    "coverage_pct": 100.0,
+                }
+            ],
+            [
+                {"id": "muslim", "name": "Sahih Muslim", "sect": "sunni", "hadith_count": 7314},
+                {
+                    "id": "bukhari",
+                    "name": "Sahih al-Bukhari",
+                    "sect": "sunni",
+                    "hadith_count": 7238,
+                },
+            ],
+        ]
+        resp = admin_client.get("/api/v1/admin/stats")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Per-collection breakdown is surfaced verbatim (incl. sect).
+        assert data["collections"] == [
+            {"id": "muslim", "name": "Sahih Muslim", "sect": "sunni", "hadith_count": 7314},
+            {"id": "bukhari", "name": "Sahih al-Bukhari", "sect": "sunni", "hadith_count": 7238},
+        ]
+        # Per-sect aggregation rolls the collections up.
+        assert data["sects"] == [
+            {"sect": "sunni", "hadith_count": 14552, "collection_count": 2},
+        ]
+
+    def test_stats_breakdown_defaults_missing_sect_to_unknown(
+        self, admin_client: TestClient, mock_neo4j: MagicMock
+    ) -> None:
+        mock_neo4j.execute_read.side_effect = [
+            [
+                {
+                    "hadith_count": 5,
+                    "narrator_count": 0,
+                    "collection_count": 1,
+                    "coverage_pct": 0.0,
+                }
+            ],
+            [{"id": "mystery", "name": "Mystery", "sect": None, "hadith_count": 5}],
+        ]
+        resp = admin_client.get("/api/v1/admin/stats")
+        data = resp.json()
+        assert data["collections"][0]["sect"] == "unknown"
+        assert data["sects"] == [
+            {"sect": "unknown", "hadith_count": 5, "collection_count": 1},
+        ]
+
 
 # --- Analytics endpoint ---
 

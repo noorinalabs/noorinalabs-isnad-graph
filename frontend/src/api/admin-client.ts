@@ -219,17 +219,32 @@ export interface RoleCount {
   count: number
 }
 
+// Real user counts are owned by the user-service (the JWT issuer / RBAC
+// service); isnad-graph holds no user table. Sourced from the user-service
+// admin stats endpoint (ig#1051) — the isnad-graph `/admin/dashboard/stats`
+// stub it replaced always reported zeros. `deactivated_users` reflects
+// soft-deleted accounts (the service has no separate "suspended" state).
 export interface DashboardStats {
-  total_users?: number
-  active_users?: number
-  suspended_users?: number
-  users_by_role?: RoleCount[]
-  new_registrations_7d?: number
+  total_users: number
+  active_users: number
+  deactivated_users: number
+  new_registrations_7d: number
   active_sessions: number
+  users_by_role: RoleCount[]
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  return fetchAdminJson(`${API_BASE}/dashboard/stats`)
+  const stats = await fetchUserServiceJson<components['schemas']['UserStats']>(
+    `${US_USERS_BASE}/stats`,
+  )
+  return {
+    total_users: stats.total_users,
+    active_users: stats.active_users,
+    deactivated_users: stats.deactivated_users,
+    new_registrations_7d: stats.new_registrations_7d,
+    active_sessions: stats.active_sessions,
+    users_by_role: stats.by_role.map((r) => ({ role: r.role, count: r.count })),
+  }
 }
 
 // --- Data management (read-only) ---
