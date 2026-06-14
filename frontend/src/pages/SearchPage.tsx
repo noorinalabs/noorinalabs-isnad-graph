@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { searchAll, searchSemantic } from '../api/client'
+import {
+  searchAll,
+  searchSemantic,
+  SEARCH_MAX_LIMIT,
+  SEMANTIC_SEARCH_MAX_LIMIT,
+} from '../api/client'
 import { Card, CardContent } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Input } from '../components/ui/Input'
@@ -127,7 +132,9 @@ export default function SearchPage() {
   const { data: searchData, isLoading, isError, error: searchError } = useQuery({
     queryKey: ['search', query, mode],
     queryFn: () =>
-      mode === 'semantic' ? searchSemantic(query, 200) : searchAll(query, 200),
+      mode === 'semantic'
+        ? searchSemantic(query, SEMANTIC_SEARCH_MAX_LIMIT)
+        : searchAll(query, SEARCH_MAX_LIMIT),
     enabled: query.length >= 2,
     retry: 1,
   })

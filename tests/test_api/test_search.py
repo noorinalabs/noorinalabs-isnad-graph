@@ -74,6 +74,21 @@ def test_search_total_exceeds_limit(client: TestClient, mock_neo4j: MagicMock) -
     assert body["total"] == 180
 
 
+def test_search_limit_at_cap_is_accepted(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """limit at the endpoint cap (100) is accepted — the frontend results page
+    requests this much, so the cap must cover it (#1025)."""
+    mock_neo4j.execute_read.return_value = []
+    resp = client.get("/api/v1/search?q=test&limit=100")
+    assert resp.status_code == 200
+
+
+def test_search_limit_over_cap_is_422(client: TestClient) -> None:
+    """limit above the cap is rejected with 422 before any query runs. This is
+    the failure the frontend hit when it asked for limit=200 (#1025)."""
+    resp = client.get("/api/v1/search?q=test&limit=101")
+    assert resp.status_code == 422
+
+
 def test_search_falls_back_to_contains(client: TestClient, mock_neo4j: MagicMock) -> None:
     """When full-text index is unavailable, falls back to CONTAINS."""
     # narrator: fulltext raises, CONTAINS fallback succeeds
@@ -198,4 +213,48 @@ def test_semantic_search_returns_results_when_pg_available(client: TestClient, a
     assert body["results"][0]["score"] == 0.92
 
     # Clean up override
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) -> None:
+    """semantic limit above its cap (50) is rejected with 422 — the frontend
+    results page must stay within this cap (#1025).
+
+    The pg dependency is overridden with a mock so the assertion isolates the
+    request-validation behaviour and never touches a real database (FastAPI
+    resolves dependencies while validating params)."""
+    mock_pg = MagicMock()
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=51")
+    assert resp.status_code == 422
+    # Validation rejects the request before the handler queries pgvector.
+    mock_pg.execute.assert_not_called()
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_limit_at_cap_is_accepted(client: TestClient, app: object) -> None:
+    """semantic limit at its cap (50) is accepted (#1025)."""
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [[], [{"total": 0}]]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=50")
+    assert resp.status_code == 200
+
     del app.dependency_overrides[get_pg]
