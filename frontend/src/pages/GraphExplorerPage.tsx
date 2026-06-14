@@ -12,9 +12,23 @@ import { communityColor } from '../components/ForceGraph'
 import type { GraphNode, GraphEdge, Narrator, ChainSummary } from '../types/api'
 
 const NODE_LIMIT = 5000
-const SUGGESTED_NARRATORS = ['Abu Hurayra', 'al-Zuhri', 'Malik ibn Anas', 'Aisha bint Abi Bakr']
+
+// Number of narrators to fetch as default-graph seed candidates. We pick the
+// highest-degree narrator among them to render a non-empty landing subgraph and
+// surface the top few as one-click, ID-seeded suggestion chips (#1031). The
+// `/narrators` list endpoint orders by id (≈ uniform over the uuid5 id space),
+// so a generous sample reliably contains a well-connected hub to seed from.
+const SEED_CANDIDATE_LIMIT = 100
+const SUGGESTION_COUNT = 6
 
 type LayoutMode = 'force' | 'hierarchy' | 'radial'
+
+function narratorDegree(n: {
+  in_degree: number | null
+  out_degree: number | null
+}): number {
+  return (n.in_degree ?? 0) + (n.out_degree ?? 0)
+}
 
 export default function GraphExplorerPage() {
   // --- State ---
@@ -32,6 +46,9 @@ export default function GraphExplorerPage() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('force')
   const containerRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
+  // Guards the one-shot default-graph auto-seed so it never fights a user's own
+  // selection and never re-seeds after an explicit Reset (#1031).
+  const didAutoSeedRef = useRef(false)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
   // --- Data queries ---
@@ -59,6 +76,24 @@ export default function GraphExplorerPage() {
     enabled: selectedNarratorId != null && detailOpen,
   })
 
+  // Default-graph seed candidates: a sample of real narrators used both to
+  // auto-seed a non-empty landing subgraph and to build one-click, ID-seeded
+  // suggestion chips (#1031). Degrades gracefully — if `/narrators` is
+  // unavailable the page falls back to the empty state with the search box.
+  const { data: seedData } = useQuery({
+    queryKey: ['graph-seed-narrators'],
+    queryFn: () => fetchNarrators(1, SEED_CANDIDATE_LIMIT),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Top narrators by degree — real, existing nodes (no name-search round-trip).
+  const suggestedNarrators = useMemo(() => {
+    const items = seedData?.items ?? []
+    return [...items]
+      .sort((a, b) => narratorDegree(b) - narratorDegree(a))
+      .slice(0, SUGGESTION_COUNT)
+  }, [seedData])
+
   // --- Merge network data (progressive subgraph loading) ---
   useEffect(() => {
     if (!networkData) return
@@ -82,6 +117,19 @@ export default function GraphExplorerPage() {
       return merged
     })
   }, [networkData])
+
+  // --- Default-graph auto-seed (#1031) ---
+  // On first load, seed the highest-degree narrator's ego network so `/graph` is
+  // never blank. Runs once: the ref is set when we seed AND on explicit Reset, so
+  // it neither overrides a user selection nor re-seeds a deliberately-cleared canvas.
+  useEffect(() => {
+    if (didAutoSeedRef.current) return
+    if (selectedNarratorId != null) return
+    const top = suggestedNarrators[0]
+    if (!top) return
+    didAutoSeedRef.current = true
+    setSelectedNarratorId(top.id)
+  }, [suggestedNarrators, selectedNarratorId])
 
   // --- Resize observer ---
   useEffect(() => {
@@ -154,6 +202,9 @@ export default function GraphExplorerPage() {
   }, [])
 
   const handleReset = useCallback(() => {
+    // Explicit Reset means "blank canvas" — suppress the default auto-seed so it
+    // doesn't immediately repopulate the graph the user just cleared (#1031).
+    didAutoSeedRef.current = true
     setAllNodes([])
     setAllEdges([])
     setSelectedNarratorId(null)
@@ -173,10 +224,14 @@ export default function GraphExplorerPage() {
     [],
   )
 
-  const handleSuggestedSearch = useCallback((name: string) => {
-    setSearchInput(name)
-    setSearchOpen(true)
-    searchRef.current?.focus()
+  // One-click, ID-seeded suggestion chip: focus the graph on a real narrator
+  // directly (no name-search round-trip). Detail panel stays closed for a clean
+  // landing view (#1031).
+  const handleSelectSuggested = useCallback((narratorId: string) => {
+    didAutoSeedRef.current = true
+    setSelectedNarratorId(narratorId)
+    setSearchInput('')
+    setSearchOpen(false)
   }, [])
 
   const overLimit = allNodes.length > NODE_LIMIT
@@ -379,24 +434,26 @@ export default function GraphExplorerPage() {
               <div className="empty-state-body">
                 Search for a narrator to explore the transmission network.
               </div>
-              <p className="mt-4" style={{ fontSize: 'var(--text-sm)' }}>
-                Try:{' '}
-                {SUGGESTED_NARRATORS.map((name, i) => (
-                  <span key={name}>
-                    {i > 0 && ', '}
-                    <button
-                      onClick={() => handleSuggestedSearch(name)}
-                      className="link-primary cursor-pointer border-none p-0 underline"
-                      style={{
-                        background: 'none',
-                        font: 'inherit',
-                      }}
-                    >
-                      {name}
-                    </button>
-                  </span>
-                ))}
-              </p>
+              {suggestedNarrators.length > 0 && (
+                <p className="mt-4" style={{ fontSize: 'var(--text-sm)' }}>
+                  Try:{' '}
+                  {suggestedNarrators.map((n, i) => (
+                    <span key={n.id}>
+                      {i > 0 && ', '}
+                      <button
+                        onClick={() => handleSelectSuggested(n.id)}
+                        className="link-primary cursor-pointer border-none p-0 underline"
+                        style={{
+                          background: 'none',
+                          font: 'inherit',
+                        }}
+                      >
+                        {n.name_en || n.name_ar}
+                      </button>
+                    </span>
+                  ))}
+                </p>
+              )}
             </div>
           )}
 
