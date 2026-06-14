@@ -609,6 +609,9 @@ class SystemConfig(BaseModel):
     feature_flags: dict[str, bool] = {}
     max_search_results: int = 100
     max_pagination_limit: int = 100
+    # Days of application logs to retain before rotation/deletion. Surfaced in the
+    # admin Config panel; the persisted value drives Loki retention (deploy#451).
+    log_retention_days: int = Field(default=7, ge=1, le=365)
 
 
 class SystemConfigUpdate(BaseModel):
@@ -619,6 +622,7 @@ class SystemConfigUpdate(BaseModel):
     feature_flags: dict[str, bool] | None = None
     max_search_results: int | None = None
     max_pagination_limit: int | None = None
+    log_retention_days: int | None = Field(default=None, ge=1, le=365)
 
 
 class ConfigAuditEntry(BaseModel):
