@@ -2,7 +2,17 @@
   "common": {
     "platformTagline": "Platforma za analizu hadisa",
     "returnHome": "Povratak na početnu",
-    "loading": "Učitavanje…"
+    "loading": "Učitavanje…",
+    "search": "Pretraži",
+    "previous": "Prethodno",
+    "next": "Sljedeće",
+    "first": "Prvo",
+    "last": "Posljednje",
+    "go": "Idi",
+    "error": "Greška: {{message}}",
+    "pageOf": "Stranica {{current}} od {{total}}",
+    "colNameArabic": "Ime (arapski)",
+    "colNameEnglish": "Ime (engleski)"
   },
   "nav": {
     "ariaLabel": "Glavna navigacija",
@@ -45,5 +55,40 @@
     "apiRateLimited": "Previše zahtjeva — molimo pričekajte trenutak i pokušajte ponovo.",
     "apiServer": "Nešto je pošlo po zlu na našoj strani. Molimo pokušajte ponovo uskoro.",
     "apiGeneric": "Nešto je pošlo po zlu. Molimo pokušajte ponovo."
+  },
+  "narrators": {
+    "heading": "Prenosioci",
+    "searchPlaceholder": "Pretraži prenosioce…",
+    "searchLabel": "Pretraži prenosioce",
+    "emptyHeading": "Nije pronađen nijedan prenosilac",
+    "emptyBody": "Pokušajte prilagoditi pojmove pretrage ili poništiti filter.",
+    "colGeneration": "Generacija",
+    "colTrustworthiness": "Pouzdanost",
+    "colCommunity": "Zajednica"
+  },
+  "collections": {
+    "heading": "Zbirke",
+    "colCompiler": "Sastavljač",
+    "colSect": "Pravac",
+    "colHadiths": "Hadisi"
+  },
+  "hadiths": {
+    "heading": "Hadisi",
+    "searchPlaceholder": "Pretraži tekst hadisa…",
+    "allCollections": "Sve zbirke",
+    "allSources": "Svi izvori",
+    "loadingSources": "Učitavanje izvora…",
+    "allGrades": "Sve ocjene",
+    "clearFilters": "Poništi filtere",
+    "resultsFound_one": "Pronađen {{count}} hadis",
+    "resultsFound_few": "Pronađena {{count}} hadisa",
+    "resultsFound_other": "Pronađeno {{count}} hadisa",
+    "filteredSuffix": " (filtrirano)",
+    "colTitle": "Naslov",
+    "colSource": "Izvor",
+    "colGrade": "Ocjena",
+    "colTopics": "Teme",
+    "jumpPlaceholder": "Stranica #",
+    "show": "Prikaži:"
   }
 }

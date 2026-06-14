@@ -2,7 +2,17 @@
   "common": {
     "platformTagline": "منصة تحليل الحديث",
     "returnHome": "العودة إلى الصفحة الرئيسية",
-    "loading": "جارٍ التحميل…"
+    "loading": "جارٍ التحميل…",
+    "search": "بحث",
+    "previous": "السابق",
+    "next": "التالي",
+    "first": "الأول",
+    "last": "الأخير",
+    "go": "انتقل",
+    "error": "خطأ: {{message}}",
+    "pageOf": "الصفحة {{current}} من {{total}}",
+    "colNameArabic": "الاسم (بالعربية)",
+    "colNameEnglish": "الاسم (بالإنجليزية)"
   },
   "nav": {
     "ariaLabel": "التنقل الرئيسي",
@@ -47,5 +57,42 @@
     "apiRateLimited": "طلبات كثيرة جدًا — يرجى الانتظار لحظة والمحاولة مرة أخرى.",
     "apiServer": "حدث خطأ من جانبنا. يرجى المحاولة مرة أخرى بعد قليل.",
     "apiGeneric": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+  },
+  "narrators": {
+    "heading": "الرواة",
+    "searchPlaceholder": "ابحث عن الرواة…",
+    "searchLabel": "ابحث عن الرواة",
+    "emptyHeading": "لم يتم العثور على رواة",
+    "emptyBody": "حاول تعديل كلمات البحث أو مسح عامل التصفية.",
+    "colGeneration": "الطبقة",
+    "colTrustworthiness": "التوثيق",
+    "colCommunity": "المجتمع"
+  },
+  "collections": {
+    "heading": "المجموعات",
+    "colCompiler": "المؤلف",
+    "colSect": "المذهب",
+    "colHadiths": "الأحاديث"
+  },
+  "hadiths": {
+    "heading": "الأحاديث",
+    "searchPlaceholder": "ابحث في نص الحديث…",
+    "allCollections": "جميع المجموعات",
+    "allSources": "جميع المصادر",
+    "loadingSources": "جارٍ تحميل المصادر…",
+    "allGrades": "جميع الدرجات",
+    "clearFilters": "مسح عوامل التصفية",
+    "resultsFound_one": "تم العثور على حديث واحد",
+    "resultsFound_two": "تم العثور على حديثين",
+    "resultsFound_few": "تم العثور على {{count}} أحاديث",
+    "resultsFound_many": "تم العثور على {{count}} حديثًا",
+    "resultsFound_other": "تم العثور على {{count}} حديث",
+    "filteredSuffix": " (مُصفّى)",
+    "colTitle": "العنوان",
+    "colSource": "المصدر",
+    "colGrade": "الدرجة",
+    "colTopics": "المواضيع",
+    "jumpPlaceholder": "رقم الصفحة",
+    "show": "إظهار:"
   }
 }

@@ -2,7 +2,17 @@
   "common": {
     "platformTagline": "حدیث تجزیہ پلیٹ فارم",
     "returnHome": "ہوم پیج پر واپس جائیں",
-    "loading": "لوڈ ہو رہا ہے…"
+    "loading": "لوڈ ہو رہا ہے…",
+    "search": "تلاش کریں",
+    "previous": "پچھلا",
+    "next": "اگلا",
+    "first": "پہلا",
+    "last": "آخری",
+    "go": "جائیں",
+    "error": "خرابی: {{message}}",
+    "pageOf": "صفحہ {{current}} از {{total}}",
+    "colNameArabic": "نام (عربی)",
+    "colNameEnglish": "نام (انگریزی)"
   },
   "nav": {
     "ariaLabel": "مرکزی نیویگیشن",
@@ -44,5 +54,39 @@
     "apiRateLimited": "بہت زیادہ درخواستیں — براہ کرم تھوڑی دیر انتظار کریں اور دوبارہ کوشش کریں۔",
     "apiServer": "ہماری طرف سے کچھ غلط ہو گیا۔ براہ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔",
     "apiGeneric": "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔"
+  },
+  "narrators": {
+    "heading": "راوی",
+    "searchPlaceholder": "راویوں کو تلاش کریں…",
+    "searchLabel": "راویوں کو تلاش کریں",
+    "emptyHeading": "کوئی راوی نہیں ملا",
+    "emptyBody": "اپنے تلاش کے الفاظ کو تبدیل کریں یا فلٹر صاف کریں۔",
+    "colGeneration": "طبقہ",
+    "colTrustworthiness": "وثاقت",
+    "colCommunity": "برادری"
+  },
+  "collections": {
+    "heading": "مجموعے",
+    "colCompiler": "مؤلف",
+    "colSect": "مسلک",
+    "colHadiths": "احادیث"
+  },
+  "hadiths": {
+    "heading": "احادیث",
+    "searchPlaceholder": "حدیث کے متن میں تلاش کریں…",
+    "allCollections": "تمام مجموعے",
+    "allSources": "تمام ذرائع",
+    "loadingSources": "ذرائع لوڈ ہو رہے ہیں…",
+    "allGrades": "تمام درجات",
+    "clearFilters": "فلٹرز صاف کریں",
+    "resultsFound_one": "{{count}} حدیث ملی",
+    "resultsFound_other": "{{count}} احادیث ملیں",
+    "filteredSuffix": " (فلٹر شدہ)",
+    "colTitle": "عنوان",
+    "colSource": "ماخذ",
+    "colGrade": "درجہ",
+    "colTopics": "موضوعات",
+    "jumpPlaceholder": "صفحہ #",
+    "show": "دکھائیں:"
   }
 }

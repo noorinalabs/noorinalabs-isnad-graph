@@ -1,5 +1,6 @@
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
+import { refreshAccessToken } from './token-refresh'
 import { apiError } from './api-error'
 
 // Absolute URL targeting the user-service vhost (`users.{base}`). See
@@ -12,11 +13,29 @@ const USER_SERVICE_ORIGIN =
   ''
 const API_BASE = `${USER_SERVICE_ORIGIN}/api/v1/users/me`
 
+// Issue an authenticated request; on a 401 attempt ONE shared token refresh
+// (POST /auth/token/refresh via the httpOnly refresh cookie) and retry the
+// request once before the caller surfaces session-expired. Only a genuinely
+// expired/revoked refresh cookie (a failed refresh) leaves the response at 401
+// — a mid-session access-token expiry no longer logs the user out of their
+// profile. getAuthHeaders() re-reads the freshly persisted token on the retry.
+// Mirrors client.ts `fetchJson` (#1016); shared by every profile 401 path so a
+// 401 from one client no longer diverges from the others (#1021).
+async function fetchWithRefresh(url: string, init?: RequestInit): Promise<Response> {
+  const send = () =>
+    fetch(url, { ...init, headers: { ...getAuthHeaders(), ...init?.headers } })
+  let res = await send()
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      res = await send()
+    }
+  }
+  return res
+}
+
 async function fetchProfileJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...getAuthHeaders(), ...init?.headers },
-  })
+  const res = await fetchWithRefresh(url, init)
   if (res.status === 401) {
     emitSessionExpired()
     throw new Error('Unauthorized')
@@ -74,9 +93,8 @@ export async function fetchSessions(): Promise<SessionInfo[]> {
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}`, {
+  const res = await fetchWithRefresh(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
   })
   if (res.status === 401) {
     emitSessionExpired()

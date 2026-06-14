@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { fetchNarrators } from '../api/client'
 
 export default function NarratorsPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [inputValue, setInputValue] = useState('')
@@ -23,13 +25,13 @@ export default function NarratorsPage() {
 
   return (
     <div>
-      <h2 className="page-heading">Narrators</h2>
+      <h2 className="page-heading">{t('narrators.heading')}</h2>
 
       <div className="flex-row" style={{ marginBottom: 'var(--spacing-4)' }}>
         <input
           type="text"
-          placeholder="Search narrators..."
-          aria-label="Search narrators"
+          placeholder={t('narrators.searchPlaceholder')}
+          aria-label={t('narrators.searchLabel')}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -37,7 +39,7 @@ export default function NarratorsPage() {
           style={{ flex: 1, maxWidth: 400 }}
         />
         <button onClick={handleSearch} className="btn-primary">
-          Search
+          {t('common.search')}
         </button>
       </div>
 
@@ -48,7 +50,7 @@ export default function NarratorsPage() {
           ))}
         </div>
       )}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>}
 
       {data && data.items.length === 0 && (
         <div className="empty-state">
@@ -58,9 +60,9 @@ export default function NarratorsPage() {
               <path d="m21 21-4.3-4.3" />
             </svg>
           </div>
-          <div className="empty-state-heading">No narrators found</div>
+          <div className="empty-state-heading">{t('narrators.emptyHeading')}</div>
           <div className="empty-state-body">
-            Try adjusting your search terms or clearing the filter.
+            {t('narrators.emptyBody')}
           </div>
         </div>
       )}
@@ -70,11 +72,11 @@ export default function NarratorsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Name (Arabic)</th>
-                <th>Name (English)</th>
-                <th>Generation</th>
-                <th>Trustworthiness</th>
-                <th>Community</th>
+                <th>{t('common.colNameArabic')}</th>
+                <th>{t('common.colNameEnglish')}</th>
+                <th>{t('narrators.colGeneration')}</th>
+                <th>{t('narrators.colTrustworthiness')}</th>
+                <th>{t('narrators.colCommunity')}</th>
               </tr>
             </thead>
             <tbody>
@@ -99,13 +101,13 @@ export default function NarratorsPage() {
 
           <div className="pagination">
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
+              {t('common.previous')}
             </button>
             <span>
-              Page {data.page} of {totalPages}
+              {t('common.pageOf', { current: data.page, total: totalPages })}
             </span>
             <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next
+              {t('common.next')}
             </button>
           </div>
         </>
