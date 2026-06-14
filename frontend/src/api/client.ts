@@ -156,6 +156,14 @@ export async function fetchGraphNetwork(
   )
 }
 
+// Maximum result counts the backend will accept for each search endpoint.
+// These MUST stay in sync with the ``limit`` ``le=`` bounds in
+// ``src/api/routes/search.py`` — requesting more triggers a 422 request
+// validation failure (#1025). The full results page requests the cap so it
+// shows as many matches as the endpoint allows in a single page.
+export const SEARCH_MAX_LIMIT = 100
+export const SEMANTIC_SEARCH_MAX_LIMIT = 50
+
 export async function searchAll(
   query: string,
   limit = 20,
