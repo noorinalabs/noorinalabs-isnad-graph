@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   searchAll,
   searchSemantic,
+  fetchCollections,
   SEARCH_MAX_LIMIT,
   SEMANTIC_SEARCH_MAX_LIMIT,
 } from '../api/client'
@@ -38,16 +39,10 @@ interface SearchFilters {
   topics: string[]
 }
 
-const COLLECTIONS = [
-  'Bukhari',
-  'Muslim',
-  'Abu Dawud',
-  'Tirmidhi',
-  "Nasa'i",
-  'Ibn Majah',
-  'al-Kafi',
-  'Bihar al-Anwar',
-]
+// Collection facet options are derived from the live `/collections` response
+// (see the useQuery below), not hardcoded — the previous static list showed
+// unloaded Shia collections (al-Kafi, Bihar al-Anwar) and omitted loaded ones
+// (e.g. riyadussalihin). (#1026)
 
 const GRADINGS = ['Sahih', 'Hasan', "Da'if", "Mawdu'"]
 const CENTURIES = [1, 2, 3, 4, 5]
@@ -138,6 +133,18 @@ export default function SearchPage() {
     enabled: query.length >= 2,
     retry: 1,
   })
+
+  // Collection facet options, derived from the live `/collections` response so
+  // the filter only ever offers actually-loaded collections (mirrors the
+  // Hadiths page dropdown). (#1026)
+  const { data: collectionsData } = useQuery({
+    queryKey: ['collections-all'],
+    queryFn: () => fetchCollections(1, 100),
+    staleTime: 5 * 60 * 1000,
+  })
+  const collectionOptions = (collectionsData?.items ?? [])
+    .map((c) => c.name_en)
+    .sort((a, b) => a.localeCompare(b))
 
   // Close typeahead on outside click
   useEffect(() => {
@@ -301,17 +308,21 @@ export default function SearchPage() {
         <h4 id="filter-collection" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
           Collection
         </h4>
-        {COLLECTIONS.map((c) => (
-          <label key={c} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
-            <input
-              type="checkbox"
-              checked={filters.collections.includes(c)}
-              onChange={() => toggleFilter('collections', c)}
-              className="rounded"
-            />
-            {c}
-          </label>
-        ))}
+        {collectionOptions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No collections available</p>
+        ) : (
+          collectionOptions.map((c) => (
+            <label key={c} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={filters.collections.includes(c)}
+                onChange={() => toggleFilter('collections', c)}
+                className="rounded"
+              />
+              {c}
+            </label>
+          ))
+        )}
       </div>
 
       {/* Grading filter */}

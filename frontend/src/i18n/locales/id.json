@@ -2,7 +2,17 @@
   "common": {
     "platformTagline": "Platform Analisis Hadis",
     "returnHome": "Kembali ke beranda",
-    "loading": "Memuat…"
+    "loading": "Memuat…",
+    "search": "Cari",
+    "previous": "Sebelumnya",
+    "next": "Berikutnya",
+    "first": "Pertama",
+    "last": "Terakhir",
+    "go": "Buka",
+    "error": "Kesalahan: {{message}}",
+    "pageOf": "Halaman {{current}} dari {{total}}",
+    "colNameArabic": "Nama (Arab)",
+    "colNameEnglish": "Nama (Inggris)"
   },
   "nav": {
     "ariaLabel": "Navigasi utama",
@@ -44,5 +54,39 @@
     "apiRateLimited": "Terlalu banyak permintaan — harap tunggu sebentar dan coba lagi.",
     "apiServer": "Terjadi kesalahan di pihak kami. Silakan coba lagi sebentar lagi.",
     "apiGeneric": "Terjadi kesalahan. Silakan coba lagi."
+  },
+  "narrators": {
+    "heading": "Perawi",
+    "searchPlaceholder": "Cari perawi…",
+    "searchLabel": "Cari perawi",
+    "emptyHeading": "Tidak ada perawi ditemukan",
+    "emptyBody": "Coba sesuaikan kata kunci pencarian Anda atau hapus filter.",
+    "colGeneration": "Generasi",
+    "colTrustworthiness": "Kredibilitas",
+    "colCommunity": "Komunitas"
+  },
+  "collections": {
+    "heading": "Koleksi",
+    "colCompiler": "Penyusun",
+    "colSect": "Mazhab",
+    "colHadiths": "Hadis"
+  },
+  "hadiths": {
+    "heading": "Hadis",
+    "searchPlaceholder": "Cari teks hadis…",
+    "allCollections": "Semua Koleksi",
+    "allSources": "Semua Sumber",
+    "loadingSources": "Memuat sumber…",
+    "allGrades": "Semua Derajat",
+    "clearFilters": "Hapus filter",
+    "resultsFound_one": "{{count}} hadis ditemukan",
+    "resultsFound_other": "{{count}} hadis ditemukan",
+    "filteredSuffix": " (difilter)",
+    "colTitle": "Judul",
+    "colSource": "Sumber",
+    "colGrade": "Derajat",
+    "colTopics": "Topik",
+    "jumpPlaceholder": "Halaman #",
+    "show": "Tampilkan:"
   }
 }

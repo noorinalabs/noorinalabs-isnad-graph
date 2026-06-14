@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { fetchHadiths, fetchCollections, fetchHadithFacets } from '../api/client'
 
 const PAGE_SIZES = [25, 50, 100] as const
 
 export default function HadithsPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(25)
   const [searchInput, setSearchInput] = useState('')
@@ -85,7 +87,7 @@ export default function HadithsPage() {
 
   return (
     <div>
-      <h2 className="page-heading">Hadiths</h2>
+      <h2 className="page-heading">{t('hadiths.heading')}</h2>
 
       {/* Filter controls */}
       <div className="mb-4" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end' }}>
@@ -93,7 +95,7 @@ export default function HadithsPage() {
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem' }}>
           <input
             type="text"
-            placeholder="Search hadith text..."
+            placeholder={t('hadiths.searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="filter-input"
@@ -118,7 +120,7 @@ export default function HadithsPage() {
               cursor: 'pointer',
             }}
           >
-            Search
+            {t('common.search')}
           </button>
         </form>
 
@@ -134,7 +136,7 @@ export default function HadithsPage() {
             color: 'var(--color-foreground)',
           }}
         >
-          <option value="">All Collections</option>
+          <option value="">{t('hadiths.allCollections')}</option>
           {collectionsData?.items.map((c) => (
             <option key={c.id} value={c.name_en}>
               {c.name_en}
@@ -155,7 +157,7 @@ export default function HadithsPage() {
             color: 'var(--color-foreground)',
           }}
         >
-          <option value="">{facetsLoading ? 'Loading sources...' : 'All Sources'}</option>
+          <option value="">{facetsLoading ? t('hadiths.loadingSources') : t('hadiths.allSources')}</option>
           {facetsData?.source_corpus.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -175,7 +177,10 @@ export default function HadithsPage() {
             color: 'var(--color-foreground)',
           }}
         >
-          <option value="">All Grades</option>
+          <option value="">{t('hadiths.allGrades')}</option>
+          {/* Grade names are scholarly classification terms that mirror the
+              untransformed API grade values shown in result badges, so per the
+              i18n scope policy (#703/#998) they are intentionally left as-is. */}
           <option value="sahih">Sahih</option>
           <option value="hasan">Hasan</option>
           <option value="da'if">Da'if</option>
@@ -194,7 +199,7 @@ export default function HadithsPage() {
               cursor: 'pointer',
             }}
           >
-            Clear filters
+            {t('hadiths.clearFilters')}
           </button>
         )}
       </div>
@@ -206,23 +211,23 @@ export default function HadithsPage() {
           ))}
         </div>
       )}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>}
 
       {data && (
         <>
           {/* Results summary */}
           <p className="text-sm mb-2" style={{ color: 'var(--color-muted-foreground)' }}>
-            {data.total.toLocaleString()} hadith{data.total !== 1 ? 's' : ''} found
-            {hasActiveFilters ? ' (filtered)' : ''}
+            {t('hadiths.resultsFound', { count: data.total })}
+            {hasActiveFilters ? t('hadiths.filteredSuffix') : ''}
           </p>
 
           <table className="data-table">
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Source</th>
-                {hasGrades && <th>Grade</th>}
-                {hasTopics && <th>Topics</th>}
+                <th>{t('hadiths.colTitle')}</th>
+                <th>{t('hadiths.colSource')}</th>
+                {hasGrades && <th>{t('hadiths.colGrade')}</th>}
+                {hasTopics && <th>{t('hadiths.colTopics')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -268,19 +273,19 @@ export default function HadithsPage() {
           <div className="pagination" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button disabled={page <= 1} onClick={() => setPage(1)}>
-                First
+                {t('common.first')}
               </button>
               <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Previous
+                {t('common.previous')}
               </button>
               <span>
-                Page {data.page} of {totalPages.toLocaleString()}
+                {t('common.pageOf', { current: data.page, total: totalPages.toLocaleString() })}
               </span>
               <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
+                {t('common.next')}
               </button>
               <button disabled={page >= totalPages} onClick={() => setPage(totalPages)}>
-                Last
+                {t('common.last')}
               </button>
             </div>
 
@@ -292,7 +297,7 @@ export default function HadithsPage() {
                 max={totalPages}
                 value={jumpPage}
                 onChange={(e) => setJumpPage(e.target.value)}
-                placeholder="Page #"
+                placeholder={t('hadiths.jumpPlaceholder')}
                 style={{
                   width: '5rem',
                   padding: '0.25rem 0.5rem',
@@ -302,12 +307,12 @@ export default function HadithsPage() {
                   color: 'var(--color-foreground)',
                 }}
               />
-              <button type="submit">Go</button>
+              <button type="submit">{t('common.go')}</button>
             </form>
 
             {/* Page size selector */}
             <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-              <span style={{ color: 'var(--color-muted-foreground)', fontSize: '0.875rem' }}>Show:</span>
+              <span style={{ color: 'var(--color-muted-foreground)', fontSize: '0.875rem' }}>{t('hadiths.show')}</span>
               {PAGE_SIZES.map((size) => (
                 <button
                   key={size}
