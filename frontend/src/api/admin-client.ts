@@ -12,6 +12,7 @@ import type {
 import type { PaginatedResponse } from '../types/api'
 import { emitSessionExpired } from '../hooks/useAuth'
 import { getAuthHeaders } from './auth-headers'
+import { refreshAccessToken } from './token-refresh'
 import { apiError } from './api-error'
 
 // --- isnad-graph admin API (system / content / analytics panels — #806) ---
@@ -40,12 +41,29 @@ export type AdminUser = components['schemas']['UserRead']
 export type AdminUserList = components['schemas']['UserListResponse']
 export type Role = components['schemas']['RoleRead']
 
+// Issue an authenticated request; on a 401 attempt ONE shared token refresh
+// (POST /auth/token/refresh via the httpOnly refresh cookie) and retry the
+// request once before the caller surfaces session-expired. Only a genuinely
+// expired/revoked refresh cookie (a failed refresh) leaves the response at 401
+// for the caller's session-expired branch — a mid-session access-token expiry
+// no longer bounces an admin to the login wall. getAuthHeaders() re-reads the
+// freshly persisted token on the retry. Mirrors client.ts `fetchJson` (#1016);
+// shared by every admin 401 path so the recovery never diverges (#1021).
+async function fetchWithRefresh(url: string, init?: RequestInit): Promise<Response> {
+  const send = () =>
+    fetch(url, { ...init, headers: { ...getAuthHeaders(), ...init?.headers } })
+  let res = await send()
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      res = await send()
+    }
+  }
+  return res
+}
+
 async function fetchAdminJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    credentials: 'include',
-    headers: { ...getAuthHeaders(), ...init?.headers },
-  })
+  const res = await fetchWithRefresh(url, { ...init, credentials: 'include' })
   if (res.status === 401) {
     emitSessionExpired()
     throw new Error('Unauthorized: admin access required')
@@ -64,10 +82,7 @@ async function fetchAdminJson<T>(url: string, init?: RequestInit): Promise<T> {
 // `credentials: 'include'` (matches profile-client.ts, avoids a cross-origin
 // credentialed-CORS requirement on the user-service vhost).
 async function fetchUserServiceJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...getAuthHeaders(), ...init?.headers },
-  })
+  const res = await fetchWithRefresh(url, init)
   if (res.status === 401) {
     emitSessionExpired()
     throw new Error('Unauthorized: admin access required')
@@ -84,10 +99,7 @@ async function fetchUserServiceJson<T>(url: string, init?: RequestInit): Promise
 // 204 No Content variant (role removal, soft-delete) — same auth/error handling
 // as fetchUserServiceJson but no body to parse.
 async function sendUserServiceRequest(url: string, init: RequestInit): Promise<void> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...getAuthHeaders(), ...init.headers },
-  })
+  const res = await fetchWithRefresh(url, init)
   if (res.status === 401) {
     emitSessionExpired()
     throw new Error('Unauthorized: admin access required')
@@ -259,10 +271,10 @@ export class ResetError extends Error {
 }
 
 async function postReset(path: string, body: unknown): Promise<ResetResponse> {
-  const res = await fetch(`${RESET_BASE}${path}`, {
+  const res = await fetchWithRefresh(`${RESET_BASE}${path}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (res.ok) {
