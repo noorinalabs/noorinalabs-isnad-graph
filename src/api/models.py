@@ -87,7 +87,8 @@ class HadithResponse(BaseModel):
                     "matn_en": "Actions are judged by intentions.",
                     "isnad_raw_ar": "حدثنا الحميدي...",
                     "isnad_raw_en": None,
-                    "grade_composite": "sahih",
+                    "grade_composite": "Sahih - Authentic",
+                    "grade_normalized": "sahih",
                     "topic_tags": ["intentions", "sincerity"],
                     "source_corpus": "bukhari",
                     "has_shia_parallel": True,
@@ -103,6 +104,7 @@ class HadithResponse(BaseModel):
     isnad_raw_ar: str | None = None
     isnad_raw_en: str | None = None
     grade_composite: str | None = None
+    grade_normalized: str | None = None
     topic_tags: list[str] = []
     source_corpus: str
     collection_name: str | None = None
@@ -117,6 +119,7 @@ class HadithFacetsResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_corpus: list[str]
+    grades: list[str] = []
 
 
 class CollectionResponse(BaseModel):

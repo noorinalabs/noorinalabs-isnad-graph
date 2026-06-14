@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fetchHadiths, fetchCollections, fetchHadithFacets } from '../api/client'
+import { gradeLabel } from '../lib/grades'
 
 const PAGE_SIZES = [25, 50, 100] as const
 
@@ -178,13 +179,16 @@ export default function HadithsPage() {
           }}
         >
           <option value="">{t('hadiths.allGrades')}</option>
-          {/* Grade names are scholarly classification terms that mirror the
-              untransformed API grade values shown in result badges, so per the
-              i18n scope policy (#703/#998) they are intentionally left as-is. */}
-          <option value="sahih">Sahih</option>
-          <option value="hasan">Hasan</option>
-          <option value="da'if">Da'if</option>
-          <option value="mawdu'">Mawdu'</option>
+          {/* Options come from the API facets (the normalized grades actually
+              present in the data). Grade names are scholarly classification terms
+              that mirror the untransformed API grade values shown in result
+              badges, so per the i18n scope policy (#703/#998) the labels are
+              intentionally left as-is. */}
+          {(facetsData?.grades ?? []).map((token) => (
+            <option key={token} value={token}>
+              {gradeLabel(token)}
+            </option>
+          ))}
         </select>
 
         {hasActiveFilters && (
@@ -248,7 +252,11 @@ export default function HadithsPage() {
                     <td>
                       {h.grade_composite && (
                         <span
-                          className={`badge ${h.grade_composite.toLowerCase() === 'sahih' ? 'badge-sahih' : 'badge-other-grade'}`}
+                          className={`badge ${
+                            h.grade_normalized === 'sahih' || h.grade_normalized === 'hasan_sahih'
+                              ? 'badge-sahih'
+                              : 'badge-other-grade'
+                          }`}
                         >
                           {h.grade_composite}
                         </span>

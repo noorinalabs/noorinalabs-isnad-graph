@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
 from src.api.models import HadithFacetsResponse, HadithResponse, PaginatedResponse
+from src.utils.grades import grade_filter_clause, normalize_grade
 from src.utils.neo4j_client import Neo4jClient
+
+# Cypher expression for the effective raw grade: prefer the traversed Grading node,
+# fall back to any legacy flat property on the Hadith node.
+_GRADE_EXPR = "coalesce(g.grade, h.grade_composite, h.grade)"
 
 router = APIRouter()
 
@@ -67,11 +72,19 @@ def _format_display_title(hadith_id: str, collection_name: str | None) -> str:
     return display_name
 
 
-def _build_hadith_response(props: dict[str, Any]) -> HadithResponse:
-    """Convert Neo4j properties dict into a HadithResponse with display_title."""
+def _build_hadith_response(props: dict[str, Any], grade: str | None = None) -> HadithResponse:
+    """Convert Neo4j properties dict into a HadithResponse with display_title.
+
+    ``grade`` is the raw grade text resolved via the ``GRADED_BY`` traversal; it
+    falls back to a legacy flat ``grade_composite``/``grade`` property on the Hadith
+    node when no Grading node is connected. The raw text is surfaced for display and
+    its canonical form is exposed as ``grade_normalized`` for filtering/colouring.
+    """
     hadith_id = props.get("id", "")
     collection_name = props.get("collection_name")
     display_title = _format_display_title(hadith_id, collection_name)
+
+    raw_grade = grade or props.get("grade_composite") or props.get("grade")
 
     return HadithResponse(
         id=hadith_id,
@@ -79,7 +92,8 @@ def _build_hadith_response(props: dict[str, Any]) -> HadithResponse:
         matn_en=props.get("matn_en"),
         isnad_raw_ar=props.get("isnad_raw_ar"),
         isnad_raw_en=props.get("isnad_raw_en"),
-        grade_composite=props.get("grade_composite") or props.get("grade"),
+        grade_composite=raw_grade,
+        grade_normalized=normalize_grade(raw_grade),
         topic_tags=props.get("topic_tags", []),
         source_corpus=props.get("source_corpus", ""),
         collection_name=collection_name,
@@ -98,7 +112,19 @@ def get_hadith_facets(
         "MATCH (h:Hadith) WHERE h.source_corpus IS NOT NULL "
         "RETURN DISTINCT h.source_corpus AS corpus ORDER BY corpus"
     )
-    return HadithFacetsResponse(source_corpus=[row["corpus"] for row in rows])
+    # Distinct raw grades across all Grading nodes (bounded ~dozens of free-text
+    # values); normalize each to its canonical token and return the present set.
+    grade_rows = neo4j.execute_read(
+        "MATCH (:Hadith)-[:GRADED_BY]->(g:Grading) "
+        "WHERE g.grade IS NOT NULL RETURN DISTINCT g.grade AS grade"
+    )
+    grades = sorted(
+        {token for row in grade_rows if (token := normalize_grade(row["grade"])) is not None}
+    )
+    return HadithFacetsResponse(
+        source_corpus=[row["corpus"] for row in rows],
+        grades=grades,
+    )
 
 
 @router.get("/hadiths", response_model=PaginatedResponse[HadithResponse])
@@ -124,8 +150,11 @@ def list_hadiths(
         where_clauses.append("h.source_corpus = $source_corpus")
         params["source_corpus"] = source_corpus
     if grade:
-        where_clauses.append("(h.grade_composite = $grade OR h.grade = $grade)")
-        params["grade"] = grade
+        # Match the connected Grading node's (or legacy flat) grade against the
+        # requested canonical token, using the same rules as normalize_grade.
+        clause, grade_params = grade_filter_clause(grade, _GRADE_EXPR)
+        where_clauses.append(clause)
+        params.update(grade_params)
     if q:
         where_clauses.append(
             "(toLower(h.matn_ar) CONTAINS toLower($q) OR toLower(h.matn_en) CONTAINS toLower($q))"
@@ -134,16 +163,21 @@ def list_hadiths(
 
     where = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-    count_query = f"MATCH (h:Hadith) {where} RETURN count(h) AS total"
+    # OPTIONAL MATCH so ungraded hadiths still list; when a grade filter is active
+    # its clause requires g, so the OPTIONAL MATCH then effectively inner-joins.
+    # Grading is 1:1 per hadith, so this does not duplicate rows.
+    base = f"MATCH (h:Hadith) OPTIONAL MATCH (h)-[:GRADED_BY]->(g:Grading) {where} "
+
+    count_query = f"{base}RETURN count(h) AS total"
     count_result = neo4j.execute_read(count_query, params)
     total = count_result[0]["total"] if count_result else 0
 
     data_query = (
-        f"MATCH (h:Hadith) {where} "
-        "RETURN properties(h) AS props ORDER BY h.id SKIP $skip LIMIT $limit"
+        f"{base}RETURN properties(h) AS props, {_GRADE_EXPR} AS grade "
+        "ORDER BY h.id SKIP $skip LIMIT $limit"
     )
     rows = neo4j.execute_read(data_query, params)
-    items = [_build_hadith_response(row["props"]) for row in rows]
+    items = [_build_hadith_response(row["props"], row.get("grade")) for row in rows]
     return PaginatedResponse(items=items, total=total, page=page, limit=limit)
 
 
@@ -154,9 +188,11 @@ def get_hadith(
 ) -> HadithResponse:
     """Return a single hadith by ID."""
     rows = neo4j.execute_read(
-        "MATCH (h:Hadith {id: $id}) RETURN properties(h) AS props",
+        "MATCH (h:Hadith {id: $id}) "
+        "OPTIONAL MATCH (h)-[:GRADED_BY]->(g:Grading) "
+        f"RETURN properties(h) AS props, {_GRADE_EXPR} AS grade",
         {"id": hadith_id},
     )
     if not rows:
         raise HTTPException(status_code=404, detail=f"Hadith '{hadith_id}' not found")
-    return _build_hadith_response(rows[0]["props"])
+    return _build_hadith_response(rows[0]["props"], rows[0].get("grade"))
