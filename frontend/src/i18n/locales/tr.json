@@ -2,7 +2,17 @@
   "common": {
     "platformTagline": "Hadis Analiz Platformu",
     "returnHome": "Ana sayfaya dön",
-    "loading": "Yükleniyor…"
+    "loading": "Yükleniyor…",
+    "search": "Ara",
+    "previous": "Önceki",
+    "next": "Sonraki",
+    "first": "İlk",
+    "last": "Son",
+    "go": "Git",
+    "error": "Hata: {{message}}",
+    "pageOf": "Sayfa {{current}} / {{total}}",
+    "colNameArabic": "Ad (Arapça)",
+    "colNameEnglish": "Ad (İngilizce)"
   },
   "nav": {
     "ariaLabel": "Ana gezinme",
@@ -44,5 +54,39 @@
     "apiRateLimited": "Çok fazla istek — lütfen biraz bekleyip tekrar deneyin.",
     "apiServer": "Tarafımızda bir şeyler ters gitti. Lütfen birazdan tekrar deneyin.",
     "apiGeneric": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
+  },
+  "narrators": {
+    "heading": "Raviler",
+    "searchPlaceholder": "Ravilerde ara…",
+    "searchLabel": "Ravilerde ara",
+    "emptyHeading": "Ravi bulunamadı",
+    "emptyBody": "Arama terimlerinizi değiştirmeyi veya filtreyi temizlemeyi deneyin.",
+    "colGeneration": "Nesil",
+    "colTrustworthiness": "Güvenilirlik",
+    "colCommunity": "Topluluk"
+  },
+  "collections": {
+    "heading": "Koleksiyonlar",
+    "colCompiler": "Derleyen",
+    "colSect": "Mezhep",
+    "colHadiths": "Hadisler"
+  },
+  "hadiths": {
+    "heading": "Hadisler",
+    "searchPlaceholder": "Hadis metninde ara…",
+    "allCollections": "Tüm Koleksiyonlar",
+    "allSources": "Tüm Kaynaklar",
+    "loadingSources": "Kaynaklar yükleniyor…",
+    "allGrades": "Tüm Dereceler",
+    "clearFilters": "Filtreleri temizle",
+    "resultsFound_one": "{{count}} hadis bulundu",
+    "resultsFound_other": "{{count}} hadis bulundu",
+    "filteredSuffix": " (filtrelenmiş)",
+    "colTitle": "Başlık",
+    "colSource": "Kaynak",
+    "colGrade": "Derece",
+    "colTopics": "Konular",
+    "jumpPlaceholder": "Sayfa #",
+    "show": "Göster:"
   }
 }
