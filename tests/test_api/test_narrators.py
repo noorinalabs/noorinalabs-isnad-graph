@@ -16,6 +16,14 @@ SAMPLE_NARRATOR = {
     "trustworthiness_consensus": "thiqah",
 }
 
+# A narrator node carrying only the always-present fields — most real loaded
+# narrators lack name_en / generation / gender / sect / trustworthiness. Before
+# #1024 these absent required fields raised a Pydantic ValidationError → 500.
+SPARSE_NARRATOR = {
+    "id": "nar-sparse",
+    "name_ar": "فلان بن فلان",
+}
+
 
 def test_list_narrators_empty(client: TestClient) -> None:
     """GET /api/v1/narrators returns empty paginated response when no data."""
@@ -41,6 +49,26 @@ def test_list_narrators_with_data(client: TestClient, mock_neo4j: MagicMock) -> 
     assert len(body["items"]) == 1
     assert body["items"][0]["id"] == "nar-001"
     assert body["items"][0]["name_en"] == "Abu Hurayra"
+
+
+def test_list_narrators_sparse_node(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A narrator missing the sparse biographical fields serializes as 200, not 500 (#1024)."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"total": 1}],
+        [{"props": SPARSE_NARRATOR}],
+    ]
+    resp = client.get("/api/v1/narrators")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["id"] == "nar-sparse"
+    # The absent fields come back as null rather than raising a validation error.
+    assert item["name_en"] is None
+    assert item["generation"] is None
+    assert item["gender"] is None
+    assert item["sect_affiliation"] is None
+    assert item["trustworthiness_consensus"] is None
 
 
 def test_list_narrators_pagination(client: TestClient, mock_neo4j: MagicMock) -> None:
