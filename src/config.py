@@ -164,6 +164,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "console"
 
+    # Semantic-search embedding model. The default ``"hashing"`` selects the
+    # dependency-free encoder (CI / sandbox / local dev); production sets this to
+    # a real sentence-transformers model name on the cluster (P5W4 load). See
+    # ``src/enrich/embeddings.py``. Read via env ``EMBEDDING_MODEL``.
+    embedding_model: str = "hashing"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

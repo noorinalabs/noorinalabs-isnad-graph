@@ -216,6 +216,44 @@ def test_semantic_search_returns_results_when_pg_available(client: TestClient, a
     del app.dependency_overrides[get_pg]
 
 
+def test_semantic_search_embeds_query_at_runtime(client: TestClient, app: object) -> None:
+    """The query is embedded into a pgvector literal, not matched by exact text.
+
+    Regression for #1049: the old implementation looked the query up by
+    ``WHERE text = %s``, so an arbitrary query returned nothing even with
+    embeddings loaded. The endpoint must now pass an embedded *vector* to the
+    ``<=>`` operator.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "ranked hadith", "score": 0.7}],
+        [{"total": 12}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=prayer in congregation&limit=5")
+    assert resp.status_code == 200
+
+    # First pg.execute is the ranked data query; its first bound param must be the
+    # embedded query vector (a pgvector literal), never the raw query string.
+    data_sql, data_params = mock_pg.execute.call_args_list[0].args
+    vector_literal = data_params[0]
+    assert vector_literal.startswith("[") and vector_literal.endswith("]")
+    assert "prayer in congregation" not in str(data_params)
+    # The cast `%s::vector` keeps the literal a bound parameter, never inline SQL.
+    assert "%s::vector" in data_sql
+    assert data_params[-1] == 5  # limit threaded through
+
+    del app.dependency_overrides[get_pg]
+
+
 def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) -> None:
     """semantic limit above its cap (50) is rejected with 422 — the frontend
     results page must stay within this cap (#1025).
