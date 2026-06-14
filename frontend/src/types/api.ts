@@ -8,16 +8,19 @@ export interface PaginatedResponse<T> {
 export interface Narrator {
   id: string
   name_ar: string
-  name_en: string
+  // name_en/generation/gender/sect_affiliation/trustworthiness_consensus are
+  // nullable to match the API's NarratorResponse contract (#1024/#1046): the
+  // graph carries these only for a subset of narrators. Render paths null-guard.
+  name_en: string | null
   kunya: string | null
   nisba: string | null
   laqab: string | null
   birth_year_ah: number | null
   death_year_ah: number | null
-  generation: string
-  gender: string
-  sect_affiliation: string
-  trustworthiness_consensus: string
+  generation: string | null
+  gender: string | null
+  sect_affiliation: string | null
+  trustworthiness_consensus: string | null
   aliases: string[]
   betweenness_centrality: number | null
   in_degree: number | null
@@ -86,6 +89,13 @@ export interface SearchResult {
   title: string
   title_ar: string
   score: number
+  // Facet metadata, populated per result type (see backend SearchResult).
+  // `grade` is the canonical normalized token (e.g. "sahih", "daif"), not raw
+  // scholar text. Absent/empty where the attribute does not apply. (#1036)
+  collection?: string | null
+  grade?: string | null
+  century?: number | null
+  topics?: string[]
 }
 
 export interface SearchResultsResponse {
