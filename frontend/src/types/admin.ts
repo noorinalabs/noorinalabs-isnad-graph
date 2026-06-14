@@ -10,11 +10,27 @@ export interface SystemHealth {
   redis: boolean
 }
 
+export interface CollectionStat {
+  id: string
+  name: string
+  sect: string
+  hadith_count: number
+}
+
+export interface SectStat {
+  sect: string
+  hadith_count: number
+  collection_count: number
+}
+
 export interface ContentStats {
   hadith_count: number
   narrator_count: number
   collection_count: number
   coverage_pct: number
+  // Corpus-scope breakdown so the totals are not read as a complete corpus.
+  collections: CollectionStat[]
+  sects: SectStat[]
 }
 
 export interface PopularNarrator {

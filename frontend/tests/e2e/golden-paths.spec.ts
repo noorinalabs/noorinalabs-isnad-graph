@@ -125,8 +125,9 @@ async function mockBackend(page: Page, config: RoleConfig = { admin: false }) {
     }),
   )
 
-  // Admin dashboard + moderation
-  await page.route('**/api/v1/admin/dashboard/stats', (route) =>
+  // Admin dashboard user counts now come from the user-service stats endpoint
+  // (ig#1051) — the isnad-graph dashboard stub was removed.
+  await page.route('**/api/v1/users/stats', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -215,7 +216,7 @@ test.describe('Golden path: admin moderation flow', () => {
     ).toBeVisible()
   })
 
-  test('admin dashboard renders StatCards from /admin/dashboard/stats', async ({ page }) => {
+  test('admin dashboard renders StatCards from user-service /users/stats', async ({ page }) => {
     await mockBackend(page, { admin: true })
     await page.goto('/admin/dashboard')
 

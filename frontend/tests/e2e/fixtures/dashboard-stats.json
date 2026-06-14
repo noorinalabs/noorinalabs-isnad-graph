@@ -1,10 +1,10 @@
 {
   "total_users": 42,
   "active_users": 30,
-  "suspended_users": 2,
+  "deactivated_users": 2,
   "new_registrations_7d": 5,
   "active_sessions": 12,
-  "users_by_role": [
+  "by_role": [
     { "role": "admin", "count": 3 },
     { "role": "reader", "count": 25 },
     { "role": "researcher", "count": 14 }

@@ -191,6 +191,24 @@
         "title": "RoleAssignment",
         "type": "object"
       },
+      "RoleCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "count"
+        ],
+        "title": "RoleCount",
+        "type": "object"
+      },
       "RoleRead": {
         "properties": {
           "created_at": {
@@ -754,6 +772,48 @@
           "created_at"
         ],
         "title": "UserRead",
+        "type": "object"
+      },
+      "UserStats": {
+        "description": "Aggregate user counts for the admin dashboard.\n\n``deactivated_users`` counts soft-deleted accounts (``is_active = false``);\nthe service has no separate \"suspended\" state. ``active_sessions`` is the\nnumber of non-revoked, unexpired session rows across all users.",
+        "properties": {
+          "active_sessions": {
+            "title": "Active Sessions",
+            "type": "integer"
+          },
+          "active_users": {
+            "title": "Active Users",
+            "type": "integer"
+          },
+          "by_role": {
+            "items": {
+              "$ref": "#/components/schemas/RoleCount"
+            },
+            "title": "By Role",
+            "type": "array"
+          },
+          "deactivated_users": {
+            "title": "Deactivated Users",
+            "type": "integer"
+          },
+          "new_registrations_7d": {
+            "title": "New Registrations 7D",
+            "type": "integer"
+          },
+          "total_users": {
+            "title": "Total Users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_users",
+          "active_users",
+          "deactivated_users",
+          "new_registrations_7d",
+          "active_sessions",
+          "by_role"
+        ],
+        "title": "UserStats",
         "type": "object"
       },
       "UserUpdate": {
@@ -1820,6 +1880,49 @@
           }
         },
         "summary": "Update Current User Profile",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/stats": {
+      "get": {
+        "description": "Return aggregate user counts for the admin dashboard (admin only).",
+        "operationId": "get_user_stats_api_v1_users_stats_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": true,
+            "schema": {
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User Stats",
         "tags": [
           "users"
         ]
