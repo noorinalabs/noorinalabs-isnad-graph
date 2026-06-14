@@ -88,10 +88,16 @@ describe('matchesFacets', () => {
       expect(matchesFacets(r, { ...NO_FACETS, centuries: [3] })).toBe(false)
     })
 
-    it('treats the largest selected bucket as open-ended (5th+)', () => {
+    it('keeps a mid bucket exact — a lone "3rd" must not leak later centuries', () => {
+      expect(matchesFacets(result({ type: 'narrator', century: 3 }), { ...NO_FACETS, centuries: [3] })).toBe(true)
+      expect(matchesFacets(result({ type: 'narrator', century: 7 }), { ...NO_FACETS, centuries: [3] })).toBe(false)
+      expect(matchesFacets(result({ type: 'narrator', century: 4 }), { ...NO_FACETS, centuries: [3] })).toBe(false)
+    })
+
+    it('treats only the fixed top bucket as open-ended (5th+)', () => {
       expect(matchesFacets(result({ type: 'narrator', century: 7 }), { ...NO_FACETS, centuries: [5] })).toBe(true)
       expect(matchesFacets(result({ type: 'narrator', century: 4 }), { ...NO_FACETS, centuries: [5] })).toBe(false)
-      // a non-max bucket stays exact even when a higher bucket is also selected
+      // a non-top bucket stays exact even when the top bucket is also selected
       expect(matchesFacets(result({ type: 'narrator', century: 2 }), { ...NO_FACETS, centuries: [1, 5] })).toBe(false)
       expect(matchesFacets(result({ type: 'narrator', century: 1 }), { ...NO_FACETS, centuries: [1, 5] })).toBe(true)
     })

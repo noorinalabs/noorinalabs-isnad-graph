@@ -18,6 +18,14 @@ import type { SearchResult } from '../types/api'
  * keeps semantic hits (which lack graph-derived metadata) and partially-loaded
  * records visible instead of silently disappearing under an active facet.
  */
+
+/**
+ * The century facet's fixed top bucket ("5th+" — the last entry of CENTURIES in
+ * SearchPage). Only this bucket is open-ended; 1st–4th are exact ordinals. Keep
+ * in sync with the UI's CENTURIES list.
+ */
+export const OPEN_ENDED_CENTURY = 5
+
 export interface FacetSelection {
   collections: string[]
   gradings: string[]
@@ -80,10 +88,12 @@ function matchesGrade(value: string | null | undefined, selected: string[]): boo
 function matchesCentury(value: number | null | undefined, selected: number[]): boolean {
   if (selected.length === 0) return true
   if (value == null) return true
-  // The largest facet bucket is open-ended ("5th+"), so it also matches later
-  // centuries; smaller buckets are exact.
-  const maxBucket = Math.max(...selected)
-  return selected.some((c) => (c === maxBucket ? value >= c : value === c))
+  // Only the fixed top bucket ("5th+") is open-ended; 1st–4th are exact
+  // ordinals. Keying off the selection's own max would make e.g. a lone "3rd"
+  // selection leak every later century, contradicting the UI labels.
+  return selected.some((c) =>
+    c >= OPEN_ENDED_CENTURY ? value >= OPEN_ENDED_CENTURY : value === c,
+  )
 }
 
 /**
