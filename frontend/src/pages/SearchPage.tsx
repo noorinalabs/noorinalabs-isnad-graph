@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/Dialog'
+import { matchesFacets } from '../lib/searchFacets'
 
 type SearchMode = 'fulltext' | 'semantic'
 type SortOption = 'relevance' | 'date-asc' | 'date-desc' | 'name-en' | 'name-ar'
@@ -244,10 +245,11 @@ export default function SearchPage() {
     setPage(1)
   }
 
-  // Client-side filtering of results
+  // Client-side filtering of results: entity type first, then the
+  // collection/grading/century/topic facets (see matchesFacets). (#1036)
   const filteredResults = (searchData?.results ?? []).filter((r) => {
     if (!filters.entityTypes.includes(r.type as EntityType)) return false
-    return true
+    return matchesFacets(r, filters)
   })
 
   // Client-side sort

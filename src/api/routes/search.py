@@ -11,12 +11,24 @@ from fastapi.responses import JSONResponse
 from src.api.deps import get_neo4j, get_pg
 from src.api.models import SearchResult, SearchResultsResponse
 from src.enrich.embeddings import get_embedder, to_pgvector_literal
+from src.utils.grades import normalize_grade
 from src.utils.neo4j_client import Neo4jClient
 from src.utils.pg_client import PgClient
 
 router = APIRouter()
 
 log = logging.getLogger(__name__)
+
+
+def _death_year_to_century(death_year_ah: object) -> int | None:
+    """Map a Hijri death year to its 1-based century (124 AH -> 2nd century).
+
+    Returns ``None`` for missing/non-positive years so the century facet treats
+    the narrator as unknown rather than excluding them. (#1036)
+    """
+    if isinstance(death_year_ah, int) and death_year_ah > 0:
+        return (death_year_ah - 1) // 100 + 1
+    return None
 
 
 @router.get("/search", response_model=SearchResultsResponse)
@@ -52,6 +64,7 @@ def search(
                 title=r.get("name_en") or r["name_ar"],
                 title_ar=r["name_ar"],
                 score=r["score"],
+                century=_death_year_to_century(r.get("death_year_ah")),
             )
         )
 
@@ -68,6 +81,9 @@ def search(
                     title=snippet[:120] + "..." if len(snippet) > 120 else snippet,
                     title_ar=r["matn_ar"][:120],
                     score=r["score"],
+                    collection=r.get("collection_name"),
+                    grade=normalize_grade(r.get("grade")),
+                    topics=r.get("topic_tags") or [],
                 )
             )
 
@@ -87,7 +103,7 @@ def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> lis
             CALL db.index.fulltext.queryNodes('narrator_search', $q)
             YIELD node, score
             RETURN node.id AS id, node.name_ar AS name_ar,
-                   node.name_en AS name_en, score
+                   node.name_en AS name_en, node.death_year_ah AS death_year_ah, score
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -99,7 +115,7 @@ def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> lis
             MATCH (n:Narrator)
             WHERE n.name_ar CONTAINS $q OR n.name_en CONTAINS $q
             RETURN n.id AS id, n.name_ar AS name_ar, n.name_en AS name_en,
-                   1.0 AS score
+                   n.death_year_ah AS death_year_ah, 1.0 AS score
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -108,13 +124,21 @@ def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> lis
 
 def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[dict[str, Any]]:
     """Search hadiths using full-text index, falling back to CONTAINS."""
+    # ``grade`` resolves the connected Grading node, falling back to the legacy
+    # flat property, mirroring the hadiths route's ``_GRADE_EXPR``; the caller
+    # normalizes it to a canonical token. ``collection_name`` and ``topic_tags``
+    # feed the collection/topic facets. (#1036)
     try:
         return neo4j.execute_read(
             """
             CALL db.index.fulltext.queryNodes('hadith_search', $q)
             YIELD node, score
+            OPTIONAL MATCH (node)-[:GRADED_BY]->(g:Grading)
             RETURN node.id AS id, node.matn_ar AS matn_ar,
-                   node.matn_en AS matn_en, score
+                   node.matn_en AS matn_en, score,
+                   node.collection_name AS collection_name,
+                   node.topic_tags AS topic_tags,
+                   coalesce(g.grade, node.grade_composite, node.grade) AS grade
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -125,8 +149,12 @@ def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[
             """
             MATCH (h:Hadith)
             WHERE h.matn_ar CONTAINS $q OR h.matn_en CONTAINS $q
+            OPTIONAL MATCH (h)-[:GRADED_BY]->(g:Grading)
             RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en,
-                   1.0 AS score
+                   1.0 AS score,
+                   h.collection_name AS collection_name,
+                   h.topic_tags AS topic_tags,
+                   coalesce(g.grade, h.grade_composite, h.grade) AS grade
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -230,6 +258,11 @@ def search_semantic(
             },
         )
 
+    # Facet metadata (collection/grade/topics) is intentionally left empty for
+    # semantic hits: those attributes live on the Neo4j graph, not on the
+    # ``isnad_graph.hadiths`` projection this query reads, and the search-page
+    # matcher treats a missing value as "unknown, not excluded" — so facets do
+    # not (yet) refine semantic results. (#1036)
     results: list[SearchResult] = []
     for r in rows:
         snippet = r.get("matn_en") or r["matn_ar"]

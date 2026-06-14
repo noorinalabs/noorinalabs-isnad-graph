@@ -272,7 +272,15 @@ class NarratorNetworkResponse(BaseModel):
 
 
 class SearchResult(BaseModel):
-    """A single search result."""
+    """A single search result.
+
+    Beyond the display fields, results carry the facet metadata the search page
+    filters on client-side (collection / grade / century / topic). Each field is
+    populated only for the result types it applies to and left null/empty
+    otherwise: ``collection`` + ``grade`` + ``topics`` for hadiths, ``century``
+    for narrators. ``grade`` is the canonical normalized token (see
+    ``src.utils.grades.normalize_grade``), not the raw scholar string. (#1036)
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -281,6 +289,10 @@ class SearchResult(BaseModel):
     title: str
     title_ar: str
     score: float
+    collection: str | None = None
+    grade: str | None = None
+    century: int | None = None
+    topics: list[str] = []
 
 
 class SearchResultsResponse(BaseModel):
