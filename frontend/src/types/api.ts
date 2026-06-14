@@ -33,6 +33,7 @@ export interface Hadith {
   isnad_raw_ar: string | null
   isnad_raw_en: string | null
   grade_composite: string | null
+  grade_normalized: string | null
   topic_tags: string[]
   source_corpus: string
   collection_name: string | null
@@ -43,6 +44,7 @@ export interface Hadith {
 
 export interface HadithFacetsResponse {
   source_corpus: string[]
+  grades: string[]
 }
 
 export interface Collection {

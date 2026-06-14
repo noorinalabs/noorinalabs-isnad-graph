@@ -5,26 +5,7 @@ import { fetchHadith, fetchHadithParallels } from '../api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
-
-function gradeColor(grade: string | null): string {
-  if (!grade) return ''
-  const lower = grade.toLowerCase()
-  if (lower === 'sahih') return 'bg-sahih-bg text-sahih'
-  if (lower === 'hasan') return 'bg-hasan-bg text-hasan'
-  if (lower === "da'if" || lower === 'daif') return 'bg-daif-bg text-daif'
-  if (lower === "mawdu'" || lower === 'mawdu') return 'bg-mawdu-bg text-mawdu'
-  return ''
-}
-
-function gradeBarColor(grade: string | null): string {
-  if (!grade) return 'bg-muted'
-  const lower = grade.toLowerCase()
-  if (lower === 'sahih') return 'bg-sahih'
-  if (lower === 'hasan') return 'bg-hasan'
-  if (lower === "da'if" || lower === 'daif') return 'bg-warning'
-  if (lower === "mawdu'" || lower === 'mawdu') return 'bg-destructive'
-  return 'bg-muted'
-}
+import { gradeColor, gradeBarColor, gradeBarWidth } from '../lib/grades'
 
 function similarityLevel(score: number): string {
   if (score >= 0.9) return 'text-sahih'
@@ -135,7 +116,7 @@ export default function HadithDetailPage() {
             </h2>
             {hadith.grade_composite && (
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${gradeColor(hadith.grade_composite)}`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${gradeColor(hadith.grade_normalized)}`}
               >
                 {hadith.grade_composite}
               </span>
@@ -205,15 +186,8 @@ export default function HadithDetailPage() {
                 </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${gradeBarColor(hadith.grade_composite)}`}
-                    style={{
-                      width:
-                        hadith.grade_composite.toLowerCase() === 'sahih'
-                          ? '100%'
-                          : hadith.grade_composite.toLowerCase() === 'hasan'
-                            ? '75%'
-                            : '40%',
-                    }}
+                    className={`h-full rounded-full ${gradeBarColor(hadith.grade_normalized)}`}
+                    style={{ width: gradeBarWidth(hadith.grade_normalized) }}
                   />
                 </div>
               </div>

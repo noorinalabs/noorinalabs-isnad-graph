@@ -18,7 +18,8 @@ function makeHadith(overrides: Partial<Hadith> = {}): Hadith {
     matn_en: "Actions are but by intentions",
     isnad_raw_ar: null,
     isnad_raw_en: null,
-    grade_composite: "Sahih",
+    grade_composite: "Sahih - Authentic",
+    grade_normalized: "sahih",
     topic_tags: ["intention", "worship"],
     source_corpus: "Sahih al-Bukhari",
     collection_name: "Bukhari",
@@ -104,9 +105,10 @@ describe("HadithDetailPage", () => {
       expect(
         screen.getByText("Actions are but by intentions"),
       ).toBeInTheDocument()
-      expect(
-        screen.getByText("Sahih", { selector: "span" }),
-      ).toBeInTheDocument()
+      // Raw free-text grade is shown verbatim, coloured from the normalized token.
+      const badge = screen.getByText("Sahih - Authentic", { selector: "span" })
+      expect(badge).toBeInTheDocument()
+      expect(badge).toHaveClass("text-sahih")
       // Metadata fields
       expect(screen.getByText("Collection")).toBeInTheDocument()
       expect(screen.getByText("Bukhari")).toBeInTheDocument()
