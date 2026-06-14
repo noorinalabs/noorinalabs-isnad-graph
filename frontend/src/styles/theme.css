@@ -1,6 +1,42 @@
 @import "tailwindcss";
 @import "@noorinalabs/design-system/styles.css";
 
+/* ============================================================
+ * DESIGN-SYSTEM COMPONENT UTILITIES → FORCE-GENERATED (#1027)
+ * ------------------------------------------------------------
+ * The design system ships its components as compiled React (dist JS) plus a
+ * token-only `styles.css` (`:root { --color-* }`, etc.) — it does NOT ship the
+ * Tailwind *utility* classes its components reference. Those class names live
+ * only inside the DS dist JS, which this app's Tailwind v4 content scan does
+ * not crawl (node_modules is not scanned by default, and scanning the minified
+ * bundle would pull in false-positive candidates and bloat the CSS).
+ *
+ * The practical effect: any DS-component utility that this app's own source
+ * never also uses produces ZERO rules. Common utilities (`bg-card`, `p-4`,
+ * `rounded-md`, `border`, …) happen to be used directly in app code so they
+ * generate; the Dialog's *positioning/sizing* utilities (`fixed`, `start-1/2`,
+ * `top-1/2`, `-translate-x-1/2`, `-translate-y-1/2`, `max-w-lg`, the overlay's
+ * `inset-0`/`bg-black/80`) appear nowhere in app source — so the modal rendered
+ * with no fixed positioning, no centering transform and no max-width, blowing
+ * out past the browser width (the session-expired modal bug, #1027).
+ *
+ * `@source inline(...)` is the Tailwind v4 mechanism to force-generate a known,
+ * explicit set of utilities regardless of content scanning. We list the full
+ * DS Dialog class contract (Overlay, Content, Close button, Header/Footer,
+ * Title/Description) so EVERY dialog in the app (session-expired modal,
+ * SearchPage filters, any future dialog) renders centered and width-constrained
+ * as the DS intends. Listing utilities the app already generates is harmless
+ * (Tailwind de-duplicates). This is the component-utility analogue of the
+ * `@theme inline` color-token bridge below (#1000). Keep this list in sync if
+ * the DS Dialog class set changes (the DS owning the utility CSS it references
+ * — e.g. shipping a compiled utilities layer — would let us drop this).
+ * ============================================================ */
+@source inline("fixed inset-0 z-50 bg-black/80");
+@source inline("start-1/2 top-1/2 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg rounded-lg");
+@source inline("absolute end-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-2 focus:outline-offset-2 focus:outline-ring disabled:pointer-events-none");
+@source inline("flex flex-col gap-y-1.5 text-center sm:text-start flex-col-reverse sm:flex-row sm:justify-end sm:gap-x-2");
+@source inline("text-lg font-semibold leading-none tracking-tight text-sm text-muted-foreground");
+
 /*
  * Isnad Graph — App-Specific Overrides
  * =====================================
