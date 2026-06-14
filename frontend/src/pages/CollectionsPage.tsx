@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { fetchCollections } from '../api/client'
 
 export default function CollectionsPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const { data, isLoading, error } = useQuery({
@@ -12,7 +14,7 @@ export default function CollectionsPage() {
 
   return (
     <div>
-      <h2 className="page-heading">Collections</h2>
+      <h2 className="page-heading">{t('collections.heading')}</h2>
 
       {isLoading && (
         <div>
@@ -21,17 +23,17 @@ export default function CollectionsPage() {
           ))}
         </div>
       )}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {error && <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>}
 
       {data && (
         <table className="data-table">
           <thead>
             <tr>
-              <th>Name (Arabic)</th>
-              <th>Name (English)</th>
-              <th>Compiler</th>
-              <th>Sect</th>
-              <th style={{ textAlign: 'right' }}>Hadiths</th>
+              <th>{t('common.colNameArabic')}</th>
+              <th>{t('common.colNameEnglish')}</th>
+              <th>{t('collections.colCompiler')}</th>
+              <th>{t('collections.colSect')}</th>
+              <th style={{ textAlign: 'right' }}>{t('collections.colHadiths')}</th>
             </tr>
           </thead>
           <tbody>

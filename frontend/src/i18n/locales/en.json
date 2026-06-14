@@ -2,7 +2,17 @@
   "common": {
     "platformTagline": "Hadith Analysis Platform",
     "returnHome": "Return home",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "search": "Search",
+    "previous": "Previous",
+    "next": "Next",
+    "first": "First",
+    "last": "Last",
+    "go": "Go",
+    "error": "Error: {{message}}",
+    "pageOf": "Page {{current}} of {{total}}",
+    "colNameArabic": "Name (Arabic)",
+    "colNameEnglish": "Name (English)"
   },
   "nav": {
     "ariaLabel": "Main navigation",
@@ -44,5 +54,39 @@
     "apiRateLimited": "Too many requests — please wait a moment and try again.",
     "apiServer": "Something went wrong on our end. Please try again shortly.",
     "apiGeneric": "Something went wrong. Please try again."
+  },
+  "narrators": {
+    "heading": "Narrators",
+    "searchPlaceholder": "Search narrators…",
+    "searchLabel": "Search narrators",
+    "emptyHeading": "No narrators found",
+    "emptyBody": "Try adjusting your search terms or clearing the filter.",
+    "colGeneration": "Generation",
+    "colTrustworthiness": "Trustworthiness",
+    "colCommunity": "Community"
+  },
+  "collections": {
+    "heading": "Collections",
+    "colCompiler": "Compiler",
+    "colSect": "Sect",
+    "colHadiths": "Hadiths"
+  },
+  "hadiths": {
+    "heading": "Hadiths",
+    "searchPlaceholder": "Search hadith text…",
+    "allCollections": "All Collections",
+    "allSources": "All Sources",
+    "loadingSources": "Loading sources…",
+    "allGrades": "All Grades",
+    "clearFilters": "Clear filters",
+    "resultsFound_one": "{{count}} hadith found",
+    "resultsFound_other": "{{count}} hadiths found",
+    "filteredSuffix": " (filtered)",
+    "colTitle": "Title",
+    "colSource": "Source",
+    "colGrade": "Grade",
+    "colTopics": "Topics",
+    "jumpPlaceholder": "Page #",
+    "show": "Show:"
   }
 }
