@@ -51,16 +51,21 @@ class NarratorResponse(BaseModel):
 
     id: str
     name_ar: str
-    name_en: str
+    # name_en and the structured biographical fields below are sparse on real
+    # loaded data (most narrators lack an English transliteration, generation,
+    # gender, sect, or a trustworthiness grade). They are optional so a node
+    # missing them serializes cleanly instead of raising a Pydantic
+    # ValidationError → HTTP 500 on GET /narrators (#1024).
+    name_en: str | None = None
     kunya: str | None = None
     nisba: str | None = None
     laqab: str | None = None
     birth_year_ah: int | None = None
     death_year_ah: int | None = None
-    generation: str
-    gender: str
-    sect_affiliation: str
-    trustworthiness_consensus: str
+    generation: str | None = None
+    gender: str | None = None
+    sect_affiliation: str | None = None
+    trustworthiness_consensus: str | None = None
     aliases: list[str] = []
     betweenness_centrality: float | None = None
     in_degree: int | None = None
