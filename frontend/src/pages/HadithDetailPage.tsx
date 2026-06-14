@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { fetchHadith, fetchHadithParallels } from '../api/client'
+import { fetchHadith, fetchHadithParallels, fetchHadithChain } from '../api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -32,6 +32,32 @@ export default function HadithDetailPage() {
     queryFn: () => fetchHadithParallels(id!),
     enabled: !!id,
   })
+
+  const { data: chainData, isLoading: chainLoading } = useQuery({
+    queryKey: ['hadith-chain', id],
+    queryFn: () => fetchHadithChain(id!),
+    enabled: !!id,
+  })
+
+  // Flatten the chain (nodes + position-ordered edges) into the transmission
+  // sequence Prophet/companion → ... → collector. The API already orders edges
+  // by position_in_chain, so the sequence is the first edge's source followed
+  // by each edge's target, de-duplicating consecutive repeats.
+  const chainNarrators = useMemo(() => {
+    if (!chainData || chainData.edges.length === 0) return []
+    const byId = new Map(chainData.nodes.map((n) => [n.id, n]))
+    const order: string[] = [chainData.edges[0]!.source]
+    for (const edge of chainData.edges) order.push(edge.target)
+    const seen = new Set<string>()
+    return order
+      .filter((nid) => {
+        if (seen.has(nid)) return false
+        seen.add(nid)
+        return true
+      })
+      .map((nid) => byId.get(nid))
+      .filter((n): n is NonNullable<typeof n> => n != null)
+  }, [chainData])
 
   const copyToClipboard = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text)
@@ -153,20 +179,52 @@ export default function HadithDetailPage() {
 
       {/* Isnad chain + Grading side by side on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 mb-6">
-        {/* Isnad chain visualization placeholder */}
+        {/* Isnad chain — reconstructed from the hadith's TRANSMITTED_TO edges */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Isnad Chain</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center min-h-[200px] text-muted-foreground text-sm border rounded-md bg-muted/30 p-4">
-              <div className="text-center">
-                <p className="mb-2">Chain visualization placeholder</p>
-                <p className="text-xs">
-                  Chain data will be rendered here when available
-                </p>
+            {chainLoading ? (
+              <div className="space-y-2" data-testid="chain-loading">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-8 bg-muted rounded w-full animate-pulse" />
+                ))}
               </div>
-            </div>
+            ) : chainNarrators.length > 0 ? (
+              <ol className="space-y-0" aria-label="Isnad chain in transmission order">
+                {chainNarrators.map((narrator, idx) => (
+                  <li key={narrator.id}>
+                    <Link
+                      to={`/narrators/${encodeURIComponent(narrator.id)}`}
+                      className="block rounded-md border p-2 hover:bg-muted/50 transition-colors"
+                    >
+                      <span className="font-arabic text-base">{narrator.name_ar}</span>
+                      {narrator.name_en && (
+                        <span className="block text-xs text-muted-foreground">
+                          {narrator.name_en}
+                          {narrator.generation ? ` · ${narrator.generation}` : ''}
+                        </span>
+                      )}
+                    </Link>
+                    {idx < chainNarrators.length - 1 && (
+                      <div className="flex justify-center text-muted-foreground text-xs py-0.5" aria-hidden="true">
+                        ↓
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="flex items-center justify-center min-h-[200px] text-muted-foreground text-sm border rounded-md bg-muted/30 p-4">
+                <div className="text-center">
+                  <p className="mb-2">No isnad chain available for this hadith yet.</p>
+                  <p className="text-xs">
+                    Chain data is populated as narrator segmentation completes.
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

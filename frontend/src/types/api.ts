@@ -174,6 +174,15 @@ export interface GraphEdge {
   target: string
   relationship: string
   weight: number
+  // Ordinal position within a single hadith's isnad chain (TRANSMITTED_TO
+  // position_in_chain). Only set by the per-hadith chain endpoint.
+  position?: number | null
+}
+
+export interface ChainVisualization {
+  hadith_id: string
+  nodes: GraphNode[]
+  edges: GraphEdge[]
 }
 
 export interface NarratorNetworkResponse {

@@ -5,6 +5,7 @@ import type {
   HadithFacetsResponse,
   Collection,
   NarratorChainsResponse,
+  ChainVisualization,
   SearchResultsResponse,
   SubscriptionResponse,
   TimelineResponse,
@@ -76,6 +77,12 @@ export async function fetchNarratorChains(id: string): Promise<NarratorChainsRes
   return fetchJson(`${API_BASE}/graph/narrator/${encodeURIComponent(id)}/chains`)
 }
 
+// The ordered isnad chain for a single hadith (nodes + edges, edges carry
+// `position` so the consumer can render in transmission order). #1032.
+export async function fetchHadithChain(hadithId: string): Promise<ChainVisualization> {
+  return fetchJson(`${API_BASE}/graph/hadith/${encodeURIComponent(hadithId)}/chain`)
+}
+
 export async function fetchHadiths(
   page = 1,
   limit = 20,
@@ -84,6 +91,8 @@ export async function fetchHadiths(
     source_corpus?: string
     grade?: string
     q?: string
+    // Narrator id — filter to hadiths whose isnad contains this narrator. #1050.
+    narrator?: string
   },
 ): Promise<PaginatedResponse<Hadith>> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
@@ -91,6 +100,7 @@ export async function fetchHadiths(
   if (filters?.source_corpus) params.set('source_corpus', filters.source_corpus)
   if (filters?.grade) params.set('grade', filters.grade)
   if (filters?.q) params.set('q', filters.q)
+  if (filters?.narrator) params.set('narrator', filters.narrator)
   return fetchJson(`${API_BASE}/hadiths?${params}`)
 }
 

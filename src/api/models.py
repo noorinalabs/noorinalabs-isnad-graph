@@ -218,6 +218,10 @@ class GraphEdge(BaseModel):
     target: str
     relationship: str
     weight: int = 1
+    # Ordinal position of this edge within a single hadith's isnad chain
+    # (from the TRANSMITTED_TO.position_in_chain edge property). Only set by
+    # the per-hadith chain endpoint; None for network/aggregate edges.
+    position: int | None = None
 
 
 class ChainSummary(BaseModel):

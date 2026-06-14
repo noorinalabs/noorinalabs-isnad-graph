@@ -128,6 +128,42 @@ def test_list_hadiths_text_search(client: TestClient, mock_neo4j: MagicMock) -> 
     assert "toLower" in count_query
 
 
+def test_list_hadiths_filter_by_narrator_in_isnad(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """GET /api/v1/hadiths?narrator=X filters to hadiths whose isnad contains X (#1050)."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"total": 1}],
+        [{"props": SAMPLE_HADITH}],
+    ]
+    resp = client.get("/api/v1/hadiths?narrator=nar:az-zuhri-0001")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+    calls = mock_neo4j.execute_read.call_args_list
+    count_query, count_params = calls[0][0][0], calls[0][0][1]
+    # Membership = direct NARRATED ∪ per-hadith TRANSMITTED_TO (edge-keyed), and
+    # must NOT depend on nonexistent Chain nodes (#1032 / #1050).
+    assert "NARRATED" in count_query
+    assert "TRANSMITTED_TO" in count_query
+    assert "t.hadith_id = h.id" in count_query
+    assert ":Chain" not in count_query
+    assert count_params["narrator"] == "nar:az-zuhri-0001"
+
+
+def test_list_hadiths_no_narrator_filter_omits_isnad_subquery(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """Without ?narrator the query stays a plain scan (no isnad subquery)."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"total": 1}],
+        [{"props": SAMPLE_HADITH}],
+    ]
+    resp = client.get("/api/v1/hadiths")
+    assert resp.status_code == 200
+    count_query = mock_neo4j.execute_read.call_args_list[0][0][0]
+    assert "TRANSMITTED_TO" not in count_query
+
+
 def test_get_hadith_found(client: TestClient, mock_neo4j: MagicMock) -> None:
     """GET /api/v1/hadiths/{id} returns hadith when found."""
     mock_neo4j.execute_read.return_value = [{"props": SAMPLE_HADITH}]
