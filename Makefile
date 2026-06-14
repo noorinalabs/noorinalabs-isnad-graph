@@ -77,6 +77,9 @@ check:           ## Run all CI checks locally (lint + typecheck + test)
 	uv run pytest tests/ -v --tb=short -x -m "not integration and not e2e"
 	@echo "All checks passed. Safe to push."
 
+embed-hadiths: ## Compute hadith embeddings and load pgvector (semantic search; #1049)
+	uv run isnad embed-hadiths $(ARGS)
+
 backup: ## Run database backup to Backblaze B2
 	bash scripts/backup.sh
 

@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.deps import get_neo4j, get_pg
 from src.api.models import SearchResult, SearchResultsResponse
+from src.enrich.embeddings import get_embedder, to_pgvector_literal
 from src.utils.neo4j_client import Neo4jClient
 from src.utils.pg_client import PgClient
 
@@ -188,26 +189,27 @@ def search_semantic(
 ) -> SearchResultsResponse:
     """Semantic similarity search using pgvector.
 
-    Queries the ``isnad_graph.hadith_embeddings`` table for cosine-similar
-    hadiths.  Returns 503 when the table or pgvector extension is unavailable.
+    Embeds the query with the configured embedder (see ``src/enrich/embeddings.py``)
+    and cosine-ranks the ``isnad_graph.hadith_embeddings`` table against that
+    vector. Returns 503 when the table or pgvector extension is unavailable.
+
+    The query is embedded at request time rather than looked up by exact text:
+    the previous implementation matched the query string against stored hadith
+    text (``WHERE text = %s``), so anything but a verbatim hadith returned
+    nothing even when embeddings were loaded (isnad-graph#1049).
     """
+    query_vector = to_pgvector_literal(get_embedder().embed([q])[0])
     try:
         rows = pg.execute(
             """
             SELECT h.id, h.matn_ar, h.matn_en,
-                   1 - (e.embedding <=> (
-                       SELECT embedding FROM isnad_graph.hadith_embeddings
-                       WHERE text = %s LIMIT 1
-                   )) AS score
+                   1 - (e.embedding <=> %s::vector) AS score
             FROM isnad_graph.hadith_embeddings e
             JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
-            ORDER BY e.embedding <=> (
-                SELECT embedding FROM isnad_graph.hadith_embeddings
-                WHERE text = %s LIMIT 1
-            )
+            ORDER BY e.embedding <=> %s::vector
             LIMIT %s
             """,
-            (q, q, limit),
+            (query_vector, query_vector, limit),
         )
         # Total count of candidate hadiths (the LIMIT above caps ``rows`` at
         # ``limit``; ``total`` must reflect the full searchable set).

@@ -84,6 +84,12 @@ ignore_missing_imports = true
 module = ["prometheus_fastapi_instrumentator", "prometheus_fastapi_instrumentator.*"]
 ignore_missing_imports = true
 
+# Optional ML extra (production embedding load only); not a runtime dependency,
+# so its stubs are never installed in CI. See src/enrich/embeddings.py.
+[[tool.mypy.overrides]]
+module = ["sentence_transformers", "sentence_transformers.*"]
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
