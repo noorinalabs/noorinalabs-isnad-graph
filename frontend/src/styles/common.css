@@ -1109,3 +1109,76 @@
 .oauth-button-github:hover {
   background-color: var(--color-oauth-github-bg-hover);
 }
+
+/* ============================================================
+ * COMPARATIVE ANALYSIS — matn diff + analysis summary (#1037)
+ * ============================================================ */
+
+/* Summary strip above the side-by-side cards: similarity, variant, overlap. */
+.analysis-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2) var(--spacing-5);
+  align-items: center;
+  padding: var(--spacing-3) var(--spacing-4);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  margin-bottom: var(--spacing-6);
+}
+
+.analysis-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.analysis-stat-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+}
+
+.analysis-stat-value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+/* Divergent tokens are highlighted; shared tokens render plainly so agreement
+   reads as the calm baseline and only the differences draw the eye. */
+.diff-unique {
+  background: var(--color-hasan-bg);
+  border-radius: var(--radius-sm);
+  padding: 0 0.15rem;
+}
+
+.diff-legend {
+  display: flex;
+  gap: var(--spacing-4);
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--color-muted-foreground);
+  margin-bottom: var(--spacing-2);
+}
+
+.diff-legend-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  margin-right: 0.3rem;
+}
+
+/* Sortable Browse-table header cell. */
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.th-sortable:hover {
+  color: var(--color-primary);
+}

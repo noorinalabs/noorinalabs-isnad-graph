@@ -340,8 +340,14 @@ class ParallelPair(BaseModel):
 
     hadith_a_id: str
     hadith_a_corpus: str
+    # Human-readable title (e.g. "Sahih al-Bukhari 1:1") and a short matn preview,
+    # so the Browse table renders readable rows instead of opaque IDs. (#1037)
+    hadith_a_title: str | None = None
+    hadith_a_snippet: str | None = None
     hadith_b_id: str
     hadith_b_corpus: str
+    hadith_b_title: str | None = None
+    hadith_b_snippet: str | None = None
     similarity_score: float | None = None
     variant_type: str | None = None
     cross_sect: bool = False
