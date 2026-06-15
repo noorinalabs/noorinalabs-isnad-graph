@@ -840,11 +840,16 @@ export default function SearchPage() {
  * Result card components
  * ─────────────────────────────────────────── */
 
-// Exported for unit testing (ig#1065).
+// Exported for unit testing (ig#1065, ig#1070).
 export function RelevanceBadge({ score }: { score: number }) {
+  // The API now applies a saturating transform `score / (score + k)` (ig#1070)
+  // so these thresholds read as ABSOLUTE confidence: a weak top hit no longer
+  // renders 100% the way the old within-result-set max-normalisation forced.
+  // TODO(ig#1071 calibration): these cutoffs must be re-tuned jointly with the
+  // backend `SEARCH_RELEVANCE_SATURATION_K` once a real BM25 distribution exists.
   const level =
     score >= 0.9 ? 'text-sahih' : score >= 0.7 ? 'text-warning' : 'text-muted-foreground'
-  // Defensive clamp: the API normalises scores to [0,1] (ig#1065), but guard
+  // Defensive clamp: the API bounds scores to [0,1) (ig#1065/#1070), but guard
   // here too so a stale or out-of-range value never renders >100% or negative.
   const pct = Math.min(100, Math.max(0, score * 100)).toFixed(0)
   return (

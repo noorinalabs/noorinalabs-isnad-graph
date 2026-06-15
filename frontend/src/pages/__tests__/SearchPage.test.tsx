@@ -28,3 +28,23 @@ describe('RelevanceBadge (ig#1065)', () => {
     expect(screen.getByText('0%')).toBeTruthy()
   })
 })
+
+describe('RelevanceBadge absolute-confidence thresholds (ig#1070)', () => {
+  // Under the saturating API transform the badge colour reads as absolute
+  // confidence, so a weak top hit is muted rather than promoted to sahih green.
+  it('colours a strong score (>=0.9) as sahih', () => {
+    const { container } = render(<RelevanceBadge score={0.92} />)
+    expect(container.querySelector('.text-sahih')).toBeTruthy()
+  })
+
+  it('colours a mid score (>=0.7) as warning', () => {
+    const { container } = render(<RelevanceBadge score={0.75} />)
+    expect(container.querySelector('.text-warning')).toBeTruthy()
+  })
+
+  it('colours a weak score (<0.7) as muted, not sahih', () => {
+    const { container } = render(<RelevanceBadge score={0.3} />)
+    expect(container.querySelector('.text-muted-foreground')).toBeTruthy()
+    expect(container.querySelector('.text-sahih')).toBeNull()
+  })
+})

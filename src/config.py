@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from urllib.parse import quote
 
-from pydantic import computed_field
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -74,6 +74,34 @@ class RateLimitSettings(BaseSettings):
     window_seconds: int = 60
 
     model_config = SettingsConfigDict(env_prefix="RATE_LIMIT_")
+
+
+class SearchSettings(BaseSettings):
+    """Relevance-scoring knobs for the search endpoints.
+
+    The full-text ``/search`` endpoint maps raw Neo4j (BM25-style) scores onto a
+    [0, 1) badge percentage via the saturating transform ``score / (score + k)``
+    (see ``src/api/routes/search.py``). The transform is monotonic and bounded
+    WITHOUT collapsing the top hit of every query to exactly 1.0 the way the
+    earlier within-result-set max-normalisation did (ig#1065 → replaced by
+    ig#1070), so the RelevanceBadge thresholds read as *absolute* confidence
+    rather than rank-within-this-result-set.
+    """
+
+    # ``k`` is the raw score at which the transform outputs exactly 0.5 — i.e. the
+    # half-saturation point. Larger ``k`` => the curve saturates more slowly, so a
+    # given raw score earns a *lower* badge percentage. BM25 scores from
+    # ``db.index.fulltext.queryNodes`` on this corpus commonly fall in the ~1–10
+    # range, so 5.0 is a deliberately provisional midpoint default.
+    #
+    # TODO(ig#1071 calibration): ``k`` AND the frontend RelevanceBadge thresholds
+    # (sahih ≥0.9, warning ≥0.7 in ``frontend/src/pages/SearchPage.tsx``) must be
+    # tuned *jointly* against the real BM25 score distribution once a real corpus
+    # and embedding model are loaded on the cluster. Until then this default is
+    # uncalibrated and intentionally swappable via env ``SEARCH_RELEVANCE_SATURATION_K``.
+    relevance_saturation_k: float = Field(default=5.0, gt=0.0)
+
+    model_config = SettingsConfigDict(env_prefix="SEARCH_")
 
 
 class RedisSettings(BaseSettings):
@@ -172,6 +200,7 @@ class Settings(BaseSettings):
     postgres: PostgresSettings = PostgresSettings()
     redis: RedisSettings = RedisSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
+    search: SearchSettings = SearchSettings()
     auth: AuthSettings = AuthSettings()
     security_headers: SecurityHeaderSettings = SecurityHeaderSettings()
     loki: LokiSettings = LokiSettings()
