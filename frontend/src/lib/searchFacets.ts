@@ -99,29 +99,23 @@ function matchesCentury(value: number | null | undefined, selected: number[]): b
 }
 
 /**
- * Tokens a topic facet label can match against a hadith's `topic_tags`, e.g.
- * "Jurisprudence (fiqh)" -> ["fiqh", "jurisprudence"], "Eschatology" ->
- * ["eschatology"]. A tag matches if it contains, or is contained by, any token.
+ * Topic matching is against the canonical topic vocabulary (#1061): a result's
+ * `topics` already holds canonical tokens (the backend maps the sparse free-text
+ * `topic_tags` onto the vocabulary in `src/utils/topics.py`), and the facet
+ * selection holds those same tokens. A hadith matches when any of its canonical
+ * tokens is selected.
+ *
+ * An empty `topics` is "uncategorized/unknown" and stays *permissive* — it is
+ * not excluded by an active topic filter — so genuinely tag-less hadiths and
+ * semantic hits (which carry no graph-derived metadata) remain visible rather
+ * than silently disappearing. Selecting only the `uncategorized` bucket
+ * therefore surfaces exactly these empty-topic results while categorized ones
+ * drop out (no categorized result carries the `uncategorized` token).
  */
-function topicTokens(label: string): string[] {
-  const tokens: string[] = []
-  const captured = label.match(/\(([^)]+)\)/)?.[1]
-  if (captured) tokens.push(norm(captured))
-  const lead = norm(label.replace(/\([^)]*\)/, ''))
-  if (lead) tokens.push(lead)
-  return tokens
-}
-
 function matchesTopic(values: string[] | undefined, selected: string[]): boolean {
   if (selected.length === 0) return true
   if (!values || values.length === 0) return true
-  const tags = values.map(norm).filter(Boolean)
-  if (tags.length === 0) return true
-  return selected.some((label) =>
-    topicTokens(label).some((token) =>
-      tags.some((tag) => tag.includes(token) || token.includes(tag)),
-    ),
-  )
+  return selected.some((token) => values.includes(token))
 }
 
 /**

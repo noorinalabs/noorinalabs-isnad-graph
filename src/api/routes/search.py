@@ -14,6 +14,7 @@ from src.enrich.embeddings import get_embedder, to_pgvector_literal
 from src.utils.grades import normalize_grade
 from src.utils.neo4j_client import Neo4jClient
 from src.utils.pg_client import PgClient
+from src.utils.topics import canonical_topics_for_tags
 
 router = APIRouter()
 
@@ -83,7 +84,10 @@ def search(
                     score=r["score"],
                     collection=r.get("collection_name"),
                     grade=normalize_grade(r.get("grade")),
-                    topics=r.get("topic_tags") or [],
+                    # Map the sparse free-text topic_tags onto the canonical topic
+                    # vocabulary so the facet filters against a stable token set
+                    # rather than fuzzy substrings. Empty = uncategorized/unknown.
+                    topics=canonical_topics_for_tags(r.get("topic_tags")),
                 )
             )
 

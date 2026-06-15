@@ -5,6 +5,7 @@ import {
   searchAll,
   searchSemantic,
   fetchCollections,
+  fetchHadithFacets,
   SEARCH_MAX_LIMIT,
   SEMANTIC_SEARCH_MAX_LIMIT,
 } from '../api/client'
@@ -53,14 +54,10 @@ interface SearchFilters {
 // the compound "hasan_sahih" matches (its label "Hasan Sahih" would not). (#1062)
 const GRADINGS = GRADE_TOKENS
 const CENTURIES = [1, 2, 3, 4, 5]
-const TOPICS = [
-  'Jurisprudence (fiqh)',
-  'Theology (aqidah)',
-  'Ethics (akhlaq)',
-  'Worship (ibadah)',
-  'History (sira)',
-  'Eschatology',
-]
+// Topic facet options are derived from the live `/hadiths/facets` response (the
+// canonical topic vocabulary + per-bucket counts), not hardcoded — so the filter
+// always presents the same vocabulary the backend aggregates against, and never
+// drifts from it. The filter value is the canonical token. (#1061)
 
 const SUGGESTED_QUERIES = [
   'Abu Hurayra',
@@ -152,6 +149,16 @@ export default function SearchPage() {
   const collectionOptions = (collectionsData?.items ?? [])
     .map((c) => c.name_en)
     .sort((a, b) => a.localeCompare(b))
+
+  // Topic facet options, derived from the live `/hadiths/facets` response so the
+  // filter presents exactly the canonical vocabulary the backend aggregates
+  // against (incl. the uncategorized bucket), with per-bucket counts. (#1061)
+  const { data: hadithFacets } = useQuery({
+    queryKey: ['hadith-facets'],
+    queryFn: fetchHadithFacets,
+    staleTime: 5 * 60 * 1000,
+  })
+  const topicOptions = hadithFacets?.topics ?? []
 
   // Close typeahead on outside click
   useEffect(() => {
@@ -376,17 +383,25 @@ export default function SearchPage() {
           <h4 id="filter-topic" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
             Topic
           </h4>
-          {TOPICS.map((t) => (
-            <label key={t} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={filters.topics.includes(t)}
-                onChange={() => toggleFilter('topics', t)}
-                className="rounded"
-              />
-              {t}
-            </label>
-          ))}
+          {topicOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No topics available</p>
+          ) : (
+            topicOptions.map((t) => (
+              <label
+                key={t.value}
+                className="flex items-center gap-2 py-1 cursor-pointer text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.topics.includes(t.value)}
+                  onChange={() => toggleFilter('topics', t.value)}
+                  className="rounded"
+                />
+                <span className="flex-1">{t.label}</span>
+                <span className="text-muted-foreground tabular-nums">{t.count}</span>
+              </label>
+            ))
+          )}
         </div>
       )}
 

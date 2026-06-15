@@ -100,7 +100,8 @@ def test_search_populates_facet_metadata(client: TestClient, mock_neo4j: MagicMo
     hadith = next(r for r in results if r["type"] == "hadith")
     assert hadith["collection"] == "Sahih al-Bukhari"
     assert hadith["grade"] == "sahih"  # normalized from "Sahih - Authentic"
-    assert hadith["topics"] == ["intentions"]
+    # Raw tag "intentions" maps onto the canonical "akhlaq" topic (#1061).
+    assert hadith["topics"] == ["akhlaq"]
     assert hadith["century"] is None
 
 

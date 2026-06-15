@@ -45,9 +45,18 @@ export interface Hadith {
   has_sunni_parallel: boolean
 }
 
+export interface TopicFacet {
+  /** Canonical topic token, or "uncategorized". */
+  value: string
+  label: string
+  count: number
+}
+
 export interface HadithFacetsResponse {
   source_corpus: string[]
   grades: string[]
+  /** Canonical topic vocabulary with per-bucket counts (incl. uncategorized). */
+  topics: TopicFacet[]
 }
 
 export interface Collection {

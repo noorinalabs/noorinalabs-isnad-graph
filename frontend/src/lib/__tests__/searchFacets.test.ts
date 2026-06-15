@@ -127,23 +127,29 @@ describe('matchesFacets', () => {
   })
 
   describe('topic facet', () => {
-    it('matches a topic tag against the parenthetical token of the label', () => {
-      const r = result({ type: 'hadith', topics: ['fiqh', 'prayer'] })
-      expect(matchesFacets(r, { ...NO_FACETS, topics: ['Jurisprudence (fiqh)'] })).toBe(true)
+    // `topics` holds canonical tokens (the backend maps free-text tags onto the
+    // vocabulary); the selection holds the same tokens. (#1061)
+    it('matches when a selected canonical token is present', () => {
+      const r = result({ type: 'hadith', topics: ['fiqh', 'ibadah'] })
+      expect(matchesFacets(r, { ...NO_FACETS, topics: ['fiqh'] })).toBe(true)
     })
 
-    it('matches a single-word label with no parenthetical', () => {
-      const r = result({ type: 'hadith', topics: ['eschatology'] })
-      expect(matchesFacets(r, { ...NO_FACETS, topics: ['Eschatology'] })).toBe(true)
+    it('drops a hadith with no overlapping canonical topic', () => {
+      const r = result({ type: 'hadith', topics: ['fiqh'] })
+      expect(matchesFacets(r, { ...NO_FACETS, topics: ['aqidah'] })).toBe(false)
     })
 
-    it('drops a hadith with no overlapping topic', () => {
-      const r = result({ type: 'hadith', topics: ['inheritance'] })
-      expect(matchesFacets(r, { ...NO_FACETS, topics: ['Theology (aqidah)'] })).toBe(false)
+    it('keeps a hadith with no topics under any topic filter (permissive)', () => {
+      expect(
+        matchesFacets(result({ type: 'hadith', topics: [] }), { ...NO_FACETS, topics: ['aqidah'] }),
+      ).toBe(true)
     })
 
-    it('keeps a hadith with no topic tags', () => {
-      expect(matchesFacets(result({ type: 'hadith', topics: [] }), { ...NO_FACETS, topics: ['Theology (aqidah)'] })).toBe(true)
+    it('uncategorized selection isolates empty-topic results, dropping categorized ones', () => {
+      const empty = result({ type: 'hadith', topics: [] })
+      const categorized = result({ type: 'hadith', topics: ['fiqh'] })
+      expect(matchesFacets(empty, { ...NO_FACETS, topics: ['uncategorized'] })).toBe(true)
+      expect(matchesFacets(categorized, { ...NO_FACETS, topics: ['uncategorized'] })).toBe(false)
     })
   })
 
@@ -154,7 +160,7 @@ describe('matchesFacets', () => {
         collections: ['Sahih al-Bukhari'],
         gradings: ['Sahih'],
         centuries: [],
-        topics: ['Jurisprudence (fiqh)'],
+        topics: ['fiqh'],
       }),
     ).toBe(true)
     expect(
@@ -162,7 +168,7 @@ describe('matchesFacets', () => {
         collections: ['Sahih al-Bukhari'],
         gradings: ['Hasan'], // grade mismatch fails the whole result
         centuries: [],
-        topics: ['Jurisprudence (fiqh)'],
+        topics: ['fiqh'],
       }),
     ).toBe(false)
   })
