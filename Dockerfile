@@ -28,7 +28,14 @@ FROM base AS embed
 WORKDIR /app
 COPY --from=embed-builder /app/.venv /app/.venv
 COPY . .
-ENV PATH="/app/.venv/bin:$PATH"
+# PYTHONPATH=/app puts the src-layout package on the import path for the `isnad`
+# console script. `uv sync` in embed-builder installs only deps (src/ isn't
+# copied there), and the generated /app/.venv/bin/isnad runs under the venv
+# interpreter, which does NOT add cwd to sys.path — so `import src` (from
+# `[project.scripts] isnad = "src.cli:main"`) fails without this. The api image
+# only survives the same gap because uvicorn inserts cwd onto sys.path. (#1093)
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app
 
 # Default to the 384-dim multilingual model (matches EMBEDDING_DIM / the
 # vector(384) column). Overridable by the deploy compose env. The build bakes the
@@ -49,7 +56,13 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
-ENV PATH="/app/.venv/bin:$PATH"
+# PYTHONPATH=/app defensively mirrors the embed stage: the api is launched via
+# `uvicorn src.api.app` and only imports `src` because uvicorn adds cwd to
+# sys.path. Anything invoking the `isnad` console script in this image (e.g. a
+# one-off `isnad …` exec) would hit the same `import src` gap as #1093. Harmless
+# for the uvicorn path, robust for the rest.
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app
 
 # No CMD here — docker-compose.prod.yml `command:` is the single source of truth
 # for the uvicorn invocation (includes --workers and other prod-specific flags).
