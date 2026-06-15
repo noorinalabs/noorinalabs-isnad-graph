@@ -17,6 +17,19 @@ vi.mock('../../../api/admin-client', () => ({
   setUserRole: vi.fn(),
 }))
 
+// Partial-mock the auth hook so the panel can read the current user's id (for
+// the self-demote guard) while keeping the real `deriveHighestRole` the page
+// also imports from this module.
+const mockUseAuth = vi.fn()
+vi.mock('../../../hooks/useAuth', async (importActual) => {
+  const actual = await importActual<typeof import('../../../hooks/useAuth')>()
+  return { ...actual, useAuth: () => mockUseAuth() }
+})
+
+// Current operator id used by default — distinct from the `u1` fixture so the
+// pre-existing role-change tests are NOT treated as self-edits.
+const SELF_ID = 'admin-self'
+
 // Role names kept as variables so the test survives any future vocab change.
 const READER = 'reader'
 const ADMIN = 'admin'
@@ -56,6 +69,7 @@ describe('UserManagementPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(fetchRoles).mockResolvedValue(CATALOG)
+    mockUseAuth.mockReturnValue({ user: { id: SELF_ID } })
   })
 
   it('shows the loading state initially', () => {
@@ -155,5 +169,62 @@ describe('UserManagementPage', () => {
     vi.mocked(fetchAdminUsers).mockResolvedValue({ items: [], next_cursor: null })
     renderPage()
     expect(await screen.findByText('No users found.')).toBeInTheDocument()
+  })
+
+  it('blocks an admin from removing admin from their OWN row and warns inline', async () => {
+    // The current operator IS this row, currently an admin.
+    mockUseAuth.mockReturnValue({ user: { id: SELF_ID } })
+    const list: AdminUserList = {
+      items: [makeUser({ id: SELF_ID, display_name: 'Me', roles: [ADMIN] })],
+      next_cursor: null,
+    }
+    vi.mocked(fetchAdminUsers).mockResolvedValue(list)
+    renderPage()
+
+    const select = (await screen.findByLabelText('Role for Me')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe(ADMIN))
+
+    fireEvent.change(select, { target: { value: READER } })
+
+    // Guard fires: no mutation, an inline alert, and the select stays on admin.
+    expect(setUserRole).not.toHaveBeenCalled()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/lock yourself out/i)
+    expect(select.value).toBe(ADMIN)
+  })
+
+  it('allows demoting a DIFFERENT admin (not a self-demote)', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: SELF_ID } })
+    const list: AdminUserList = {
+      items: [makeUser({ id: 'u2', display_name: 'Other', roles: [ADMIN] })],
+      next_cursor: null,
+    }
+    vi.mocked(fetchAdminUsers).mockResolvedValue(list)
+    vi.mocked(setUserRole).mockResolvedValue(undefined)
+    renderPage()
+
+    const select = (await screen.findByLabelText('Role for Other')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe(ADMIN))
+
+    fireEvent.change(select, { target: { value: READER } })
+
+    await waitFor(() => expect(setUserRole).toHaveBeenCalledOnce())
+    expect(setUserRole).toHaveBeenCalledWith('u2', READER, [ADMIN], CATALOG)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('surfaces a failed role-change mutation inline under the row', async () => {
+    const list: AdminUserList = { items: [makeUser({ roles: [READER] })], next_cursor: null }
+    vi.mocked(fetchAdminUsers).mockResolvedValue(list)
+    vi.mocked(setUserRole).mockRejectedValue(new Error('assign failed: 409 conflict'))
+    renderPage()
+
+    const select = (await screen.findByLabelText('Role for Amina')) as HTMLSelectElement
+    await waitFor(() => expect(select.value).toBe(READER))
+
+    fireEvent.change(select, { target: { value: ADMIN } })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('assign failed: 409 conflict')
   })
 })
