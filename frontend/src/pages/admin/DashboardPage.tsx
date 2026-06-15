@@ -58,7 +58,14 @@ const OBS_LINKS: ObsLink[] = [
   },
 ]
 
-function ObservabilitySection() {
+// Gated OFF until the app-session → Grafana SSO bridge ships (forward_auth RBAC
+// admin-gating — noorinalabs-deploy#458). Until then these links dead-end at
+// Grafana's own login wall (no single-sign-on), so we hide them rather than
+// ship a dead-end. Flip to `true` once deploy#458 lands (ig#1073).
+const OBSERVABILITY_LINKS_ENABLED = false
+
+// Exported for unit testing while the section is gated off the page (ig#1073).
+export function ObservabilitySection() {
   return (
     <section style={{ marginTop: 'var(--spacing-6)' }}>
       <h3
@@ -178,7 +185,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      <ObservabilitySection />
+      {OBSERVABILITY_LINKS_ENABLED && <ObservabilitySection />}
     </div>
   )
 }
