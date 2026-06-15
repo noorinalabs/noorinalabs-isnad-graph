@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchDashboardStats } from '../../api/admin-client'
+import { useAuth } from '../../hooks/useAuth'
+import { mintSsoCookie } from '../../api/sso-client'
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
@@ -58,14 +61,49 @@ const OBS_LINKS: ObsLink[] = [
   },
 ]
 
-// Gated OFF until the app-session → Grafana SSO bridge ships (forward_auth RBAC
-// admin-gating — noorinalabs-deploy#458). Until then these links dead-end at
-// Grafana's own login wall (no single-sign-on), so we hide them rather than
-// ship a dead-end. Flip to `true` once deploy#458 lands (ig#1073).
-const OBSERVABILITY_LINKS_ENABLED = false
-
-// Exported for unit testing while the section is gated off the page (ig#1073).
+// Re-enabled with the app-session → Grafana SSO bridge (ig#1081), reversing the
+// ig#1073 hide. A bare top-level navigation to `/grafana` would dead-end at
+// Grafana's own login wall, so on click we first mint a short-lived parent-domain
+// `nl_sso` cookie (POST /auth/sso-cookie — user-service#171) and only then
+// navigate. forward_auth on the Grafana vhost validates that cookie and admin-
+// gates access (noorinalabs-deploy#458). HARD CUTOVER: the live carry only works
+// once user-service#171 is deployed on the target env. Admin-gated by the caller
+// (DashboardPage renders this only when `isAdmin`).
 export function ObservabilitySection() {
+  // Which link is currently minting (drives the disabled/busy affordance); null
+  // when idle. `error` holds the inline failure copy for the most recent attempt.
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleNavigate(
+    e: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) {
+    // Always intercept: a default navigation would skip the cookie mint and
+    // dead-end at Grafana's login.
+    e.preventDefault()
+    if (pendingHref) return // a mint is already in flight
+    setError(null)
+    setPendingHref(href)
+    try {
+      // Await the mint (the browser stores the HttpOnly parent-domain cookie),
+      // THEN do a top-level navigation so SameSite=Lax carries it cross-subdomain.
+      await mintSsoCookie()
+      window.location.assign(href)
+      // On success the page is navigating away — leave `pendingHref` set so the
+      // links stay inert during the unload.
+    } catch (err) {
+      // 401/403/network: do NOT navigate (would dead-end at Grafana's login).
+      // ApiError carries a friendly, localized message; fall back for anything else.
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not start an observability session. Please try again.',
+      )
+      setPendingHref(null)
+    }
+  }
+
   return (
     <section style={{ marginTop: 'var(--spacing-6)' }}>
       <h3
@@ -77,6 +115,11 @@ export function ObservabilitySection() {
       >
         Observability
       </h3>
+      {error && (
+        <p className="error-text" role="alert" style={{ marginBottom: 'var(--spacing-3)' }}>
+          {error}
+        </p>
+      )}
       <div
         style={{
           display: 'grid',
@@ -84,48 +127,55 @@ export function ObservabilitySection() {
           gap: 'var(--spacing-4)',
         }}
       >
-        {OBS_LINKS.map(({ label, description, href }) => (
-          <a
-            key={href}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'block',
-              padding: 'var(--spacing-4)',
-              background: 'var(--color-card)',
-              border: 'var(--border-width-thin) solid var(--color-border)',
-              borderRadius: 'var(--radius-lg)',
-              textDecoration: 'none',
-              color: 'var(--color-foreground)',
-            }}
-          >
-            <div
+        {OBS_LINKS.map(({ label, description, href }) => {
+          const busy = pendingHref === href
+          return (
+            <a
+              key={href}
+              href={href}
+              onClick={(e) => handleNavigate(e, href)}
+              aria-busy={busy}
+              aria-disabled={pendingHref !== null}
               style={{
-                fontSize: 'var(--text-sm)',
-                fontWeight: 600,
-                fontFamily: 'var(--font-heading)',
-                marginBottom: 'var(--spacing-1)',
+                display: 'block',
+                padding: 'var(--spacing-4)',
+                background: 'var(--color-card)',
+                border: 'var(--border-width-thin) solid var(--color-border)',
+                borderRadius: 'var(--radius-lg)',
+                textDecoration: 'none',
+                color: 'var(--color-foreground)',
+                opacity: pendingHref !== null && !busy ? 0.6 : 1,
+                cursor: pendingHref !== null ? 'progress' : 'pointer',
               }}
             >
-              {label}
-            </div>
-            <div
-              style={{
-                fontSize: 'var(--text-xs)',
-                color: 'var(--color-muted-foreground)',
-              }}
-            >
-              {description}
-            </div>
-          </a>
-        ))}
+              <div
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-heading)',
+                  marginBottom: 'var(--spacing-1)',
+                }}
+              >
+                {busy ? `${label}…` : label}
+              </div>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--color-muted-foreground)',
+                }}
+              >
+                {description}
+              </div>
+            </a>
+          )
+        })}
       </div>
     </section>
   )
 }
 
 export default function DashboardPage() {
+  const { isAdmin } = useAuth()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-dashboard-stats'],
     queryFn: fetchDashboardStats,
@@ -185,7 +235,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      {OBSERVABILITY_LINKS_ENABLED && <ObservabilitySection />}
+      {isAdmin && <ObservabilitySection />}
     </div>
   )
 }

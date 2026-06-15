@@ -1,13 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import DataManagementPage from "../DataManagementPage"
-import { fetchDataOverview, fetchDataSources } from "../../../api/admin-client"
-import type { DataOverview, DataSources } from "../../../types/admin"
+import { fetchDataOverview, fetchDataSources, purgeSource } from "../../../api/admin-client"
+import type { DataOverview, DataSources, PurgeResult } from "../../../types/admin"
 
 vi.mock("../../../api/admin-client", () => ({
   fetchDataOverview: vi.fn(),
   fetchDataSources: vi.fn(),
+  purgeSource: vi.fn(),
 }))
 
 function renderPage() {
@@ -84,10 +86,13 @@ describe("DataManagementPage", () => {
     renderPage()
 
     await screen.findByText("Distinct Sources")
-    expect(screen.getByText("Provenance by Source Corpus")).toBeInTheDocument()
-    expect(screen.getByText("sunnah")).toBeInTheDocument()
-    expect(screen.getByText("40")).toBeInTheDocument()
-    expect(screen.getByText("thaqalayn")).toBeInTheDocument()
+    // Scope to the provenance section: the danger-zone purge dropdown below also
+    // renders the corpus names (as <option>s), so a bare getByText would be
+    // ambiguous.
+    const provSection = screen.getByText("Provenance by Source Corpus").closest("section")!
+    expect(within(provSection).getByText("sunnah")).toBeInTheDocument()
+    expect(within(provSection).getByText("40")).toBeInTheDocument()
+    expect(within(provSection).getByText("thaqalayn")).toBeInTheDocument()
   })
 
   it("shows empty-state copy when nothing is loaded", async () => {
@@ -110,5 +115,90 @@ describe("DataManagementPage", () => {
     })
     expect(screen.getByText("No relationships loaded.")).toBeInTheDocument()
     expect(screen.getByText("No source-attributed content loaded.")).toBeInTheDocument()
+  })
+})
+
+const PREVIEW: PurgeResult = {
+  source_corpus: "thaqalayn",
+  node_counts: [
+    { label: "Hadith", count: 7 },
+    { label: "Collection", count: 1 },
+  ],
+  relationship_counts: [{ rel_type: "APPEARS_IN", count: 7 }],
+  total_nodes: 8,
+  total_relationships: 7,
+  dry_run: true,
+  deleted: false,
+}
+
+describe("DataManagementPage — per-source purge (danger zone)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(fetchDataOverview).mockResolvedValue(OVERVIEW)
+    vi.mocked(fetchDataSources).mockResolvedValue(SOURCES)
+  })
+
+  it("previews removal (dry run) and shows the per-label breakdown", async () => {
+    const user = userEvent.setup()
+    vi.mocked(purgeSource).mockResolvedValue(PREVIEW)
+    renderPage()
+
+    await screen.findByText("Danger Zone — Per-source Purge")
+    // The dropdown options come from the (async) sources query.
+    await screen.findByRole("option", { name: "thaqalayn" })
+    await user.selectOptions(screen.getByLabelText("Source corpus"), "thaqalayn")
+    await user.click(screen.getByRole("button", { name: "Preview removal" }))
+
+    await screen.findByText("Dry-run preview")
+    // Dry run is non-destructive — confirmation flag false.
+    expect(purgeSource).toHaveBeenCalledWith("thaqalayn", true)
+    expect(screen.getByText("Hadith: 7")).toBeInTheDocument()
+    expect(screen.getByText("Collection: 1")).toBeInTheDocument()
+  })
+
+  it("keeps the purge disabled until the exact corpus name is typed, then executes", async () => {
+    const user = userEvent.setup()
+    vi.mocked(purgeSource)
+      .mockResolvedValueOnce(PREVIEW)
+      .mockResolvedValueOnce({ ...PREVIEW, dry_run: false, deleted: true })
+    renderPage()
+
+    await screen.findByText("Danger Zone — Per-source Purge")
+    await screen.findByRole("option", { name: "thaqalayn" })
+    await user.selectOptions(screen.getByLabelText("Source corpus"), "thaqalayn")
+    await user.click(screen.getByRole("button", { name: "Preview removal" }))
+    await screen.findByText("Dry-run preview")
+
+    const purgeBtn = screen.getByRole("button", { name: "Purge graph data" })
+    expect(purgeBtn).toBeDisabled()
+
+    // A wrong token keeps it disabled.
+    const confirm = screen.getByLabelText(/to confirm/)
+    await user.type(confirm, "wrong")
+    expect(purgeBtn).toBeDisabled()
+
+    await user.clear(confirm)
+    await user.type(confirm, "thaqalayn")
+    expect(purgeBtn).toBeEnabled()
+
+    await user.click(purgeBtn)
+    await screen.findByText("Purge complete")
+    // The real run carries the typed confirmation token.
+    expect(purgeSource).toHaveBeenLastCalledWith("thaqalayn", false, "thaqalayn")
+  })
+
+  it("surfaces a backend error from the preview call", async () => {
+    const user = userEvent.setup()
+    vi.mocked(purgeSource).mockRejectedValue(new Error("purge boom"))
+    renderPage()
+
+    await screen.findByText("Danger Zone — Per-source Purge")
+    await screen.findByRole("option", { name: "sunnah" })
+    await user.selectOptions(screen.getByLabelText("Source corpus"), "sunnah")
+    await user.click(screen.getByRole("button", { name: "Preview removal" }))
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Error: purge boom")
+    })
   })
 })

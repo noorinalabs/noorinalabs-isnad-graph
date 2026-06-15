@@ -6,6 +6,8 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from src.utils.grades import GRADE_TOKENS
+
 SAMPLE_HADITH = {
     "id": "hdt:lk:abu_dawud:10:1574",
     "matn_ar": "إنما الأعمال بالنيات",
@@ -16,34 +18,67 @@ SAMPLE_HADITH = {
 
 
 def test_get_hadith_facets_empty(client: TestClient) -> None:
-    """GET /api/v1/hadiths/facets returns empty list when no data."""
+    """Corpus facet is empty with no data, but the grade vocabulary is corpus-independent."""
     resp = client.get("/api/v1/hadiths/facets")
     assert resp.status_code == 200
     body = resp.json()
     assert body["source_corpus"] == []
+    # The grade facet exposes the full canonical vocabulary regardless of whether
+    # any hadiths are loaded — it no longer collapses to empty on a sparse corpus
+    # (#1062), so every valid grade stays reachable as a filter.
+    assert body["grades"] == sorted(GRADE_TOKENS)
+    # The canonical topic vocabulary is always present (stable facet), with zero
+    # counts and a zero uncategorized bucket when there are no hadiths (#1061).
+    values = [t["value"] for t in body["topics"]]
+    assert values == [
+        "aqidah",
+        "ibadah",
+        "fiqh",
+        "akhlaq",
+        "quran",
+        "sira",
+        "knowledge",
+        "eschatology",
+        "uncategorized",
+    ]
+    assert all(t["count"] == 0 for t in body["topics"])
 
 
 def test_get_hadith_facets_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
-    """GET /api/v1/hadiths/facets returns distinct corpus + normalized grade values."""
+    """Corpus facets from data; grade facet = full canonical vocab; topic facet aggregated."""
+    # Grades are sourced from the canonical enum (#1062), so the only DB reads are
+    # the corpus query and the per-hadith topic_tags scan (#1061).
     mock_neo4j.execute_read.side_effect = [
         # First call: corpus facets.
         [{"corpus": "lk"}, {"corpus": "sunnah"}, {"corpus": "thaqalayn"}],
-        # Second call: raw free-text grades off Grading nodes.
+        # Second call: per-hadith topic_tags for the canonical topic facet.
         [
-            {"grade": "Sahih - Authentic"},
-            {"grade": "Sahih-Authentic"},
-            {"grade": "Hasan Sahih"},
-            {"grade": "Da'if in chain"},
-            {"grade": "totally unknown"},
+            {"topic_tags": ["intentions", "prayer"]},  # akhlaq + ibadah
+            {"topic_tags": ["inheritance"]},  # fiqh
+            {"topic_tags": ["something obscure"]},  # uncategorized (no match)
+            {"topic_tags": []},  # uncategorized (no tags)
+            {"topic_tags": None},  # uncategorized (missing property)
         ],
     ]
     resp = client.get("/api/v1/hadiths/facets")
     assert resp.status_code == 200
     body = resp.json()
     assert body["source_corpus"] == ["lk", "sunnah", "thaqalayn"]
-    # Distinct normalized tokens, sorted; "Sahih - Authentic"/"Sahih-Authentic"
-    # collapse to one, and the unrecognized value is dropped.
-    assert body["grades"] == ["daif", "hasan_sahih", "sahih"]
+    # Grade facet = full canonical vocabulary (#1062); grades a sparse corpus used
+    # to hide are now facetable — see test_utils/test_grades.py for the predicate proof.
+    assert body["grades"] == sorted(GRADE_TOKENS)
+    for previously_unreachable in ("munkar", "shadh", "hasan_sahih"):
+        assert previously_unreachable in body["grades"]
+    # Topic facet: counts keyed by canonical token, incl. the uncategorized bucket (#1061).
+    counts = {t["value"]: t["count"] for t in body["topics"]}
+    assert counts["akhlaq"] == 1
+    assert counts["ibadah"] == 1
+    assert counts["fiqh"] == 1
+    assert counts["uncategorized"] == 3  # obscure tag + empty + missing
+    # Topics with no documents still appear (stable vocabulary).
+    assert counts["eschatology"] == 0
+    # Every bucket carries a human-readable label.
+    assert all(t["label"] for t in body["topics"])
 
 
 def test_list_hadiths_empty(client: TestClient) -> None:

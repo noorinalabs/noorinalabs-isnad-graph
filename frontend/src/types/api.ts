@@ -45,9 +45,18 @@ export interface Hadith {
   has_sunni_parallel: boolean
 }
 
+export interface TopicFacet {
+  /** Canonical topic token, or "uncategorized". */
+  value: string
+  label: string
+  count: number
+}
+
 export interface HadithFacetsResponse {
   source_corpus: string[]
   grades: string[]
+  /** Canonical topic vocabulary with per-bucket counts (incl. uncategorized). */
+  topics: TopicFacet[]
 }
 
 export interface Collection {
@@ -145,8 +154,13 @@ export interface ParallelsResponse {
 export interface ParallelPair {
   hadith_a_id: string
   hadith_a_corpus: string
+  // Human-readable title + short matn preview for readable Browse rows (#1037).
+  hadith_a_title?: string | null
+  hadith_a_snippet?: string | null
   hadith_b_id: string
   hadith_b_corpus: string
+  hadith_b_title?: string | null
+  hadith_b_snippet?: string | null
   similarity_score: number | null
   variant_type: string | null
   cross_sect: boolean

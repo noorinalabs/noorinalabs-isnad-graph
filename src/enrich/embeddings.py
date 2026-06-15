@@ -14,11 +14,13 @@ already targets ``isnad_graph.hadith_embeddings`` / ``isnad_graph.hadiths`` and
 Postgres is the established home for vectors. The loader here writes there and
 the endpoint reads from there — one backend, both sides aligned.
 
-Embedder choice — why pluggable and dependency-free by default:
-This repo carries **no heavy ML runtime** (no ``torch`` / ``sentence-transformers``;
-``make setup`` is a bare ``uv sync``) and runs on Python 3.14, for which those
-wheels are not yet published. A hard ML dependency would break ``make setup`` and
-CI. So the embedder is a small :class:`Embedder` protocol with two
+Embedder choice — why pluggable, dependency-free by default:
+The default install carries **no heavy ML runtime**: ``torch`` /
+``sentence-transformers`` are an *optional* extra (``[project.optional-dependencies]
+ml``), so ``make setup`` (a bare ``uv sync``), CI, and the lean API image all stay
+torch-free. The extra is installed only in the dedicated embed image
+(``uv sync --extra ml`` — see the Dockerfile ``embed`` target) for the production
+re-embed (#1071). So the embedder is a small :class:`Embedder` protocol with two
 implementations:
 
 * :class:`HashingEmbedder` — deterministic, pure-Python, zero-dependency. This is
@@ -42,11 +44,17 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+from collections.abc import Sequence
 from functools import lru_cache
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from src.config import get_settings
-from src.models.enrich import EmbeddingLoadResult
+from src.models.enrich import (
+    EmbeddingLoadResult,
+    RecallCheck,
+    RecallVerificationResult,
+    ReindexEmbeddingsResult,
+)
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -55,6 +63,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFAULT_BATCH_SIZE",
+    "DEFAULT_IVFFLAT_LISTS",
+    "DEFAULT_RECALL_QUERIES",
     "EMBEDDING_DIM",
     "Embedder",
     "HashingEmbedder",
@@ -63,8 +73,10 @@ __all__ = [
     "ensure_embedding_schema",
     "fetch_hadiths_from_neo4j",
     "get_embedder",
+    "reindex_embeddings",
     "run_embedding_load",
     "to_pgvector_literal",
+    "verify_recall",
 ]
 
 log = get_logger(__name__)
@@ -79,6 +91,30 @@ EMBEDDING_DIM = 384
 HASHING_MODEL_NAME = "hashing"
 
 DEFAULT_BATCH_SIZE = 256
+
+# Canonical ivfflat index name (created by ``ensure_embedding_schema``) and the
+# transient name a concurrent rebuild builds under before the atomic swap (#1057).
+_CANONICAL_INDEX = "hadith_embeddings_embedding_idx"
+_NEW_INDEX = "hadith_embeddings_embedding_idx_new"
+
+# ivfflat ``lists`` for the rebuilt index. pgvector guidance is ~sqrt(rows) for
+# rows up to ~1M; the corpus is ~34,028 hadiths, so sqrt(34028) ≈ 185 (up from
+# the schema's initial 100, which was sized for a near-empty table). Overridable
+# via ``isnad reindex-embeddings --lists N`` once the real row count is known.
+DEFAULT_IVFFLAT_LISTS = 185
+
+# Default known-topic queries for the recall smoke check / deploy gate (#1088).
+DEFAULT_RECALL_QUERIES: tuple[str, ...] = ("patience", "prayer")
+
+# Topical keywords accepted as evidence a query surfaced relevant hadiths. The
+# corpus matn is English + Arabic (and the embedder prefers matn_en), so common
+# English topic words plus their Arabic transliterations cover both the
+# dependency-free hashing path (CI) and a real multilingual model (cluster). A
+# query absent from this map falls back to matching its own lowercased token.
+_RECALL_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "patience": ("patience", "patient", "sabr", "persever", "endur"),
+    "prayer": ("prayer", "pray", "salah", "salat", "worship"),
+}
 
 # Unicode-aware word tokenizer: ``\w+`` under ``re.UNICODE`` keeps Arabic letters
 # as well as Latin/digits, so both matn_ar and matn_en contribute tokens.
@@ -231,16 +267,33 @@ def embedding_text(matn_ar: str | None, matn_en: str | None) -> str:
     return (matn_en or matn_ar or "").strip()
 
 
+# Projects the matn text plus the facet metadata the search page filters on
+# (collection / grade / topic). ``grade`` resolves the connected Grading node and
+# falls back to the legacy flat properties, mirroring the search route's
+# ``_fulltext_hadith_search`` ``coalesce`` so the semantic path carries the same
+# raw grade the fulltext path normalises (#1060). Mirroring this metadata into the
+# pgvector-side ``isnad_graph.hadiths`` projection is what lets facets refine
+# semantic results.
 _FETCH_HADITHS_QUERY = """
 MATCH (h:Hadith)
-RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en
+OPTIONAL MATCH (h)-[:GRADED_BY]->(g:Grading)
+RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en,
+       h.collection_name AS collection_name,
+       h.topic_tags AS topic_tags,
+       coalesce(g.grade, h.grade_composite, h.grade) AS grade
 """
 
 
 def fetch_hadiths_from_neo4j(
     neo4j: Neo4jClient, *, limit: int | None = None
-) -> list[dict[str, str | None]]:
-    """Read ``(id, matn_ar, matn_en)`` for every Hadith node (source of truth)."""
+) -> list[dict[str, Any]]:
+    """Read matn text + facet metadata for every Hadith node (source of truth).
+
+    Returns ``id``, ``matn_ar``, ``matn_en`` (the embedded/displayed text) plus
+    ``collection_name``, ``grade``, and ``topic_tags`` — the facet metadata the
+    search page filters on, projected here so it lands in pgvector alongside the
+    embedding (#1060).
+    """
     query = _FETCH_HADITHS_QUERY
     params: dict[str, int] = {}
     if limit is not None:
@@ -263,10 +316,25 @@ def ensure_embedding_schema(pg: PgClient, dim: int = EMBEDDING_DIM) -> None:
     pg.execute(
         """
         CREATE TABLE IF NOT EXISTS isnad_graph.hadiths (
-            id      text PRIMARY KEY,
-            matn_ar text,
-            matn_en text
+            id              text PRIMARY KEY,
+            matn_ar         text,
+            matn_en         text,
+            collection_name text,
+            grade           text,
+            topic_tags      text[]
         )
+        """
+    )
+    # Backfill the facet columns on a pre-existing ``hadiths`` table (the
+    # CREATE above is a no-op once the table exists). Idempotent, so re-running
+    # the loader against an older deployment adds the metadata projection
+    # without a separate migration (#1060).
+    pg.execute(
+        """
+        ALTER TABLE isnad_graph.hadiths
+            ADD COLUMN IF NOT EXISTS collection_name text,
+            ADD COLUMN IF NOT EXISTS grade           text,
+            ADD COLUMN IF NOT EXISTS topic_tags      text[]
         """
     )
     pg.execute(
@@ -291,10 +359,14 @@ def ensure_embedding_schema(pg: PgClient, dim: int = EMBEDDING_DIM) -> None:
 
 
 _UPSERT_HADITH_SQL = """
-INSERT INTO isnad_graph.hadiths (id, matn_ar, matn_en)
-VALUES (%s, %s, %s)
+INSERT INTO isnad_graph.hadiths (id, matn_ar, matn_en, collection_name, grade, topic_tags)
+VALUES (%s, %s, %s, %s, %s, %s)
 ON CONFLICT (id) DO UPDATE
-SET matn_ar = EXCLUDED.matn_ar, matn_en = EXCLUDED.matn_en
+SET matn_ar = EXCLUDED.matn_ar,
+    matn_en = EXCLUDED.matn_en,
+    collection_name = EXCLUDED.collection_name,
+    grade = EXCLUDED.grade,
+    topic_tags = EXCLUDED.topic_tags
 """
 
 _UPSERT_EMBEDDING_SQL = """
@@ -342,7 +414,16 @@ def run_embedding_load(
                 skipped_empty += 1
                 continue
             text = embedding_text(row.get("matn_ar"), row.get("matn_en"))
-            hadith_params.append((hadith_id, row.get("matn_ar"), row.get("matn_en")))
+            hadith_params.append(
+                (
+                    hadith_id,
+                    row.get("matn_ar"),
+                    row.get("matn_en"),
+                    row.get("collection_name"),
+                    row.get("grade"),
+                    row.get("topic_tags"),
+                )
+            )
             if not text:
                 skipped_empty += 1
                 continue
@@ -377,5 +458,151 @@ def run_embedding_load(
         skipped_empty=skipped_empty,
         model_name=active.model_name,
         dim=active.dim,
+    )
+    return result
+
+
+def reindex_embeddings(
+    pg: PgClient, *, lists: int = DEFAULT_IVFFLAT_LISTS
+) -> ReindexEmbeddingsResult:
+    """Rebuild the ivfflat cosine index with a tuned ``lists`` (idempotent) (#1057).
+
+    After a bulk ``embed-hadiths`` load the ivfflat index should be rebuilt so its
+    ``lists`` partition count matches the populated row count (a count chosen for a
+    near-empty table gives poor recall once tens of thousands of rows land). This
+    does it **without taking semantic search down**:
+
+    1. ``CREATE INDEX CONCURRENTLY`` builds the new index while the live index
+       keeps serving ``/search/semantic`` — no ``ACCESS EXCLUSIVE`` lock on it.
+    2. An atomic swap (drop the old index, rename the new one to the canonical
+       name, one transaction) flips queries onto the new index with no window in
+       which neither index exists.
+
+    Idempotent and safe to re-run: a leftover ``*_new`` index from a previously
+    aborted build (which Postgres marks ``INVALID``) is dropped first, so a retry
+    always starts clean. ``lists`` must be a positive int — it is interpolated
+    into DDL (a value that cannot be a bound parameter), so it is validated to
+    keep the interpolation injection-safe.
+    """
+    if not isinstance(lists, int) or lists <= 0:
+        raise ValueError(f"lists must be a positive int, got {lists!r}")
+
+    # Guarantee the table, extension, and a canonical index exist before we swap.
+    ensure_embedding_schema(pg)
+
+    # 1. Clear any INVALID leftover from a prior aborted concurrent build.
+    pg.execute_autocommit(f"DROP INDEX CONCURRENTLY IF EXISTS isnad_graph.{_NEW_INDEX}")
+
+    # 2. Build the replacement concurrently — the live index keeps serving reads.
+    pg.execute_autocommit(
+        f"CREATE INDEX CONCURRENTLY {_NEW_INDEX} "
+        f"ON isnad_graph.hadith_embeddings "
+        f"USING ivfflat (embedding vector_cosine_ops) WITH (lists = {lists})"
+    )
+
+    # 3. Atomic swap: drop the old index and rename the new one into its place.
+    pg.execute_transaction(
+        [
+            f"DROP INDEX IF EXISTS isnad_graph.{_CANONICAL_INDEX}",
+            f"ALTER INDEX isnad_graph.{_NEW_INDEX} RENAME TO {_CANONICAL_INDEX}",
+        ]
+    )
+
+    log.info("embeddings_reindexed", lists=lists, index_name=_CANONICAL_INDEX)
+    return ReindexEmbeddingsResult(lists=lists, index_name=_CANONICAL_INDEX)
+
+
+_EMBEDDINGS_COUNT_SQL = "SELECT count(*) AS n FROM isnad_graph.hadith_embeddings"
+
+# Hadiths that *should* carry an embedding: those with any matn text. Mirrors the
+# loader's ``embedding_text`` skip rule (empty text → no vector), so equality with
+# the embeddings count means every embeddable hadith was embedded.
+_EMBEDDABLE_COUNT_SQL = (
+    "SELECT count(*) AS n FROM isnad_graph.hadiths WHERE coalesce(matn_en, matn_ar, '') <> ''"
+)
+
+# Same cosine ranking the ``/search/semantic`` endpoint runs, so the gate exercises
+# the real query path against the populated table.
+_RECALL_SEARCH_SQL = """
+SELECT h.matn_ar, h.matn_en,
+       1 - (e.embedding <=> %s::vector) AS score
+FROM isnad_graph.hadith_embeddings e
+JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
+ORDER BY e.embedding <=> %s::vector
+LIMIT %s
+"""
+
+
+def verify_recall(
+    pg: PgClient,
+    queries: Sequence[str] = DEFAULT_RECALL_QUERIES,
+    *,
+    top_k: int = 5,
+    embedder: Embedder | None = None,
+) -> RecallVerificationResult:
+    """Smoke-check that semantic search returns topically relevant hits (#1088).
+
+    This is the deploy workflow's verification gate after a re-embed: it proves
+    the table is populated and the live query path surfaces on-topic hadiths,
+    catching the failure modes a re-embed can leave behind — an empty/partial
+    table, an all-zero/degenerate vector set, or a dimension mismatch.
+
+    Two layers, both must pass for :attr:`RecallVerificationResult.passed`:
+
+    * **Structural** — at least one embedding exists and the embedding count
+      equals the number of hadiths with matn text (every embeddable hadith was
+      embedded; not a partial load).
+    * **Per-query topical** — each query is embedded and cosine-ranked exactly as
+      the endpoint does; the check passes when it returns hits, the top hit has a
+      strictly positive similarity, and at least one of the top-``k`` results'
+      matn mentions a topic keyword (see :data:`_RECALL_KEYWORDS`).
+
+    Read-only: it never writes, so it is safe to run against production.
+    """
+    if top_k <= 0:
+        raise ValueError(f"top_k must be positive, got {top_k}")
+
+    active = embedder or get_embedder()
+
+    embeddings_count = int(pg.execute(_EMBEDDINGS_COUNT_SQL)[0]["n"])
+    embeddable_count = int(pg.execute(_EMBEDDABLE_COUNT_SQL)[0]["n"])
+    structural_ok = embeddings_count > 0 and embeddings_count == embeddable_count
+
+    checks: list[RecallCheck] = []
+    for query in queries:
+        query_vector = to_pgvector_literal(active.embed([query])[0])
+        rows = pg.execute(_RECALL_SEARCH_SQL, (query_vector, query_vector, top_k))
+        top_score = float(rows[0]["score"]) if rows else 0.0
+        haystack = " ".join(
+            f"{row.get('matn_en') or ''} {row.get('matn_ar') or ''}" for row in rows
+        ).lower()
+        keywords = _RECALL_KEYWORDS.get(query.lower(), (query.lower(),))
+        keyword_matched = any(keyword in haystack for keyword in keywords)
+        passed = bool(rows) and top_score > 0.0 and keyword_matched
+        checks.append(
+            RecallCheck(
+                query=query,
+                hits=len(rows),
+                top_score=top_score,
+                keyword_matched=keyword_matched,
+                passed=passed,
+            )
+        )
+
+    passed = structural_ok and all(check.passed for check in checks)
+    result = RecallVerificationResult(
+        embeddings_count=embeddings_count,
+        embeddable_count=embeddable_count,
+        structural_ok=structural_ok,
+        checks=checks,
+        passed=passed,
+    )
+    log.info(
+        "recall_verification_complete",
+        embeddings_count=embeddings_count,
+        embeddable_count=embeddable_count,
+        structural_ok=structural_ok,
+        passed=passed,
+        model_name=active.model_name,
     )
     return result

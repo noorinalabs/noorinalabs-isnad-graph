@@ -3,7 +3,7 @@ import { getAuthHeaders } from './auth-headers'
 import { refreshAccessToken } from './token-refresh'
 import { apiError } from './api-error'
 
-// Absolute URL targeting the user-service vhost (`users.{base}`). See
+// Absolute URLs targeting the user-service vhost (`users.{base}`). See
 // useAuth.ts for the full BASE-constant set and the runtime-vs-build-time
 // resolution rationale; kept duplicated here to avoid a barrel-export refactor
 // inside this PR.
@@ -11,7 +11,11 @@ const USER_SERVICE_ORIGIN =
   (typeof window !== 'undefined' && window.RUNTIME_CONFIG?.USER_SERVICE_ORIGIN) ||
   import.meta.env.VITE_USER_SERVICE_ORIGIN ||
   ''
-const API_BASE = `${USER_SERVICE_ORIGIN}/api/v1/users/me`
+// `/api/v1/users/me` covers the user record (PATCH) and its preferences blob
+// (`/profile`). Sessions are a sibling collection at `/api/v1/sessions` — NOT
+// under `/users/me` — matching the user-service routers (us#165 / sessions US#7).
+const USER_BASE = `${USER_SERVICE_ORIGIN}/api/v1/users/me`
+const SESSIONS_BASE = `${USER_SERVICE_ORIGIN}/api/v1/sessions`
 
 // Issue an authenticated request; on a 401 attempt ONE shared token refresh
 // (POST /auth/token/refresh via the httpOnly refresh cookie) and retry the
@@ -46,54 +50,80 @@ async function fetchProfileJson<T>(url: string, init?: RequestInit): Promise<T> 
   return res.json() as Promise<T>
 }
 
+/**
+ * A user's UI/UX preferences (the JSONB blob behind `/users/me/profile`).
+ *
+ * The user-service type-checks only the two well-known keys — `theme` and
+ * `language` — and round-trips any other key untouched (`extra="allow"`, 8 KB
+ * cap). The index signature models that pass-through: a read-modify-write of the
+ * whole object must preserve keys this client does not know about.
+ */
 export interface UserPreferences {
-  default_search_mode: string
-  results_per_page: number
-  language_preference: string
-  theme_preference: string
+  theme?: 'light' | 'dark' | 'system'
+  language?: string
+  default_search_mode?: string
+  results_per_page?: number
+  [key: string]: unknown
 }
 
-export interface UserProfile {
-  id: string
-  email: string
-  name: string
-  provider: string
-  role: string | null
-  is_admin: boolean
-  created_at: string
+export interface ProfileRead {
+  user_id: string
   preferences: UserPreferences
 }
 
 export interface SessionInfo {
   id: string
-  created_at: string
-  last_active: string
   ip_address: string | null
   user_agent: string | null
+  created_at: string
+  last_active: string
+  expires_at: string
   is_current: boolean
 }
 
-export async function fetchProfile(): Promise<UserProfile> {
-  return fetchProfileJson(`${API_BASE}/profile`)
+interface SessionListResponse {
+  sessions: SessionInfo[]
+  count: number
 }
 
-export async function updateProfile(body: {
-  display_name?: string
-  preferences?: UserPreferences
-}): Promise<UserProfile> {
-  return fetchProfileJson(`${API_BASE}/profile`, {
+export async function fetchProfile(): Promise<ProfileRead> {
+  return fetchProfileJson(`${USER_BASE}/profile`)
+}
+
+/**
+ * Replace the preferences blob wholesale. The endpoint is PUT with REPLACE
+ * semantics (us#165) — there is no server-side merge — so callers MUST pass the
+ * full object (read-modify-write) or unrelated keys are dropped.
+ */
+export async function replacePreferences(preferences: UserPreferences): Promise<ProfileRead> {
+  return fetchProfileJson(`${USER_BASE}/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preferences }),
+  })
+}
+
+/**
+ * Update the display name. This lives on the user record, not the preferences
+ * blob, so it is a PATCH to `/users/me` (UserUpdate) — distinct from the
+ * preferences PUT above.
+ */
+export async function updateDisplayName(displayName: string): Promise<void> {
+  await fetchProfileJson(USER_BASE, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ display_name: displayName }),
   })
 }
 
 export async function fetchSessions(): Promise<SessionInfo[]> {
-  return fetchProfileJson(`${API_BASE}/sessions`)
+  // The list endpoint wraps the rows in `{ sessions, count }`; callers want the rows.
+  const data = await fetchProfileJson<SessionListResponse>(SESSIONS_BASE)
+  return data.sessions
 }
 
 export async function revokeSession(sessionId: string): Promise<void> {
-  const res = await fetchWithRefresh(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}`, {
+  const res = await fetchWithRefresh(`${SESSIONS_BASE}/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
   })
   if (res.status === 401) {

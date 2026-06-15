@@ -15,19 +15,31 @@ from .routes import PARALLELS
 # An intra-sect (sunni-sunni) pair and a cross-sect (sunni-shia) pair, proving the
 # Browse feed is not restricted to cross-sect pairings.
 INTRA_PAIR = {
-    "a_id": "hadith:bukhari:1",
+    "a_id": "hdt:sunni:bukhari:1:1",
     "a_corpus": "bukhari",
-    "b_id": "hadith:muslim:1",
+    "a_collection": "Sahih al-Bukhari",
+    "a_matn_en": "Actions are but by intentions.",
+    "a_matn_ar": "إنما الأعمال بالنيات",
+    "b_id": "hdt:sunni:muslim:1:1",
     "b_corpus": "muslim",
+    "b_collection": "Sahih Muslim",
+    "b_matn_en": "Deeds are by intentions.",
+    "b_matn_ar": "الأعمال بالنية",
     "similarity_score": 0.97,
     "variant_type": "verbatim",
     "cross_sect": False,
 }
 CROSS_PAIR = {
-    "a_id": "hadith:bukhari:2",
+    "a_id": "hdt:sunni:bukhari:2:9",
     "a_corpus": "bukhari",
-    "b_id": "hadith:kafi:5",
+    "a_collection": "Sahih al-Bukhari",
+    "a_matn_en": None,
+    "a_matn_ar": None,
+    "b_id": "hdt:shia:kafi:5",
     "b_corpus": "kafi",
+    "b_collection": "Al-Kafi",
+    "b_matn_en": None,
+    "b_matn_ar": None,
     "similarity_score": 0.88,
     "variant_type": "close_paraphrase",
     "cross_sect": True,
@@ -54,8 +66,42 @@ def test_list_parallels_spans_both_sects(client: TestClient, mock_neo4j: MagicMo
     assert body["total"] == 2
     assert {p["cross_sect"] for p in body["items"]} == {False, True}
     intra = next(p for p in body["items"] if not p["cross_sect"])
-    assert intra["hadith_a_id"] == "hadith:bukhari:1"
+    assert intra["hadith_a_id"] == "hdt:sunni:bukhari:1:1"
     assert intra["hadith_b_corpus"] == "muslim"
+
+
+def test_list_parallels_enriches_rows_with_title_and_snippet(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """Each Browse row carries a human-readable title and a matn preview (#1037)."""
+    mock_neo4j.execute_read.side_effect = [[{"total": 2}], [INTRA_PAIR, CROSS_PAIR]]
+    resp = client.get(PARALLELS)
+    assert resp.status_code == 200
+    intra = next(p for p in resp.json()["items"] if not p["cross_sect"])
+    # Title derived from collection_name + the book:hadith tail of the ID.
+    assert intra["hadith_a_title"] == "Sahih al-Bukhari 1:1"
+    assert intra["hadith_b_title"] == "Sahih Muslim 1:1"
+    # Snippet prefers the English translation.
+    assert intra["hadith_a_snippet"] == "Actions are but by intentions."
+
+    # When a hadith has neither translation, the snippet is null (title-only row).
+    cross = next(p for p in resp.json()["items"] if p["cross_sect"])
+    assert cross["hadith_a_snippet"] is None
+    assert cross["hadith_a_title"] == "Sahih al-Bukhari 2:9"
+
+
+def test_list_parallels_truncates_long_snippet(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A long matn is clipped to a single-line preview with an ellipsis (#1037)."""
+    long_pair = {
+        **INTRA_PAIR,
+        "a_matn_en": "word " * 80,  # ~400 chars
+    }
+    mock_neo4j.execute_read.side_effect = [[{"total": 1}], [long_pair]]
+    resp = client.get(PARALLELS)
+    snippet = resp.json()["items"][0]["hadith_a_snippet"]
+    assert snippet is not None
+    assert snippet.endswith("…")
+    assert len(snippet) <= 141  # 140 chars + ellipsis
 
 
 def test_list_parallels_no_facet_omits_where_clause(

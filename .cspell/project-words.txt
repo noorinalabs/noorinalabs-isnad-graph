@@ -135,6 +135,13 @@ Sunnah
 Bukhari
 Muslim
 sectarian
+# topic facet vocabulary (#1061) — cspell is case-insensitive, lowercase covers both
+akhlaq
+aqidah
+fiqh
+ibadah
+sira
+tafsir
 ontology
 Pydantic
 structlog

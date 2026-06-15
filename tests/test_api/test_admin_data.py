@@ -14,7 +14,11 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock
 
-from src.api.routes.admin.data import data_overview, data_sources
+import pytest
+from fastapi import HTTPException
+
+from src.api.auth import User
+from src.api.routes.admin.data import PurgeRequest, data_overview, data_sources, purge_source
 
 
 def _loaded_read(query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -111,9 +115,129 @@ class TestDataSources:
 
 
 def test_data_router_is_registered() -> None:
-    """The data sub-router is mounted under the admin group with both routes."""
+    """The data sub-router is mounted under the admin group with its routes."""
     from src.api.routes.admin import router as admin_router
 
     paths = {route.path for route in admin_router.routes}  # type: ignore[attr-defined]
     assert "/data/overview" in paths
     assert "/data/sources" in paths
+    assert "/data/purge" in paths
+
+
+def _admin() -> User:
+    return User(id="admin-1", email="admin@example.com", name="Admin One", role="admin")
+
+
+def _purge_read(query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Stand-in for execute_read against a graph holding one purgeable corpus."""
+    q = " ".join(query.split())
+    corpus = (params or {}).get("corpus")
+    if corpus != "thaqalayn":
+        # An unknown corpus matches nothing — preview counts are all zero.
+        return []
+    if "UNWIND labels(n) AS label" in q:
+        return [
+            {"label": "Hadith", "c": 7},
+            {"label": "Collection", "c": 1},
+        ]
+    if "count(DISTINCT r)" in q:
+        return [
+            {"rel_type": "APPEARS_IN", "c": 7},
+            {"rel_type": "NARRATED", "c": 12},
+        ]
+    return []
+
+
+def _purge_client() -> MagicMock:
+    client = MagicMock()
+    client.execute_read.side_effect = _purge_read
+    client.execute_write.return_value = []
+    return client
+
+
+class TestPurgeSource:
+    def test_dry_run_previews_without_writing(self) -> None:
+        client = _purge_client()
+        resp = purge_source(
+            body=PurgeRequest(source_corpus="thaqalayn", dry_run=True),
+            admin=_admin(),
+            neo4j=client,
+        )
+
+        assert resp.dry_run is True
+        assert resp.deleted is False
+        assert resp.total_nodes == 8
+        assert resp.total_relationships == 19
+        by_label = {n.label: n.count for n in resp.node_counts}
+        assert by_label == {"Hadith": 7, "Collection": 1}
+        # Counts are sorted by descending count.
+        assert [n.label for n in resp.node_counts] == ["Hadith", "Collection"]
+        # A dry run NEVER writes to the graph.
+        client.execute_write.assert_not_called()
+
+    def test_real_run_requires_matching_confirmation(self) -> None:
+        client = _purge_client()
+        with pytest.raises(HTTPException) as exc:
+            purge_source(
+                body=PurgeRequest(source_corpus="thaqalayn", dry_run=False, confirmation="wrong"),
+                admin=_admin(),
+                neo4j=client,
+            )
+        assert exc.value.status_code == 400
+        # Aborted before any destructive write.
+        client.execute_write.assert_not_called()
+
+    def test_real_run_missing_confirmation_aborts(self) -> None:
+        client = _purge_client()
+        with pytest.raises(HTTPException) as exc:
+            purge_source(
+                body=PurgeRequest(source_corpus="thaqalayn", dry_run=False),
+                admin=_admin(),
+                neo4j=client,
+            )
+        assert exc.value.status_code == 400
+        client.execute_write.assert_not_called()
+
+    def test_real_run_deletes_and_audits(self) -> None:
+        client = _purge_client()
+        resp = purge_source(
+            body=PurgeRequest(source_corpus="thaqalayn", dry_run=False, confirmation="thaqalayn"),
+            admin=_admin(),
+            neo4j=client,
+        )
+
+        assert resp.dry_run is False
+        assert resp.deleted is True
+        assert resp.total_nodes == 8
+        assert resp.total_relationships == 19
+
+        writes = [c.args[0] for c in client.execute_write.call_args_list]
+        # First write is the DETACH DELETE scoped to the corpus...
+        assert "DETACH DELETE" in writes[0]
+        assert client.execute_write.call_args_list[0].args[1] == {"corpus": "thaqalayn"}
+        # ...followed by an audit-log CREATE.
+        assert any("AUDIT_LOG" in w for w in writes)
+
+    def test_blank_corpus_is_rejected(self) -> None:
+        client = _purge_client()
+        with pytest.raises(HTTPException) as exc:
+            purge_source(
+                body=PurgeRequest(source_corpus="   ", dry_run=True),
+                admin=_admin(),
+                neo4j=client,
+            )
+        assert exc.value.status_code == 422
+        client.execute_write.assert_not_called()
+
+    def test_write_failure_surfaces_503(self) -> None:
+        client = _purge_client()
+        client.execute_write.side_effect = RuntimeError("neo4j down")
+        with pytest.raises(HTTPException) as exc:
+            purge_source(
+                body=PurgeRequest(
+                    source_corpus="thaqalayn", dry_run=False, confirmation="thaqalayn"
+                ),
+                admin=_admin(),
+                neo4j=client,
+            )
+        assert exc.value.status_code == 503

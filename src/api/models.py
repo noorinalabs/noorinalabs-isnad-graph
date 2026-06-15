@@ -113,6 +113,20 @@ class HadithResponse(BaseModel):
     has_sunni_parallel: bool = False
 
 
+class TopicFacet(BaseModel):
+    """A canonical topic facet bucket with its document count.
+
+    ``value`` is the canonical token (see ``src.utils.topics.TOPIC_LABELS``) or
+    ``"uncategorized"`` for hadiths whose tags map to no canonical topic.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    value: str
+    label: str
+    count: int
+
+
 class HadithFacetsResponse(BaseModel):
     """Distinct facet values available for filtering hadiths."""
 
@@ -120,6 +134,10 @@ class HadithFacetsResponse(BaseModel):
 
     source_corpus: list[str]
     grades: list[str] = []
+    # Canonical topic vocabulary with per-bucket document counts, including the
+    # ``uncategorized`` bucket. The full vocabulary is always present so the
+    # facet is stable regardless of how sparse ``topic_tags`` are (#1061).
+    topics: list[TopicFacet] = []
 
 
 class CollectionResponse(BaseModel):
@@ -279,7 +297,10 @@ class SearchResult(BaseModel):
     populated only for the result types it applies to and left null/empty
     otherwise: ``collection`` + ``grade`` + ``topics`` for hadiths, ``century``
     for narrators. ``grade`` is the canonical normalized token (see
-    ``src.utils.grades.normalize_grade``), not the raw scholar string. (#1036)
+    ``src.utils.grades.normalize_grade``), not the raw scholar string. ``topics``
+    is the canonical topic tokens the hadith's free-text tags map onto (see
+    ``src.utils.topics.canonical_topics_for_tags``); an empty list means
+    uncategorized/unknown. (#1036, #1061)
     """
 
     model_config = ConfigDict(frozen=True)
@@ -340,8 +361,14 @@ class ParallelPair(BaseModel):
 
     hadith_a_id: str
     hadith_a_corpus: str
+    # Human-readable title (e.g. "Sahih al-Bukhari 1:1") and a short matn preview,
+    # so the Browse table renders readable rows instead of opaque IDs. (#1037)
+    hadith_a_title: str | None = None
+    hadith_a_snippet: str | None = None
     hadith_b_id: str
     hadith_b_corpus: str
+    hadith_b_title: str | None = None
+    hadith_b_snippet: str | None = None
     similarity_score: float | None = None
     variant_type: str | None = None
     cross_sect: bool = False

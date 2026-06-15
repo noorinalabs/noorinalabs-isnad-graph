@@ -12,6 +12,12 @@ export const GRADE_LABELS: Record<string, string> = {
   shadh: 'Shadh',
 }
 
+// The full canonical grade vocabulary, in display order. Drives the search
+// page's grade facet so it can never silently drop a valid grade or drift out of
+// sync with the colour/label maps (#1062). Derived from GRADE_LABELS so a new
+// grade is added in exactly one place.
+export const GRADE_TOKENS: string[] = Object.keys(GRADE_LABELS)
+
 export function gradeLabel(token: string): string {
   return GRADE_LABELS[token] ?? token
 }

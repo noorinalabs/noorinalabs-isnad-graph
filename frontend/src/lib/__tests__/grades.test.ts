@@ -1,5 +1,23 @@
 import { describe, it, expect } from 'vitest'
-import { gradeLabel, gradeColor, gradeBarColor, gradeBarWidth } from '../grades'
+import { GRADE_TOKENS, GRADE_LABELS, gradeLabel, gradeColor, gradeBarColor, gradeBarWidth } from '../grades'
+
+describe('GRADE_TOKENS', () => {
+  it('exposes the full canonical grade vocabulary, not a subset (#1062)', () => {
+    expect(new Set(GRADE_TOKENS)).toEqual(
+      new Set(['sahih', 'hasan', 'hasan_sahih', 'daif', 'mawdu', 'munkar', 'shadh']),
+    )
+  })
+
+  it('includes the grades the old hardcoded facet dropped', () => {
+    for (const token of ['munkar', 'shadh', 'hasan_sahih']) {
+      expect(GRADE_TOKENS).toContain(token)
+    }
+  })
+
+  it('stays in sync with the label map (single source of truth)', () => {
+    expect(GRADE_TOKENS).toEqual(Object.keys(GRADE_LABELS))
+  })
+})
 
 describe('grade helpers', () => {
   it('maps canonical tokens to display labels', () => {

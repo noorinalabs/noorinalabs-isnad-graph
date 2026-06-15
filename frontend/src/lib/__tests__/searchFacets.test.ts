@@ -68,6 +68,24 @@ describe('matchesFacets', () => {
       ).toBe(true)
     })
 
+    it('matches the previously-unreachable compound and defect grades by canonical token (#1062)', () => {
+      // The search facet now stores canonical tokens, so the compound grade and
+      // the defect grades that the old 4-label list omitted are selectable.
+      expect(
+        matchesFacets(result({ grade: 'hasan_sahih' }), { ...NO_FACETS, gradings: ['hasan_sahih'] }),
+      ).toBe(true)
+      expect(
+        matchesFacets(result({ grade: 'munkar' }), { ...NO_FACETS, gradings: ['munkar'] }),
+      ).toBe(true)
+      expect(
+        matchesFacets(result({ grade: 'shadh' }), { ...NO_FACETS, gradings: ['shadh'] }),
+      ).toBe(true)
+      // A compound-grade hadith is not caught by a plain "sahih" selection.
+      expect(
+        matchesFacets(result({ grade: 'hasan_sahih' }), { ...NO_FACETS, gradings: ['sahih'] }),
+      ).toBe(false)
+    })
+
     it('drops a hadith whose grade token does not match', () => {
       expect(
         matchesFacets(result({ grade: 'sahih' }), { ...NO_FACETS, gradings: ['Hasan'] }),
@@ -109,24 +127,74 @@ describe('matchesFacets', () => {
   })
 
   describe('topic facet', () => {
-    it('matches a topic tag against the parenthetical token of the label', () => {
-      const r = result({ type: 'hadith', topics: ['fiqh', 'prayer'] })
-      expect(matchesFacets(r, { ...NO_FACETS, topics: ['Jurisprudence (fiqh)'] })).toBe(true)
+    // `topics` holds canonical tokens (the backend maps free-text tags onto the
+    // vocabulary); the selection holds the same tokens. (#1061)
+    it('matches when a selected canonical token is present', () => {
+      const r = result({ type: 'hadith', topics: ['fiqh', 'ibadah'] })
+      expect(matchesFacets(r, { ...NO_FACETS, topics: ['fiqh'] })).toBe(true)
     })
 
-    it('matches a single-word label with no parenthetical', () => {
-      const r = result({ type: 'hadith', topics: ['eschatology'] })
-      expect(matchesFacets(r, { ...NO_FACETS, topics: ['Eschatology'] })).toBe(true)
+    it('drops a hadith with no overlapping canonical topic', () => {
+      const r = result({ type: 'hadith', topics: ['fiqh'] })
+      expect(matchesFacets(r, { ...NO_FACETS, topics: ['aqidah'] })).toBe(false)
     })
 
-    it('drops a hadith with no overlapping topic', () => {
-      const r = result({ type: 'hadith', topics: ['inheritance'] })
-      expect(matchesFacets(r, { ...NO_FACETS, topics: ['Theology (aqidah)'] })).toBe(false)
+    it('keeps a hadith with no topics under any topic filter (permissive)', () => {
+      expect(
+        matchesFacets(result({ type: 'hadith', topics: [] }), { ...NO_FACETS, topics: ['aqidah'] }),
+      ).toBe(true)
     })
 
-    it('keeps a hadith with no topic tags', () => {
-      expect(matchesFacets(result({ type: 'hadith', topics: [] }), { ...NO_FACETS, topics: ['Theology (aqidah)'] })).toBe(true)
+    it('uncategorized selection isolates empty-topic results, dropping categorized ones', () => {
+      const empty = result({ type: 'hadith', topics: [] })
+      const categorized = result({ type: 'hadith', topics: ['fiqh'] })
+      expect(matchesFacets(empty, { ...NO_FACETS, topics: ['uncategorized'] })).toBe(true)
+      expect(matchesFacets(categorized, { ...NO_FACETS, topics: ['uncategorized'] })).toBe(false)
     })
+  })
+
+  // Regression for #1060: semantic search hits used to carry no facet metadata,
+  // so an active facet never excluded them (every hit looked "unknown"). Now that
+  // the semantic endpoint projects collection/grade/topics, the same matcher
+  // refines semantic results — and the page's score sort preserves cosine order.
+  it('refines semantic-style results once they carry facet metadata, preserving rank order', () => {
+    const semanticHits: SearchResult[] = [
+      result({ id: 's1', type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'sahih', score: 0.93 }),
+      result({ id: 's2', type: 'hadith', collection: 'Sahih Muslim', grade: 'sahih', score: 0.88 }),
+      result({ id: 's3', type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'daif', score: 0.81 }),
+    ]
+    const facets: FacetSelection = { ...NO_FACETS, collections: ['Sahih al-Bukhari'] }
+
+    const refined = semanticHits
+      .filter((r) => matchesFacets(r, facets))
+      .sort((a, b) => b.score - a.score)
+
+    // Only the Bukhari hits survive, still in descending cosine order.
+    expect(refined.map((r) => r.id)).toEqual(['s1', 's3'])
+  })
+
+  // Regression for #1060 + #1061: the semantic endpoint must canonicalize
+  // topic_tags (via canonical_topics_for_tags) so a semantic hit carries the same
+  // canonical tokens the topic facet compares against. With RAW tags the topic
+  // facet would never match and would wrongly exclude the hit — the no-op #1060
+  // fixes, here proven for the topic facet specifically.
+  it('refines semantic-style hits by a canonical topic facet, preserving rank order', () => {
+    const semanticHits: SearchResult[] = [
+      result({ id: 't1', type: 'hadith', topics: ['akhlaq'], score: 0.95 }),
+      result({ id: 't2', type: 'hadith', topics: ['fiqh'], score: 0.9 }),
+      result({ id: 't3', type: 'hadith', topics: ['akhlaq', 'aqidah'], score: 0.7 }),
+    ]
+    // The facet selection holds canonical tokens (#1061), the same vocabulary the
+    // semantic endpoint now projects onto each hit.
+    const facets: FacetSelection = { ...NO_FACETS, topics: ['akhlaq'] }
+
+    const refined = semanticHits
+      .filter((r) => matchesFacets(r, facets))
+      .sort((a, b) => b.score - a.score)
+
+    // Only the canonical-akhlaq hits survive, still in descending cosine order;
+    // the fiqh-only hit is excluded (canonical token mismatch, not permissive).
+    expect(refined.map((r) => r.id)).toEqual(['t1', 't3'])
   })
 
   it('requires all active facet groups to match (AND across groups)', () => {
@@ -136,7 +204,7 @@ describe('matchesFacets', () => {
         collections: ['Sahih al-Bukhari'],
         gradings: ['Sahih'],
         centuries: [],
-        topics: ['Jurisprudence (fiqh)'],
+        topics: ['fiqh'],
       }),
     ).toBe(true)
     expect(
@@ -144,7 +212,7 @@ describe('matchesFacets', () => {
         collections: ['Sahih al-Bukhari'],
         gradings: ['Hasan'], // grade mismatch fails the whole result
         centuries: [],
-        topics: ['Jurisprudence (fiqh)'],
+        topics: ['fiqh'],
       }),
     ).toBe(false)
   })

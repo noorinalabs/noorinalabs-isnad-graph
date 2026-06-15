@@ -1,9 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import userEvent from "@testing-library/user-event"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import DashboardPage, { ObservabilitySection } from "../DashboardPage"
 import { fetchDashboardStats } from "../../../api/admin-client"
 import type { DashboardStats } from "../../../api/admin-client"
+import { useAuth } from "../../../hooks/useAuth"
+import { mintSsoCookie } from "../../../api/sso-client"
 
 // Role names are kept as variables, NOT literals, so the tests survive the
 // pending UserRole vocab change in #876 (viewer/editor/moderator → trial/reader/researcher).
@@ -16,6 +19,24 @@ const ROLE_ADMIN = "admin"
 vi.mock("../../../api/admin-client", () => ({
   fetchDashboardStats: vi.fn(),
 }))
+
+// The Observability section is admin-gated via useAuth().isAdmin; mock the hook so
+// each test controls the role without standing up an AuthProvider.
+vi.mock("../../../hooks/useAuth", () => ({
+  useAuth: vi.fn(),
+}))
+
+// The SSO-cookie mint (POST /auth/sso-cookie) is mocked at the client boundary so
+// the click tests assert the mint→navigate ordering without a real fetch.
+vi.mock("../../../api/sso-client", () => ({
+  mintSsoCookie: vi.fn(),
+}))
+
+function setAdmin(isAdmin: boolean) {
+  vi.mocked(useAuth).mockReturnValue({
+    isAdmin,
+  } as unknown as ReturnType<typeof useAuth>)
+}
 
 function renderPage() {
   const queryClient = new QueryClient({
@@ -31,6 +52,8 @@ function renderPage() {
 describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default to a non-admin context; admin-specific tests opt in via setAdmin(true).
+    setAdmin(false)
   })
 
   it("shows loading state initially", () => {
@@ -136,10 +159,26 @@ describe("DashboardPage", () => {
     expect(container.querySelector("h2")).toBeNull()
   })
 
-  it("does NOT mount the Observability section while gated off (ig#1073)", async () => {
-    // The obs-links are hidden until the Grafana SSO bridge ships (deploy#458):
-    // until then they dead-end at Grafana's login. Assert the section is absent
-    // from the rendered dashboard. Re-enable assertion when deploy#458 lands.
+  it("mounts the Observability section for an admin (ig#1081 re-enable)", async () => {
+    setAdmin(true)
+    const stats: DashboardStats = {
+      total_users: 10,
+      active_users: 10,
+      deactivated_users: 0,
+      new_registrations_7d: 0,
+      active_sessions: 1,
+      users_by_role: [],
+    }
+    vi.mocked(fetchDashboardStats).mockResolvedValue(stats)
+    renderPage()
+
+    await screen.findByText("Admin Dashboard")
+    expect(screen.getByText("Observability")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /^Grafana/i })).toBeInTheDocument()
+  })
+
+  it("hides the Observability section for a non-admin", async () => {
+    setAdmin(false)
     const stats: DashboardStats = {
       total_users: 10,
       active_users: 10,
@@ -158,10 +197,30 @@ describe("DashboardPage", () => {
   })
 })
 
-describe("ObservabilitySection (gated component, ig#1073)", () => {
-  // The section is mounted off-page for now, but its markup must stay correct so
-  // flipping OBSERVABILITY_LINKS_ENABLED back on (when deploy#458 ships) is safe.
-  it("renders three links with relative hrefs, target=_blank, rel=noopener", () => {
+describe("ObservabilitySection (ig#1081 SSO carry)", () => {
+  let assignMock: ReturnType<typeof vi.fn>
+  const realLocation = window.location
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // jsdom's `location.assign` is non-configurable (so it can't be spied
+    // directly) and a real assign would throw "Not implemented: navigation".
+    // Swap window.location for a stub exposing a mockable `assign`.
+    assignMock = vi.fn()
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...realLocation, assign: assignMock, href: realLocation.href },
+    })
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: realLocation,
+    })
+  })
+
+  it("renders three links with relative hrefs (no target=_blank — same-tab top-level nav)", () => {
     render(<ObservabilitySection />)
 
     expect(screen.getByText("Observability")).toBeTruthy()
@@ -170,17 +229,74 @@ describe("ObservabilitySection (gated component, ig#1073)", () => {
     // contains "Grafana").
     const grafanaLink = screen.getByRole("link", { name: /^Grafana/i })
     expect(grafanaLink).toHaveAttribute("href", "/grafana/")
-    expect(grafanaLink).toHaveAttribute("target", "_blank")
-    expect(grafanaLink).toHaveAttribute("rel", "noopener noreferrer")
+    // The carry requires a top-level navigation in the SAME tab so SameSite=Lax
+    // ships the parent-domain cookie — a new tab is no longer used.
+    expect(grafanaLink).not.toHaveAttribute("target", "_blank")
 
-    const logsLink = screen.getByRole("link", { name: /^Logs/i })
-    expect(logsLink).toHaveAttribute("href", "/grafana/explore")
-    expect(logsLink).toHaveAttribute("target", "_blank")
-    expect(logsLink).toHaveAttribute("rel", "noopener noreferrer")
+    expect(screen.getByRole("link", { name: /^Logs/i })).toHaveAttribute(
+      "href",
+      "/grafana/explore",
+    )
+    expect(screen.getByRole("link", { name: /^Alerts/i })).toHaveAttribute(
+      "href",
+      "/grafana/alerting/list",
+    )
+  })
 
-    const alertsLink = screen.getByRole("link", { name: /^Alerts/i })
-    expect(alertsLink).toHaveAttribute("href", "/grafana/alerting/list")
-    expect(alertsLink).toHaveAttribute("target", "_blank")
-    expect(alertsLink).toHaveAttribute("rel", "noopener noreferrer")
+  it("mints the SSO cookie THEN navigates on an admin click", async () => {
+    const user = userEvent.setup()
+    vi.mocked(mintSsoCookie).mockResolvedValue({
+      status: "ok",
+      cookie_name: "nl_sso",
+      expires_in: 300,
+    })
+
+    render(<ObservabilitySection />)
+    await user.click(screen.getByRole("link", { name: /^Grafana/i }))
+
+    await waitFor(() => {
+      expect(assignMock).toHaveBeenCalledWith("/grafana/")
+    })
+    expect(mintSsoCookie).toHaveBeenCalledTimes(1)
+    // Ordering: the mint must be invoked before the navigation fires.
+    const order = (calls: number[]) => calls[0] ?? Infinity
+    expect(order(vi.mocked(mintSsoCookie).mock.invocationCallOrder)).toBeLessThan(
+      order(assignMock.mock.invocationCallOrder),
+    )
+    // No error surfaced.
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("shows an inline error and does NOT navigate when the mint fails", async () => {
+    const user = userEvent.setup()
+    vi.mocked(mintSsoCookie).mockRejectedValue(
+      new Error("Your session has expired. Please sign in again."),
+    )
+
+    render(<ObservabilitySection />)
+    await user.click(screen.getByRole("link", { name: /^Grafana/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /session has expired/i,
+      )
+    })
+    expect(assignMock).not.toHaveBeenCalled()
+  })
+
+  it("ignores a second click while a mint is already in flight", async () => {
+    const user = userEvent.setup()
+    // Never-resolving mint keeps the first click pending.
+    vi.mocked(mintSsoCookie).mockImplementation(() => new Promise(() => {}))
+
+    render(<ObservabilitySection />)
+    const link = screen.getByRole("link", { name: /^Grafana/i })
+    await user.click(link)
+    await user.click(link)
+
+    await waitFor(() => {
+      expect(mintSsoCookie).toHaveBeenCalledTimes(1)
+    })
+    expect(assignMock).not.toHaveBeenCalled()
   })
 })

@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
 import {
   fetchProfile,
-  updateProfile,
   fetchSessions,
+  replacePreferences,
   revokeSession,
+  updateDisplayName,
 } from '../api/profile-client'
 import type { UserPreferences } from '../api/profile-client'
+import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
+import { useLocale } from '../i18n/useLocale'
+import type { LocaleCode } from '../i18n/config'
 
 function providerLabel(provider: string): string {
   switch (provider) {
@@ -23,7 +29,7 @@ function providerLabel(provider: string): string {
   }
 }
 
-function roleBadgeColor(role: string | null): string {
+function roleBadgeColor(role: string): string {
   switch (role) {
     case 'admin':
       return 'var(--color-destructive)'
@@ -38,10 +44,20 @@ function roleBadgeColor(role: string | null): string {
 
 export default function ProfilePage() {
   const queryClient = useQueryClient()
+  const { user, role, refreshUser } = useAuth()
+  // The live theme + locale are the single source of truth for the controls
+  // below; on login they are hydrated from the server (see PreferencesSync), and
+  // a change here drives the app immediately as well as persisting (#1013/#1044).
+  const { theme, setTheme } = useTheme()
+  const { locale, locales, setLocale } = useLocale()
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
 
-  const { data: profile, isLoading, error } = useQuery({
+  // The profile query carries the full preferences blob — needed for a
+  // read-modify-write PUT and for the non-theme/locale prefs (search mode,
+  // results per page). Account info (name/email/role/...) comes from the auth
+  // user, not this endpoint, which returns only `{ user_id, preferences }`.
+  const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: fetchProfile,
   })
@@ -51,17 +67,19 @@ export default function ProfilePage() {
     queryFn: fetchSessions,
   })
 
+  const prefs: UserPreferences = profile?.preferences ?? {}
+
   const updateNameMutation = useMutation({
-    mutationFn: (displayName: string) => updateProfile({ display_name: displayName }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
+    mutationFn: (displayName: string) => updateDisplayName(displayName),
+    onSuccess: async () => {
+      await refreshUser()
       setEditingName(false)
     },
   })
 
-  const updatePrefsMutation = useMutation({
-    mutationFn: (preferences: UserPreferences) => updateProfile({ preferences }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile'] }),
+  const replacePrefsMutation = useMutation({
+    mutationFn: (preferences: UserPreferences) => replacePreferences(preferences),
+    onSuccess: (data) => queryClient.setQueryData(['profile'], data),
   })
 
   const revokeSessionMutation = useMutation({
@@ -69,9 +87,24 @@ export default function ProfilePage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sessions'] }),
   })
 
-  if (isLoading) return <p>Loading profile...</p>
-  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
-  if (!profile) return null
+  // Read-modify-write: PUT replaces the whole blob, so spread the current prefs
+  // and overlay the changed key(s) to avoid dropping the others.
+  function persistPrefs(patch: Partial<UserPreferences>) {
+    replacePrefsMutation.mutate({ ...prefs, ...patch })
+  }
+
+  function handleThemeChange(value: string) {
+    const next = value as 'light' | 'dark' | 'system'
+    setTheme(next)
+    persistPrefs({ theme: next })
+  }
+
+  function handleLanguageChange(value: string) {
+    setLocale(value as LocaleCode)
+    persistPrefs({ language: value })
+  }
+
+  if (!user) return null
 
   const sectionStyle: React.CSSProperties = {
     marginBottom: 'var(--spacing-6)',
@@ -92,6 +125,8 @@ export default function ProfilePage() {
     color: 'var(--color-foreground)',
     fontWeight: 500,
   }
+
+  const displayName = user.display_name ?? user.email
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -135,11 +170,11 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)' }}>
-                <span style={valueStyle}>{profile.name}</span>
+                <span style={valueStyle}>{displayName}</span>
                 <button
                   className="btn"
                   onClick={() => {
-                    setNameInput(profile.name)
+                    setNameInput(user.display_name ?? '')
                     setEditingName(true)
                   }}
                   style={{ fontSize: 'var(--text-xs)', padding: 'var(--spacing-0_5) var(--spacing-2)' }}
@@ -151,17 +186,15 @@ export default function ProfilePage() {
           </div>
           <div>
             <div style={labelStyle}>Email</div>
-            <div style={valueStyle}>{profile.email}</div>
+            <div style={valueStyle}>{user.email}</div>
           </div>
           <div>
             <div style={labelStyle}>Auth Provider</div>
-            <div style={valueStyle}>{providerLabel(profile.provider)}</div>
+            <div style={valueStyle}>{user.provider ? providerLabel(user.provider) : '—'}</div>
           </div>
           <div>
             <div style={labelStyle}>Member Since</div>
-            <div style={valueStyle}>
-              {new Date(profile.created_at).toLocaleDateString()}
-            </div>
+            <div style={valueStyle}>{new Date(user.created_at).toLocaleDateString()}</div>
           </div>
           <div>
             <div style={labelStyle}>Role</div>
@@ -173,10 +206,10 @@ export default function ProfilePage() {
                 fontWeight: 600,
                 borderRadius: 'var(--radius-full)',
                 color: 'var(--color-primary-foreground)',
-                background: roleBadgeColor(profile.role),
+                background: roleBadgeColor(role),
               }}
             >
-              {(profile.role ?? 'trial').toUpperCase()}
+              {role.toUpperCase()}
             </span>
           </div>
         </div>
@@ -198,13 +231,8 @@ export default function ProfilePage() {
             <div style={labelStyle}>Default Search Mode</div>
             <select
               className="form-input"
-              value={profile.preferences.default_search_mode}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  default_search_mode: e.target.value,
-                })
-              }
+              value={prefs.default_search_mode ?? 'fulltext'}
+              onChange={(e) => persistPrefs({ default_search_mode: e.target.value })}
             >
               <option value="fulltext">Full Text</option>
               <option value="semantic">Semantic</option>
@@ -214,13 +242,8 @@ export default function ProfilePage() {
             <div style={labelStyle}>Results Per Page</div>
             <select
               className="form-input"
-              value={profile.preferences.results_per_page}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  results_per_page: Number(e.target.value),
-                })
-              }
+              value={prefs.results_per_page ?? 20}
+              onChange={(e) => persistPrefs({ results_per_page: Number(e.target.value) })}
             >
               {[10, 20, 50, 100].map((n) => (
                 <option key={n} value={n}>
@@ -230,32 +253,25 @@ export default function ProfilePage() {
             </select>
           </div>
           <div>
-            <div style={labelStyle}>Language (stub)</div>
+            <div style={labelStyle}>Language</div>
             <select
               className="form-input"
-              value={profile.preferences.language_preference}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  language_preference: e.target.value,
-                })
-              }
+              value={locale}
+              onChange={(e) => handleLanguageChange(e.target.value)}
             >
-              <option value="en">English</option>
-              <option value="ar">Arabic</option>
+              {locales.map((l) => (
+                <option key={l.code} value={l.code} lang={l.code}>
+                  {l.nativeName}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <div style={labelStyle}>Theme (stub)</div>
+            <div style={labelStyle}>Theme</div>
             <select
               className="form-input"
-              value={profile.preferences.theme_preference}
-              onChange={(e) =>
-                updatePrefsMutation.mutate({
-                  ...profile.preferences,
-                  theme_preference: e.target.value,
-                })
-              }
+              value={theme}
+              onChange={(e) => handleThemeChange(e.target.value)}
             >
               <option value="system">System</option>
               <option value="light">Light</option>
@@ -263,7 +279,7 @@ export default function ProfilePage() {
             </select>
           </div>
         </div>
-        {updatePrefsMutation.isPending && (
+        {replacePrefsMutation.isPending && (
           <p style={{ marginTop: 'var(--spacing-2)', fontSize: 'var(--text-xs)' }}>Saving...</p>
         )}
       </div>
@@ -299,9 +315,9 @@ export default function ProfilePage() {
                     <button
                       className="btn-action btn-action-suspend"
                       onClick={() => revokeSessionMutation.mutate(s.id)}
-                      disabled={revokeSessionMutation.isPending}
+                      disabled={revokeSessionMutation.isPending || s.is_current}
                     >
-                      Revoke
+                      {s.is_current ? 'Current' : 'Revoke'}
                     </button>
                   </td>
                 </tr>

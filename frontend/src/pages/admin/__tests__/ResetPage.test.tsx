@@ -167,3 +167,85 @@ describe('ResetPage', () => {
     expect(resetStage).not.toHaveBeenCalled()
   })
 })
+
+describe('ResetPage — modal accessibility (#987)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('auto-focuses the primary control when the modal opens', async () => {
+    const user = userEvent.setup()
+    render(<ResetPage />)
+    await user.click(screen.getByRole('button', { name: 'Reset stage…' }))
+    expect(screen.getByRole('button', { name: 'Run dry-run preview' })).toHaveFocus()
+  })
+
+  it('closes on Escape and restores focus to the trigger', async () => {
+    const user = userEvent.setup()
+    render(<ResetPage />)
+    const trigger = screen.getByRole('button', { name: 'Reset stage…' })
+    await user.click(trigger)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Focus returns to the control that opened the modal.
+    expect(trigger).toHaveFocus()
+  })
+
+  it('traps Tab focus inside the dialog (forward wrap)', async () => {
+    const user = userEvent.setup()
+    render(<ResetPage />)
+    await user.click(screen.getByRole('button', { name: 'Reset stage…' }))
+
+    const dryRun = screen.getByRole('button', { name: 'Run dry-run preview' })
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    expect(dryRun).toHaveFocus()
+
+    await user.tab()
+    expect(cancel).toHaveFocus()
+    // Tabbing past the last control wraps back to the first.
+    await user.tab()
+    expect(dryRun).toHaveFocus()
+  })
+
+  it('traps Shift+Tab focus inside the dialog (backward wrap)', async () => {
+    const user = userEvent.setup()
+    render(<ResetPage />)
+    await user.click(screen.getByRole('button', { name: 'Reset stage…' }))
+
+    const dryRun = screen.getByRole('button', { name: 'Run dry-run preview' })
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    expect(dryRun).toHaveFocus()
+
+    // Shift+Tabbing back from the first control wraps to the last.
+    await user.tab({ shift: true })
+    expect(cancel).toHaveFocus()
+  })
+
+  it('renders an object dry-run summary as a readable list, not raw JSON', async () => {
+    const user = userEvent.setup()
+    vi.mocked(resetStage).mockResolvedValueOnce(
+      makeResponse({
+        level: 'stage',
+        dry_run: true,
+        summary: { would_delete: 1234, kafka_topics: ['raw', 'dedup'] },
+      }),
+    )
+    render(<ResetPage />)
+    await user.click(screen.getByRole('button', { name: 'Reset stage…' }))
+    await user.click(screen.getByRole('button', { name: 'Run dry-run preview' }))
+    await screen.findByText(/Dry-run preview/)
+
+    // Humanized labels instead of raw snake_case keys.
+    expect(screen.getByText('Would delete')).toBeInTheDocument()
+    expect(screen.getByText('Kafka topics')).toBeInTheDocument()
+    // Count is formatted (locale-tolerant) and the array is comma-joined.
+    expect(
+      screen.getByText((content) => content.replace(/[,\s]/g, '') === '1234'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('raw, dedup')).toBeInTheDocument()
+    // The preview is not dumped as a raw JSON blob.
+    expect(screen.queryByText(/"would_delete"/)).not.toBeInTheDocument()
+  })
+})

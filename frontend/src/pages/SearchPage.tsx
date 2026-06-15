@@ -5,6 +5,7 @@ import {
   searchAll,
   searchSemantic,
   fetchCollections,
+  fetchHadithFacets,
   SEARCH_MAX_LIMIT,
   SEMANTIC_SEARCH_MAX_LIMIT,
 } from '../api/client'
@@ -27,6 +28,7 @@ import {
   DialogTrigger,
 } from '../components/ui/Dialog'
 import { matchesFacets } from '../lib/searchFacets'
+import { GRADE_TOKENS, gradeLabel } from '../lib/grades'
 
 type SearchMode = 'fulltext' | 'semantic'
 type SortOption = 'relevance' | 'date-asc' | 'date-desc' | 'name-en' | 'name-ar'
@@ -45,16 +47,17 @@ interface SearchFilters {
 // unloaded Shia collections (al-Kafi, Bihar al-Anwar) and omitted loaded ones
 // (e.g. riyadussalihin). (#1026)
 
-const GRADINGS = ['Sahih', 'Hasan', "Da'if", "Mawdu'"]
+// Grade facet options are the full canonical grade vocabulary (canonical tokens,
+// displayed via gradeLabel), not a hardcoded subset — the previous static list
+// exposed only 4 of 7 grades, leaving munkar/shadh/hasan_sahih unreachable even
+// though the API filters them correctly. Selections store the canonical token so
+// the compound "hasan_sahih" matches (its label "Hasan Sahih" would not). (#1062)
+const GRADINGS = GRADE_TOKENS
 const CENTURIES = [1, 2, 3, 4, 5]
-const TOPICS = [
-  'Jurisprudence (fiqh)',
-  'Theology (aqidah)',
-  'Ethics (akhlaq)',
-  'Worship (ibadah)',
-  'History (sira)',
-  'Eschatology',
-]
+// Topic facet options are derived from the live `/hadiths/facets` response (the
+// canonical topic vocabulary + per-bucket counts), not hardcoded — so the filter
+// always presents the same vocabulary the backend aggregates against, and never
+// drifts from it. The filter value is the canonical token. (#1061)
 
 const SUGGESTED_QUERIES = [
   'Abu Hurayra',
@@ -146,6 +149,16 @@ export default function SearchPage() {
   const collectionOptions = (collectionsData?.items ?? [])
     .map((c) => c.name_en)
     .sort((a, b) => a.localeCompare(b))
+
+  // Topic facet options, derived from the live `/hadiths/facets` response so the
+  // filter presents exactly the canonical vocabulary the backend aggregates
+  // against (incl. the uncategorized bucket), with per-bucket counts. (#1061)
+  const { data: hadithFacets } = useQuery({
+    queryKey: ['hadith-facets'],
+    queryFn: fetchHadithFacets,
+    staleTime: 5 * 60 * 1000,
+  })
+  const topicOptions = hadithFacets?.topics ?? []
 
   // Close typeahead on outside click
   useEffect(() => {
@@ -340,7 +353,7 @@ export default function SearchPage() {
               onChange={() => toggleFilter('gradings', g)}
               className="rounded"
             />
-            {g}
+            {gradeLabel(g)}
           </label>
         ))}
       </div>
@@ -370,17 +383,25 @@ export default function SearchPage() {
           <h4 id="filter-topic" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
             Topic
           </h4>
-          {TOPICS.map((t) => (
-            <label key={t} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
-              <input
-                type="checkbox"
-                checked={filters.topics.includes(t)}
-                onChange={() => toggleFilter('topics', t)}
-                className="rounded"
-              />
-              {t}
-            </label>
-          ))}
+          {topicOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No topics available</p>
+          ) : (
+            topicOptions.map((t) => (
+              <label
+                key={t.value}
+                className="flex items-center gap-2 py-1 cursor-pointer text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.topics.includes(t.value)}
+                  onChange={() => toggleFilter('topics', t.value)}
+                  className="rounded"
+                />
+                <span className="flex-1">{t.label}</span>
+                <span className="text-muted-foreground tabular-nums">{t.count}</span>
+              </label>
+            ))
+          )}
         </div>
       )}
 
@@ -819,11 +840,16 @@ export default function SearchPage() {
  * Result card components
  * ─────────────────────────────────────────── */
 
-// Exported for unit testing (ig#1065).
+// Exported for unit testing (ig#1065, ig#1070).
 export function RelevanceBadge({ score }: { score: number }) {
+  // The API now applies a saturating transform `score / (score + k)` (ig#1070)
+  // so these thresholds read as ABSOLUTE confidence: a weak top hit no longer
+  // renders 100% the way the old within-result-set max-normalisation forced.
+  // TODO(ig#1071 calibration): these cutoffs must be re-tuned jointly with the
+  // backend `SEARCH_RELEVANCE_SATURATION_K` once a real BM25 distribution exists.
   const level =
     score >= 0.9 ? 'text-sahih' : score >= 0.7 ? 'text-warning' : 'text-muted-foreground'
-  // Defensive clamp: the API normalises scores to [0,1] (ig#1065), but guard
+  // Defensive clamp: the API bounds scores to [0,1) (ig#1065/#1070), but guard
   // here too so a stale or out-of-range value never renders >100% or negative.
   const pct = Math.min(100, Math.max(0, score * 100)).toFixed(0)
   return (

@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
@@ -43,9 +44,11 @@ def test_search_fulltext_returns_results(client: TestClient, mock_neo4j: MagicMo
     assert body["total"] == 19
     assert len(body["results"]) == 2
     assert body["results"][0]["type"] == "narrator"
-    # Raw Lucene scores (2.5 narrator, 1.8 hadith) are max-normalised on the
-    # API side (ig#1065): top result maps to 1.0, relative order is preserved.
-    assert body["results"][0]["score"] == pytest.approx(1.0)
+    # Raw Lucene scores (2.5 narrator, 1.8 hadith) pass through the saturating
+    # transform ``score / (score + k)`` on the API side (ig#1070): bounded to
+    # [0, 1) and relative order preserved, but the top hit is NOT pinned to 1.0.
+    assert 0.0 < body["results"][0]["score"] < 1.0
+    assert body["results"][0]["score"] > body["results"][1]["score"]
     assert body["results"][1]["type"] == "hadith"
 
     # Verify the full-text query was used (CALL db.index.fulltext)
@@ -100,7 +103,8 @@ def test_search_populates_facet_metadata(client: TestClient, mock_neo4j: MagicMo
     hadith = next(r for r in results if r["type"] == "hadith")
     assert hadith["collection"] == "Sahih al-Bukhari"
     assert hadith["grade"] == "sahih"  # normalized from "Sahih - Authentic"
-    assert hadith["topics"] == ["intentions"]
+    # Raw tag "intentions" maps onto the canonical "akhlaq" topic (#1061).
+    assert hadith["topics"] == ["akhlaq"]
     assert hadith["century"] is None
 
 
@@ -195,14 +199,15 @@ def test_search_empty_results(client: TestClient) -> None:
     assert body["results"] == []
 
 
-def test_search_normalizes_lucene_scores_to_unit_range(
+def test_search_saturates_lucene_scores_to_unit_range(
     client: TestClient, mock_neo4j: MagicMock
 ) -> None:
-    """Full-text raw Lucene scores >1 are max-normalised to [0,1] (ig#1065).
+    """Full-text raw Lucene scores pass through the saturating transform (ig#1070).
 
     Relative ordering must be preserved: the narrator (raw 2.5) outscores the
-    hadith (raw 1.8), so after normalisation both must be ≤1.0 and the narrator
-    score must remain higher.
+    hadith (raw 1.8), so after the transform both must be in [0, 1) and the
+    narrator score must remain higher — but unlike the old max-normalisation, the
+    top hit is NOT forced to exactly 1.0.
     """
     mock_neo4j.execute_read.side_effect = [
         [{"id": "nar-1", "name_ar": "نص", "name_en": "narrator", "score": 2.5}],
@@ -217,15 +222,104 @@ def test_search_normalizes_lucene_scores_to_unit_range(
     narrator = next(r for r in results if r["type"] == "narrator")
     hadith = next(r for r in results if r["type"] == "hadith")
 
-    # All scores must be within [0, 1] — no "250%" badges.
-    assert narrator["score"] <= 1.0
-    assert hadith["score"] <= 1.0
-    assert narrator["score"] >= 0.0
-    assert hadith["score"] >= 0.0
-    # Top result maps to 1.0.
-    assert narrator["score"] == pytest.approx(1.0)
+    # All scores must be within [0, 1) — no "250%" badges, none pinned to 100%.
+    assert 0.0 <= narrator["score"] < 1.0
+    assert 0.0 <= hadith["score"] < 1.0
+    # Top (raw 2.5) hit is a moderate match, NOT 100% — that's the ig#1070 point.
+    assert narrator["score"] < 0.99
+    assert narrator["score"] == pytest.approx(2.5 / (2.5 + 5.0))
     # Relative order preserved: narrator still outscores hadith.
     assert narrator["score"] > hadith["score"]
+
+
+def test_saturate_relevance_is_monotonic_and_bounded() -> None:
+    """The pure transform is strictly monotonic and bounded to [0, 1) (ig#1070)."""
+    from src.api.routes.search import saturate_relevance
+
+    k = 5.0
+    samples = [0.0, 0.1, 0.5, 1.0, 2.5, 10.0, 100.0, 1_000_000.0]
+    mapped = [saturate_relevance(s, k) for s in samples]
+
+    # Bounded: every output in [0, 1); even an enormous score never reaches 1.0.
+    assert all(0.0 <= m < 1.0 for m in mapped)
+    # Strictly monotonic increasing for strictly increasing positive inputs.
+    assert all(a < b for a, b in zip(mapped[1:], mapped[2:]))
+    # A zero / negative raw score floors to 0.0.
+    assert saturate_relevance(0.0, k) == 0.0
+    assert saturate_relevance(-3.0, k) == 0.0
+    # Half-saturation: score == k maps to exactly 0.5.
+    assert saturate_relevance(k, k) == pytest.approx(0.5)
+
+
+def test_saturate_relevance_weak_top_hit_not_pinned_to_one() -> None:
+    """A weak top hit reads as weak absolute confidence, not 100% (ig#1070).
+
+    This is the core regression ig#1070 fixes: the old max-normalisation forced
+    the single best result of every query to 1.0 regardless of match strength.
+    """
+    from src.api.routes.search import saturate_relevance
+
+    # A weak BM25 score of 0.4 with default k=5.0 maps well below the sahih
+    # (≥0.9) and warning (≥0.7) badge thresholds.
+    weak = saturate_relevance(0.4, 5.0)
+    assert weak < 0.7
+    assert weak != pytest.approx(1.0)
+
+
+def test_saturation_k_reads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``k`` is sourced from env ``SEARCH_RELEVANCE_SATURATION_K`` (ig#1070).
+
+    The default must be a positive, documented constant — not hard-wired — so it
+    can be calibrated against real BM25 distributions without a code change.
+    """
+    from src.config import SearchSettings
+
+    # Default is a sane positive constant (the provisional, calibration-pending k).
+    assert SearchSettings().relevance_saturation_k > 0.0
+    # ...and it is overridable from the environment.
+    monkeypatch.setenv("SEARCH_RELEVANCE_SATURATION_K", "20.0")
+    assert SearchSettings().relevance_saturation_k == pytest.approx(20.0)
+    # A non-positive k is rejected (would break the transform's denominator).
+    with pytest.raises(ValueError):
+        SearchSettings(relevance_saturation_k=0.0)
+
+
+def test_search_route_honours_configured_k(
+    app: FastAPI, client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """The /search transform uses the configured ``k``, not a magic number (ig#1070).
+
+    A larger ``k`` saturates more slowly, so the same raw score earns a lower
+    badge percentage — the calibration knob the issue calls for.
+
+    The route resolves ``k`` from its dedicated ``get_search_settings``
+    dependency, so we override that dependency directly. This is deterministic
+    regardless of test order (unlike mutating the cached singleton, which an
+    earlier test may have already fixed at the default) — the very failure mode
+    this guards against.
+    """
+    from src.api.routes import search as search_route
+    from src.config import SearchSettings, Settings
+
+    # Override the route's dedicated settings dependency by its own reference,
+    # which is order-independent (it does not depend on whether other suites have
+    # ``patch``ed ``src.config.get_settings``).
+    app.dependency_overrides[search_route.get_search_settings] = lambda: Settings(
+        search=SearchSettings(relevance_saturation_k=20.0)
+    )
+    try:
+        mock_neo4j.execute_read.side_effect = [
+            [{"id": "nar-1", "name_ar": "نص", "name_en": "narrator", "score": 2.5}],
+            [],
+            [{"total": 1}],
+            [{"total": 0}],
+        ]
+        resp = client.get("/api/v1/search?q=test")
+        assert resp.status_code == 200
+        # 2.5 / (2.5 + 20.0) — markedly lower than the default-k mapping above.
+        assert resp.json()["results"][0]["score"] == pytest.approx(2.5 / (2.5 + 20.0))
+    finally:
+        app.dependency_overrides.pop(search_route.get_search_settings, None)
 
 
 def test_semantic_search_clamps_negative_score(client: TestClient, app: object) -> None:
@@ -341,6 +435,85 @@ def test_semantic_search_returns_results_when_pg_available(client: TestClient, a
     assert body["results"][0]["score"] == 0.92
 
     # Clean up override
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_populates_facet_metadata(client: TestClient, app: object) -> None:
+    """Semantic hits carry the facet metadata the search page filters on (#1060).
+
+    Facets only refine semantic results if those results expose
+    ``collection``/``grade``/``topics`` — otherwise the client-side matcher treats
+    every semantic hit as "unknown" and never excludes it. The metadata is
+    projected into ``isnad_graph.hadiths`` and selected by the semantic query; the
+    raw grade is normalized to its canonical token API-side, mirroring full-text.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [
+            {
+                "id": "had-1",
+                "matn_ar": "نص",
+                "matn_en": "matn text",
+                "collection_name": "Sahih al-Bukhari",
+                "grade": "Sahih - Authentic",
+                "topic_tags": ["intentions"],
+                "score": 0.9,
+            }
+        ],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+    hit = resp.json()["results"][0]
+    assert hit["collection"] == "Sahih al-Bukhari"
+    assert hit["grade"] == "sahih"  # normalized from "Sahih - Authentic"
+    # Raw tag "intentions" maps onto the canonical "akhlaq" topic (#1061), so the
+    # facet (which compares canonical tokens) refines semantic hits too (#1060).
+    assert hit["topics"] == ["akhlaq"]
+
+    # The data query must project the facet columns, not just the embedding/score.
+    data_sql = mock_pg.execute.call_args_list[0].args[0]
+    assert "collection_name" in data_sql
+    assert "h.grade" in data_sql
+    assert "topic_tags" in data_sql
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_facet_metadata_defaults_when_absent(
+    client: TestClient, app: object
+) -> None:
+    """A semantic row with no facet columns yields null/empty fields, not errors (#1060)."""
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "م", "matn_en": "h", "score": 0.5}],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+    hit = resp.json()["results"][0]
+    assert hit["collection"] is None
+    assert hit["grade"] is None
+    assert hit["topics"] == []
+
     del app.dependency_overrides[get_pg]
 
 
