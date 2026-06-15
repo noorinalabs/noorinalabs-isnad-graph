@@ -43,7 +43,7 @@ import hashlib
 import math
 import re
 from functools import lru_cache
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from src.config import get_settings
 from src.models.enrich import EmbeddingLoadResult
@@ -231,16 +231,33 @@ def embedding_text(matn_ar: str | None, matn_en: str | None) -> str:
     return (matn_en or matn_ar or "").strip()
 
 
+# Projects the matn text plus the facet metadata the search page filters on
+# (collection / grade / topic). ``grade`` resolves the connected Grading node and
+# falls back to the legacy flat properties, mirroring the search route's
+# ``_fulltext_hadith_search`` ``coalesce`` so the semantic path carries the same
+# raw grade the fulltext path normalises (#1060). Mirroring this metadata into the
+# pgvector-side ``isnad_graph.hadiths`` projection is what lets facets refine
+# semantic results.
 _FETCH_HADITHS_QUERY = """
 MATCH (h:Hadith)
-RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en
+OPTIONAL MATCH (h)-[:GRADED_BY]->(g:Grading)
+RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en,
+       h.collection_name AS collection_name,
+       h.topic_tags AS topic_tags,
+       coalesce(g.grade, h.grade_composite, h.grade) AS grade
 """
 
 
 def fetch_hadiths_from_neo4j(
     neo4j: Neo4jClient, *, limit: int | None = None
-) -> list[dict[str, str | None]]:
-    """Read ``(id, matn_ar, matn_en)`` for every Hadith node (source of truth)."""
+) -> list[dict[str, Any]]:
+    """Read matn text + facet metadata for every Hadith node (source of truth).
+
+    Returns ``id``, ``matn_ar``, ``matn_en`` (the embedded/displayed text) plus
+    ``collection_name``, ``grade``, and ``topic_tags`` — the facet metadata the
+    search page filters on, projected here so it lands in pgvector alongside the
+    embedding (#1060).
+    """
     query = _FETCH_HADITHS_QUERY
     params: dict[str, int] = {}
     if limit is not None:
@@ -263,10 +280,25 @@ def ensure_embedding_schema(pg: PgClient, dim: int = EMBEDDING_DIM) -> None:
     pg.execute(
         """
         CREATE TABLE IF NOT EXISTS isnad_graph.hadiths (
-            id      text PRIMARY KEY,
-            matn_ar text,
-            matn_en text
+            id              text PRIMARY KEY,
+            matn_ar         text,
+            matn_en         text,
+            collection_name text,
+            grade           text,
+            topic_tags      text[]
         )
+        """
+    )
+    # Backfill the facet columns on a pre-existing ``hadiths`` table (the
+    # CREATE above is a no-op once the table exists). Idempotent, so re-running
+    # the loader against an older deployment adds the metadata projection
+    # without a separate migration (#1060).
+    pg.execute(
+        """
+        ALTER TABLE isnad_graph.hadiths
+            ADD COLUMN IF NOT EXISTS collection_name text,
+            ADD COLUMN IF NOT EXISTS grade           text,
+            ADD COLUMN IF NOT EXISTS topic_tags      text[]
         """
     )
     pg.execute(
@@ -291,10 +323,14 @@ def ensure_embedding_schema(pg: PgClient, dim: int = EMBEDDING_DIM) -> None:
 
 
 _UPSERT_HADITH_SQL = """
-INSERT INTO isnad_graph.hadiths (id, matn_ar, matn_en)
-VALUES (%s, %s, %s)
+INSERT INTO isnad_graph.hadiths (id, matn_ar, matn_en, collection_name, grade, topic_tags)
+VALUES (%s, %s, %s, %s, %s, %s)
 ON CONFLICT (id) DO UPDATE
-SET matn_ar = EXCLUDED.matn_ar, matn_en = EXCLUDED.matn_en
+SET matn_ar = EXCLUDED.matn_ar,
+    matn_en = EXCLUDED.matn_en,
+    collection_name = EXCLUDED.collection_name,
+    grade = EXCLUDED.grade,
+    topic_tags = EXCLUDED.topic_tags
 """
 
 _UPSERT_EMBEDDING_SQL = """
@@ -342,7 +378,16 @@ def run_embedding_load(
                 skipped_empty += 1
                 continue
             text = embedding_text(row.get("matn_ar"), row.get("matn_en"))
-            hadith_params.append((hadith_id, row.get("matn_ar"), row.get("matn_en")))
+            hadith_params.append(
+                (
+                    hadith_id,
+                    row.get("matn_ar"),
+                    row.get("matn_en"),
+                    row.get("collection_name"),
+                    row.get("grade"),
+                    row.get("topic_tags"),
+                )
+            )
             if not text:
                 skipped_empty += 1
                 continue

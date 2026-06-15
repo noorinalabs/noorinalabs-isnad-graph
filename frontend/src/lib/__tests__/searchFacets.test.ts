@@ -153,6 +153,26 @@ describe('matchesFacets', () => {
     })
   })
 
+  // Regression for #1060: semantic search hits used to carry no facet metadata,
+  // so an active facet never excluded them (every hit looked "unknown"). Now that
+  // the semantic endpoint projects collection/grade/topics, the same matcher
+  // refines semantic results — and the page's score sort preserves cosine order.
+  it('refines semantic-style results once they carry facet metadata, preserving rank order', () => {
+    const semanticHits: SearchResult[] = [
+      result({ id: 's1', type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'sahih', score: 0.93 }),
+      result({ id: 's2', type: 'hadith', collection: 'Sahih Muslim', grade: 'sahih', score: 0.88 }),
+      result({ id: 's3', type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'daif', score: 0.81 }),
+    ]
+    const facets: FacetSelection = { ...NO_FACETS, collections: ['Sahih al-Bukhari'] }
+
+    const refined = semanticHits
+      .filter((r) => matchesFacets(r, facets))
+      .sort((a, b) => b.score - a.score)
+
+    // Only the Bukhari hits survive, still in descending cosine order.
+    expect(refined.map((r) => r.id)).toEqual(['s1', 's3'])
+  })
+
   it('requires all active facet groups to match (AND across groups)', () => {
     const r = result({ type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'sahih', topics: ['fiqh'] })
     expect(

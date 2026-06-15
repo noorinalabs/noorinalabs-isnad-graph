@@ -345,6 +345,83 @@ def test_semantic_search_returns_results_when_pg_available(client: TestClient, a
     del app.dependency_overrides[get_pg]
 
 
+def test_semantic_search_populates_facet_metadata(client: TestClient, app: object) -> None:
+    """Semantic hits carry the facet metadata the search page filters on (#1060).
+
+    Facets only refine semantic results if those results expose
+    ``collection``/``grade``/``topics`` — otherwise the client-side matcher treats
+    every semantic hit as "unknown" and never excludes it. The metadata is
+    projected into ``isnad_graph.hadiths`` and selected by the semantic query; the
+    raw grade is normalized to its canonical token API-side, mirroring full-text.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [
+            {
+                "id": "had-1",
+                "matn_ar": "نص",
+                "matn_en": "matn text",
+                "collection_name": "Sahih al-Bukhari",
+                "grade": "Sahih - Authentic",
+                "topic_tags": ["intentions"],
+                "score": 0.9,
+            }
+        ],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+    hit = resp.json()["results"][0]
+    assert hit["collection"] == "Sahih al-Bukhari"
+    assert hit["grade"] == "sahih"  # normalized from "Sahih - Authentic"
+    assert hit["topics"] == ["intentions"]
+
+    # The data query must project the facet columns, not just the embedding/score.
+    data_sql = mock_pg.execute.call_args_list[0].args[0]
+    assert "collection_name" in data_sql
+    assert "h.grade" in data_sql
+    assert "topic_tags" in data_sql
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_facet_metadata_defaults_when_absent(
+    client: TestClient, app: object
+) -> None:
+    """A semantic row with no facet columns yields null/empty fields, not errors (#1060)."""
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "م", "matn_en": "h", "score": 0.5}],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+    hit = resp.json()["results"][0]
+    assert hit["collection"] is None
+    assert hit["grade"] is None
+    assert hit["topics"] == []
+
+    del app.dependency_overrides[get_pg]
+
+
 def test_semantic_search_embeds_query_at_runtime(client: TestClient, app: object) -> None:
     """The query is embedded into a pgvector literal, not matched by exact text.
 

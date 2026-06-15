@@ -245,6 +245,7 @@ def search_semantic(
         rows = pg.execute(
             """
             SELECT h.id, h.matn_ar, h.matn_en,
+                   h.collection_name, h.grade, h.topic_tags,
                    1 - (e.embedding <=> %s::vector) AS score
             FROM isnad_graph.hadith_embeddings e
             JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
@@ -272,11 +273,12 @@ def search_semantic(
             },
         )
 
-    # Facet metadata (collection/grade/topics) is intentionally left empty for
-    # semantic hits: those attributes live on the Neo4j graph, not on the
-    # ``isnad_graph.hadiths`` projection this query reads, and the search-page
-    # matcher treats a missing value as "unknown, not excluded" — so facets do
-    # not (yet) refine semantic results. (#1036)
+    # Facet metadata (collection/grade/topics) is now projected alongside the
+    # embedding in ``isnad_graph.hadiths`` (see ``src/enrich/embeddings.py``), so
+    # semantic hits carry the same filterable attributes as full-text hits and the
+    # search page's facet matcher refines them identically. ``grade`` is the raw
+    # scholar string here; it is normalized to a canonical token API-side, exactly
+    # as the full-text path does. (#1060)
     results: list[SearchResult] = []
     for r in rows:
         snippet = r.get("matn_en") or r["matn_ar"]
@@ -290,6 +292,9 @@ def search_semantic(
                 title=snippet[:120] + "..." if len(snippet) > 120 else snippet,
                 title_ar=r["matn_ar"][:120],
                 score=max(0.0, min(1.0, raw_score)),
+                collection=r.get("collection_name"),
+                grade=normalize_grade(r.get("grade")),
+                topics=r.get("topic_tags") or [],
             )
         )
 
