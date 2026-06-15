@@ -68,6 +68,24 @@ describe('matchesFacets', () => {
       ).toBe(true)
     })
 
+    it('matches the previously-unreachable compound and defect grades by canonical token (#1062)', () => {
+      // The search facet now stores canonical tokens, so the compound grade and
+      // the defect grades that the old 4-label list omitted are selectable.
+      expect(
+        matchesFacets(result({ grade: 'hasan_sahih' }), { ...NO_FACETS, gradings: ['hasan_sahih'] }),
+      ).toBe(true)
+      expect(
+        matchesFacets(result({ grade: 'munkar' }), { ...NO_FACETS, gradings: ['munkar'] }),
+      ).toBe(true)
+      expect(
+        matchesFacets(result({ grade: 'shadh' }), { ...NO_FACETS, gradings: ['shadh'] }),
+      ).toBe(true)
+      // A compound-grade hadith is not caught by a plain "sahih" selection.
+      expect(
+        matchesFacets(result({ grade: 'hasan_sahih' }), { ...NO_FACETS, gradings: ['sahih'] }),
+      ).toBe(false)
+    })
+
     it('drops a hadith whose grade token does not match', () => {
       expect(
         matchesFacets(result({ grade: 'sahih' }), { ...NO_FACETS, gradings: ['Hasan'] }),

@@ -79,8 +79,10 @@ function matchesCollection(value: string | null | undefined, selected: string[])
 function matchesGrade(value: string | null | undefined, selected: string[]): boolean {
   if (selected.length === 0) return true
   if (!value) return true
-  // `value` is already a canonical token (e.g. "sahih", "daif", "hasan_sahih");
-  // the facet labels normalize to the same tokens for the simple grades.
+  // `value` is already a canonical token (e.g. "sahih", "daif", "hasan_sahih").
+  // The search facet now stores canonical tokens too, so the compound
+  // "hasan_sahih" matches (its display label "Hasan Sahih" would normalize to
+  // "hasan sahih" and miss); plain display labels still match for simple grades.
   const v = norm(value)
   return selected.some((label) => v === norm(label))
 }
