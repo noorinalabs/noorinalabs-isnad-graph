@@ -14,7 +14,8 @@ import { SESSION_EXPIRED_EVENT } from '../../hooks/useAuth'
 const REFRESH_URL = '/auth/token/refresh'
 // Origin resolves to '' (same-origin) in the test env, so the profile URLs are bare.
 const PROFILE_URL = '/api/v1/users/me/profile'
-const SESSIONS_URL = '/api/v1/users/me/sessions'
+// Sessions are a sibling collection, NOT under /users/me (matches sessions.py).
+const SESSIONS_URL = '/api/v1/sessions'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {

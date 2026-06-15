@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './hooks/useAuth'
+import { ThemeProvider } from './hooks/useTheme'
+import PreferencesSync from './components/PreferencesSync'
 import Layout from './components/Layout'
 import AdminLayout from './components/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -51,58 +53,61 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SessionExpiredModal />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="login" element={<LoginPage />} />
-            <Route path="auth/callback/:provider" element={<AuthCallbackPage />} />
-            <Route path="pricing" element={<PricingPage />} />
-            <Route path="billing/checkout" element={<CheckoutPage />} />
-            <Route path="trial-expired" element={<TrialExpiredPage />} />
-            <Route path="check-email" element={<CheckEmailPage />} />
-            <Route path="verify" element={<VerifyEmailPage />} />
+        <ThemeProvider>
+          <PreferencesSync />
+          <SessionExpiredModal />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="login" element={<LoginPage />} />
+              <Route path="auth/callback/:provider" element={<AuthCallbackPage />} />
+              <Route path="pricing" element={<PricingPage />} />
+              <Route path="billing/checkout" element={<CheckoutPage />} />
+              <Route path="trial-expired" element={<TrialExpiredPage />} />
+              <Route path="check-email" element={<CheckEmailPage />} />
+              <Route path="verify" element={<VerifyEmailPage />} />
 
-            {/* Authenticated routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<Layout />}>
-                <Route index element={<HomePage />} />
-                <Route path="narrators" element={<NarratorsPage />} />
-                <Route path="narrators/:id" element={<NarratorDetailPage />} />
-                <Route path="hadiths" element={<HadithsPage />} />
-                <Route path="hadiths/:id" element={<HadithDetailPage />} />
-                <Route path="collections" element={<CollectionsPage />} />
-                <Route path="collections/:id" element={<CollectionDetailPage />} />
-                <Route path="search" element={<SearchPage />} />
-                <Route path="timeline" element={<TimelinePage />} />
-                <Route path="compare" element={<ComparativePage />} />
-                <Route path="graph" element={<GraphExplorerPage />} />
-                <Route path="profile" element={<ProfilePage />} />
-              </Route>
+              {/* Authenticated routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<Layout />}>
+                  <Route index element={<HomePage />} />
+                  <Route path="narrators" element={<NarratorsPage />} />
+                  <Route path="narrators/:id" element={<NarratorDetailPage />} />
+                  <Route path="hadiths" element={<HadithsPage />} />
+                  <Route path="hadiths/:id" element={<HadithDetailPage />} />
+                  <Route path="collections" element={<CollectionsPage />} />
+                  <Route path="collections/:id" element={<CollectionDetailPage />} />
+                  <Route path="search" element={<SearchPage />} />
+                  <Route path="timeline" element={<TimelinePage />} />
+                  <Route path="compare" element={<ComparativePage />} />
+                  <Route path="graph" element={<GraphExplorerPage />} />
+                  <Route path="profile" element={<ProfilePage />} />
+                </Route>
 
-              {/* Admin routes — require isAdmin */}
-              <Route element={<AdminRoute />}>
-                <Route path="admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                  <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="users" element={<UserManagementPage />} />
-                  <Route path="health" element={<SystemHealthPage />} />
-                  <Route path="stats" element={<ContentStatsPage />} />
-                  <Route path="data" element={<DataManagementPage />} />
-                  <Route path="analytics" element={<UsageAnalyticsPage />} />
-                  <Route path="moderation" element={<ModerationPage />} />
-                  <Route path="reports" element={<ReportsPage />} />
-                  <Route path="config" element={<ConfigPage />} />
-                  <Route path="audit" element={<AuditLogPage />} />
-                  <Route path="reset" element={<ResetPage />} />
+                {/* Admin routes — require isAdmin */}
+                <Route element={<AdminRoute />}>
+                  <Route path="admin" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="users" element={<UserManagementPage />} />
+                    <Route path="health" element={<SystemHealthPage />} />
+                    <Route path="stats" element={<ContentStatsPage />} />
+                    <Route path="data" element={<DataManagementPage />} />
+                    <Route path="analytics" element={<UsageAnalyticsPage />} />
+                    <Route path="moderation" element={<ModerationPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="config" element={<ConfigPage />} />
+                    <Route path="audit" element={<AuditLogPage />} />
+                    <Route path="reset" element={<ResetPage />} />
+                  </Route>
                 </Route>
               </Route>
-            </Route>
 
-            {/* Catch-all 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </BrowserRouter>
+              {/* Catch-all 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </BrowserRouter>
+        </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   )
