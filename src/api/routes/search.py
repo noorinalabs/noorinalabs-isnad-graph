@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.deps import get_neo4j, get_pg
 from src.api.models import SearchResult, SearchResultsResponse
-from src.config import get_settings
+from src.config import Settings, get_settings
 from src.enrich.embeddings import get_embedder, to_pgvector_literal
 from src.utils.grades import normalize_grade
 from src.utils.neo4j_client import Neo4jClient
@@ -54,11 +54,28 @@ def saturate_relevance(score: float, k: float) -> float:
     return score / (score + k)
 
 
+def get_search_settings() -> Settings:
+    """Resolve application settings for the search route (overridable dependency).
+
+    A thin wrapper around ``get_settings`` rather than ``Depends(get_settings)``
+    directly: it keeps a clean ``() -> Settings`` signature so FastAPI never
+    introspects a *patched* ``get_settings``. The wider test suites
+    ``patch("src.config.get_settings")`` with a ``MagicMock`` (whose
+    ``(*args, **kwargs)`` signature FastAPI would otherwise treat as required
+    ``args``/``kwargs`` query params, 422-ing every ``/search`` request, since the
+    route modules are imported lazily inside ``create_app``). Resolving at call
+    time still honours a patched ``get_settings`` and lets tests override this
+    dependency directly. (ig#1070)
+    """
+    return get_settings()
+
+
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
     q: str = Query("", max_length=500, description="Search query"),
     limit: int = Query(20, ge=1, le=100),
     neo4j: Neo4jClient = Depends(get_neo4j),
+    settings: Settings = Depends(get_search_settings),
 ) -> SearchResultsResponse:
     """Full-text search across hadiths and narrators.
 
@@ -124,8 +141,11 @@ def search(
     # rank-within-result-set, not absolute confidence. ig#1070 replaces it with
     # ``score / (score + k)`` (monotonic, bounded [0, 1), top hit no longer pinned
     # to 1.0). ``k`` is configurable / calibration-pending — see ``SearchSettings``.
+    # Resolved via the injected ``settings`` dependency (not a module-level cached
+    # read) so it is honoured per request and deterministically overridable in
+    # tests through ``app.dependency_overrides[get_settings]`` (ig#1070).
     if results:
-        k = get_settings().search.relevance_saturation_k
+        k = settings.search.relevance_saturation_k
         results = [r.model_copy(update={"score": saturate_relevance(r.score, k)}) for r in results]
 
     # --- Total count across both result types ---

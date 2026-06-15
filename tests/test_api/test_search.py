@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
@@ -284,29 +285,41 @@ def test_saturation_k_reads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_search_route_honours_configured_k(
-    client: TestClient, mock_neo4j: MagicMock, monkeypatch: pytest.MonkeyPatch
+    app: FastAPI, client: TestClient, mock_neo4j: MagicMock
 ) -> None:
     """The /search transform uses the configured ``k``, not a magic number (ig#1070).
 
     A larger ``k`` saturates more slowly, so the same raw score earns a lower
     badge percentage — the calibration knob the issue calls for.
-    """
-    from src.config import get_settings
 
-    # The route reads ``get_settings().search.relevance_saturation_k`` per request;
-    # point that at a distinct k and confirm the emitted score tracks it. (monkeypatch
-    # restores the cached singleton after the test.)
-    monkeypatch.setattr(get_settings().search, "relevance_saturation_k", 20.0)
-    mock_neo4j.execute_read.side_effect = [
-        [{"id": "nar-1", "name_ar": "نص", "name_en": "narrator", "score": 2.5}],
-        [],
-        [{"total": 1}],
-        [{"total": 0}],
-    ]
-    resp = client.get("/api/v1/search?q=test")
-    assert resp.status_code == 200
-    # 2.5 / (2.5 + 20.0) — markedly lower than the default-k mapping above.
-    assert resp.json()["results"][0]["score"] == pytest.approx(2.5 / (2.5 + 20.0))
+    The route resolves ``k`` from its dedicated ``get_search_settings``
+    dependency, so we override that dependency directly. This is deterministic
+    regardless of test order (unlike mutating the cached singleton, which an
+    earlier test may have already fixed at the default) — the very failure mode
+    this guards against.
+    """
+    from src.api.routes import search as search_route
+    from src.config import SearchSettings, Settings
+
+    # Override the route's dedicated settings dependency by its own reference,
+    # which is order-independent (it does not depend on whether other suites have
+    # ``patch``ed ``src.config.get_settings``).
+    app.dependency_overrides[search_route.get_search_settings] = lambda: Settings(
+        search=SearchSettings(relevance_saturation_k=20.0)
+    )
+    try:
+        mock_neo4j.execute_read.side_effect = [
+            [{"id": "nar-1", "name_ar": "نص", "name_en": "narrator", "score": 2.5}],
+            [],
+            [{"total": 1}],
+            [{"total": 0}],
+        ]
+        resp = client.get("/api/v1/search?q=test")
+        assert resp.status_code == 200
+        # 2.5 / (2.5 + 20.0) — markedly lower than the default-k mapping above.
+        assert resp.json()["results"][0]["score"] == pytest.approx(2.5 / (2.5 + 20.0))
+    finally:
+        app.dependency_overrides.pop(search_route.get_search_settings, None)
 
 
 def test_semantic_search_clamps_negative_score(client: TestClient, app: object) -> None:
