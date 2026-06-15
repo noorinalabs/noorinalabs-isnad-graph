@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import DashboardPage from "../DashboardPage"
+import DashboardPage, { ObservabilitySection } from "../DashboardPage"
 import { fetchDashboardStats } from "../../../api/admin-client"
 import type { DashboardStats } from "../../../api/admin-client"
 
@@ -136,7 +136,10 @@ describe("DashboardPage", () => {
     expect(container.querySelector("h2")).toBeNull()
   })
 
-  it("renders Observability section with three links using relative hrefs", async () => {
+  it("does NOT mount the Observability section while gated off (ig#1073)", async () => {
+    // The obs-links are hidden until the Grafana SSO bridge ships (deploy#458):
+    // until then they dead-end at Grafana's login. Assert the section is absent
+    // from the rendered dashboard. Re-enable assertion when deploy#458 lands.
     const stats: DashboardStats = {
       total_users: 10,
       active_users: 10,
@@ -148,11 +151,23 @@ describe("DashboardPage", () => {
     vi.mocked(fetchDashboardStats).mockResolvedValue(stats)
     renderPage()
 
-    await screen.findByText("Observability")
+    // Dashboard has rendered (stats visible) but the Observability section is not.
+    await screen.findByText("Admin Dashboard")
+    expect(screen.queryByText("Observability")).toBeNull()
+    expect(screen.queryByRole("link", { name: /^Grafana/i })).toBeNull()
+  })
+})
 
-    // Accessible names are the full text content of each <a>. Anchor patterns to
-    // avoid false-matches (e.g. "Logs (Loki) Explore log streams via Grafana"
-    // also contains "grafana" — use leading-word anchors instead).
+describe("ObservabilitySection (gated component, ig#1073)", () => {
+  // The section is mounted off-page for now, but its markup must stay correct so
+  // flipping OBSERVABILITY_LINKS_ENABLED back on (when deploy#458 ships) is safe.
+  it("renders three links with relative hrefs, target=_blank, rel=noopener", () => {
+    render(<ObservabilitySection />)
+
+    expect(screen.getByText("Observability")).toBeTruthy()
+
+    // Leading-word anchors avoid false-matches (e.g. the Logs description also
+    // contains "Grafana").
     const grafanaLink = screen.getByRole("link", { name: /^Grafana/i })
     expect(grafanaLink).toHaveAttribute("href", "/grafana/")
     expect(grafanaLink).toHaveAttribute("target", "_blank")
