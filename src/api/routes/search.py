@@ -294,7 +294,12 @@ def search_semantic(
                 score=max(0.0, min(1.0, raw_score)),
                 collection=r.get("collection_name"),
                 grade=normalize_grade(r.get("grade")),
-                topics=r.get("topic_tags") or [],
+                # Map raw free-text topic_tags onto the canonical topic vocabulary,
+                # exactly as the full-text path does — the frontend facet matcher
+                # compares against canonical tokens (#1061), so raw tags here would
+                # never match an active topic facet and would wrongly exclude the
+                # hit (the very no-op #1060 fixes, but for topics).
+                topics=canonical_topics_for_tags(r.get("topic_tags")),
             )
         )
 

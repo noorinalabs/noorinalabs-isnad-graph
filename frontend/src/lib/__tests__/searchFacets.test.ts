@@ -173,6 +173,30 @@ describe('matchesFacets', () => {
     expect(refined.map((r) => r.id)).toEqual(['s1', 's3'])
   })
 
+  // Regression for #1060 + #1061: the semantic endpoint must canonicalize
+  // topic_tags (via canonical_topics_for_tags) so a semantic hit carries the same
+  // canonical tokens the topic facet compares against. With RAW tags the topic
+  // facet would never match and would wrongly exclude the hit — the no-op #1060
+  // fixes, here proven for the topic facet specifically.
+  it('refines semantic-style hits by a canonical topic facet, preserving rank order', () => {
+    const semanticHits: SearchResult[] = [
+      result({ id: 't1', type: 'hadith', topics: ['akhlaq'], score: 0.95 }),
+      result({ id: 't2', type: 'hadith', topics: ['fiqh'], score: 0.9 }),
+      result({ id: 't3', type: 'hadith', topics: ['akhlaq', 'aqidah'], score: 0.7 }),
+    ]
+    // The facet selection holds canonical tokens (#1061), the same vocabulary the
+    // semantic endpoint now projects onto each hit.
+    const facets: FacetSelection = { ...NO_FACETS, topics: ['akhlaq'] }
+
+    const refined = semanticHits
+      .filter((r) => matchesFacets(r, facets))
+      .sort((a, b) => b.score - a.score)
+
+    // Only the canonical-akhlaq hits survive, still in descending cosine order;
+    // the fiqh-only hit is excluded (canonical token mismatch, not permissive).
+    expect(refined.map((r) => r.id)).toEqual(['t1', 't3'])
+  })
+
   it('requires all active facet groups to match (AND across groups)', () => {
     const r = result({ type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'sahih', topics: ['fiqh'] })
     expect(

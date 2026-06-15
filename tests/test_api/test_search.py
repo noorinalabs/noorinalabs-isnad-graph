@@ -383,7 +383,9 @@ def test_semantic_search_populates_facet_metadata(client: TestClient, app: objec
     hit = resp.json()["results"][0]
     assert hit["collection"] == "Sahih al-Bukhari"
     assert hit["grade"] == "sahih"  # normalized from "Sahih - Authentic"
-    assert hit["topics"] == ["intentions"]
+    # Raw tag "intentions" maps onto the canonical "akhlaq" topic (#1061), so the
+    # facet (which compares canonical tokens) refines semantic hits too (#1060).
+    assert hit["topics"] == ["akhlaq"]
 
     # The data query must project the facet columns, not just the embedding/score.
     data_sql = mock_pg.execute.call_args_list[0].args[0]
