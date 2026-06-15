@@ -153,6 +153,50 @@ describe('matchesFacets', () => {
     })
   })
 
+  // Regression for #1060: semantic search hits used to carry no facet metadata,
+  // so an active facet never excluded them (every hit looked "unknown"). Now that
+  // the semantic endpoint projects collection/grade/topics, the same matcher
+  // refines semantic results — and the page's score sort preserves cosine order.
+  it('refines semantic-style results once they carry facet metadata, preserving rank order', () => {
+    const semanticHits: SearchResult[] = [
+      result({ id: 's1', type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'sahih', score: 0.93 }),
+      result({ id: 's2', type: 'hadith', collection: 'Sahih Muslim', grade: 'sahih', score: 0.88 }),
+      result({ id: 's3', type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'daif', score: 0.81 }),
+    ]
+    const facets: FacetSelection = { ...NO_FACETS, collections: ['Sahih al-Bukhari'] }
+
+    const refined = semanticHits
+      .filter((r) => matchesFacets(r, facets))
+      .sort((a, b) => b.score - a.score)
+
+    // Only the Bukhari hits survive, still in descending cosine order.
+    expect(refined.map((r) => r.id)).toEqual(['s1', 's3'])
+  })
+
+  // Regression for #1060 + #1061: the semantic endpoint must canonicalize
+  // topic_tags (via canonical_topics_for_tags) so a semantic hit carries the same
+  // canonical tokens the topic facet compares against. With RAW tags the topic
+  // facet would never match and would wrongly exclude the hit — the no-op #1060
+  // fixes, here proven for the topic facet specifically.
+  it('refines semantic-style hits by a canonical topic facet, preserving rank order', () => {
+    const semanticHits: SearchResult[] = [
+      result({ id: 't1', type: 'hadith', topics: ['akhlaq'], score: 0.95 }),
+      result({ id: 't2', type: 'hadith', topics: ['fiqh'], score: 0.9 }),
+      result({ id: 't3', type: 'hadith', topics: ['akhlaq', 'aqidah'], score: 0.7 }),
+    ]
+    // The facet selection holds canonical tokens (#1061), the same vocabulary the
+    // semantic endpoint now projects onto each hit.
+    const facets: FacetSelection = { ...NO_FACETS, topics: ['akhlaq'] }
+
+    const refined = semanticHits
+      .filter((r) => matchesFacets(r, facets))
+      .sort((a, b) => b.score - a.score)
+
+    // Only the canonical-akhlaq hits survive, still in descending cosine order;
+    // the fiqh-only hit is excluded (canonical token mismatch, not permissive).
+    expect(refined.map((r) => r.id)).toEqual(['t1', 't3'])
+  })
+
   it('requires all active facet groups to match (AND across groups)', () => {
     const r = result({ type: 'hadith', collection: 'Sahih al-Bukhari', grade: 'sahih', topics: ['fiqh'] })
     expect(

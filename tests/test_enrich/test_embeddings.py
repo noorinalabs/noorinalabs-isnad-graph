@@ -126,6 +126,21 @@ def test_ensure_embedding_schema_creates_tables_with_dim() -> None:
     assert "ivfflat" in executed
 
 
+def test_ensure_embedding_schema_projects_facet_columns() -> None:
+    """The hadiths projection carries the facet metadata, with an idempotent
+    backfill for pre-existing tables (#1060)."""
+    pg = MagicMock()
+    ensure_embedding_schema(pg, EMBEDDING_DIM)
+    executed = " ".join(call.args[0] for call in pg.execute.call_args_list)
+    # Columns present in the CREATE TABLE for fresh installs.
+    assert "collection_name text" in executed
+    assert "topic_tags      text[]" in executed
+    # Idempotent ADD COLUMN IF NOT EXISTS backfill for older deployments.
+    assert "ALTER TABLE isnad_graph.hadiths" in executed
+    assert "ADD COLUMN IF NOT EXISTS collection_name" in executed
+    assert "ADD COLUMN IF NOT EXISTS topic_tags" in executed
+
+
 def test_ensure_embedding_schema_rejects_non_int_dim() -> None:
     pg = MagicMock()
     with pytest.raises(ValueError):
@@ -151,6 +166,22 @@ def test_fetch_hadiths_no_limit_passes_none() -> None:
     query, params = neo4j.execute_read.call_args.args
     assert "LIMIT" not in query
     assert params is None
+
+
+def test_fetch_hadiths_projects_facet_metadata() -> None:
+    """The fetch query projects collection/grade/topics so they reach pgvector (#1060).
+
+    ``grade`` resolves the connected Grading node with the same ``coalesce``
+    fallback the full-text search route uses, keeping the two paths consistent.
+    """
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = []
+    fetch_hadiths_from_neo4j(neo4j)
+    query = neo4j.execute_read.call_args.args[0]
+    assert "collection_name AS collection_name" in query
+    assert "topic_tags AS topic_tags" in query
+    assert "GRADED_BY" in query
+    assert "coalesce(g.grade, h.grade_composite, h.grade) AS grade" in query
 
 
 # --- run_embedding_load (the mechanism, against mock clients) -----------------
@@ -190,6 +221,38 @@ def test_run_embedding_load_embeds_and_upserts() -> None:
     assert hadith_id == "h1"
     assert source_text == "first hadith"
     assert vector_literal.startswith("[") and vector_literal.endswith("]")
+
+
+def test_run_embedding_load_upserts_facet_metadata() -> None:
+    """The hadiths upsert carries collection/grade/topics into the projection (#1060)."""
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = [
+        {
+            "id": "h1",
+            "matn_ar": "نص",
+            "matn_en": "a hadith",
+            "collection_name": "Sahih al-Bukhari",
+            "grade": "Sahih - Authentic",
+            "topic_tags": ["intentions"],
+        }
+    ]
+    pg = MagicMock()
+
+    run_embedding_load(neo4j, pg, embedder=HashingEmbedder())
+
+    hadith_call = next(
+        call
+        for call in pg.execute_many.call_args_list
+        if "INSERT INTO isnad_graph.hadiths" in call.args[0]
+    )
+    sql, rows = hadith_call.args
+    # The upsert lists and writes the facet columns.
+    assert "collection_name" in sql
+    assert "grade" in sql
+    assert "topic_tags" in sql
+    # The bound row carries the metadata through to the projection.
+    (row,) = rows
+    assert row == ("h1", "نص", "a hadith", "Sahih al-Bukhari", "Sahih - Authentic", ["intentions"])
 
 
 def test_run_embedding_load_skips_textless_hadiths() -> None:
