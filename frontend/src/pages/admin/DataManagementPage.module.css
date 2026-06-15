@@ -44,3 +44,48 @@
 .errorText {
   color: var(--color-destructive);
 }
+
+.dangerZone {
+  border: var(--border-width-thin) solid var(--color-destructive);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+}
+
+.dangerZone .sectionTitle {
+  color: var(--color-destructive);
+}
+
+.purgeControls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-4);
+}
+
+.purgeButton {
+  background: var(--color-destructive);
+  color: var(--color-destructive-foreground);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2) var(--spacing-4);
+  cursor: pointer;
+}
+
+.purgeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.purgeResult {
+  margin-top: var(--spacing-4);
+  padding: var(--spacing-4);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.purgeBreakdown {
+  margin: var(--spacing-2) 0 0;
+  padding-left: var(--spacing-6);
+}
