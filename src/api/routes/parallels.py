@@ -13,9 +13,28 @@ from src.api.models import (
     ParallelPairsResponse,
     ParallelsResponse,
 )
+from src.api.routes.hadiths import _format_display_title
 from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter()
+
+# Maximum characters of matn surfaced as a Browse-row preview.
+_SNIPPET_CHARS = 140
+
+
+def _matn_snippet(matn_en: str | None, matn_ar: str | None) -> str | None:
+    """Build a short, single-line matn preview, preferring the English translation.
+
+    Returns ``None`` when neither translation is available so the frontend can
+    fall back to title-only rendering.
+    """
+    text = (matn_en or matn_ar or "").strip()
+    if not text:
+        return None
+    text = " ".join(text.split())
+    if len(text) <= _SNIPPET_CHARS:
+        return text
+    return text[:_SNIPPET_CHARS].rstrip() + "…"
 
 
 @router.get("/parallels", response_model=ParallelPairsResponse)
@@ -51,7 +70,11 @@ def list_parallels(
         MATCH (a:Hadith)-[r:PARALLEL_OF]->(b:Hadith)
         {where}
         RETURN a.id AS a_id, a.source_corpus AS a_corpus,
+               a.collection_name AS a_collection,
+               a.matn_en AS a_matn_en, a.matn_ar AS a_matn_ar,
                b.id AS b_id, b.source_corpus AS b_corpus,
+               b.collection_name AS b_collection,
+               b.matn_en AS b_matn_en, b.matn_ar AS b_matn_ar,
                r.similarity_score AS similarity_score,
                r.variant_type AS variant_type,
                r.cross_sect AS cross_sect
@@ -66,8 +89,12 @@ def list_parallels(
         ParallelPair(
             hadith_a_id=r["a_id"],
             hadith_a_corpus=r.get("a_corpus", ""),
+            hadith_a_title=_format_display_title(r["a_id"], r.get("a_collection")),
+            hadith_a_snippet=_matn_snippet(r.get("a_matn_en"), r.get("a_matn_ar")),
             hadith_b_id=r["b_id"],
             hadith_b_corpus=r.get("b_corpus", ""),
+            hadith_b_title=_format_display_title(r["b_id"], r.get("b_collection")),
+            hadith_b_snippet=_matn_snippet(r.get("b_matn_en"), r.get("b_matn_ar")),
             similarity_score=r.get("similarity_score"),
             variant_type=r.get("variant_type"),
             cross_sect=bool(r.get("cross_sect", False)),

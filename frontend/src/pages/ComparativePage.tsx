@@ -1,12 +1,90 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { fetchParallelPairs, fetchHadith, searchAll } from '../api/client'
+import {
+  fetchParallelPairs,
+  fetchHadith,
+  fetchHadithParallels,
+  searchAll,
+} from '../api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs'
+import { gradeColor } from '../lib/grades'
+import { diffTokens, type DiffToken } from '../lib/textDiff'
+import type { Hadith } from '../types/api'
+
+function corpusLabel(corpus: string): string {
+  if (!corpus) return ''
+  return corpus.charAt(0).toUpperCase() + corpus.slice(1)
+}
+
+// Render a token stream with divergent tokens highlighted; shared tokens render
+// plainly so agreement reads as the calm baseline and differences draw the eye.
+function DiffText({
+  tokens,
+  dir,
+  lang,
+  className,
+}: {
+  tokens: DiffToken[]
+  dir?: 'rtl' | 'ltr'
+  lang?: string
+  className?: string
+}) {
+  return (
+    <span dir={dir} lang={lang} className={className}>
+      {tokens.map((t, i) => (
+        <span key={i} className={t.shared ? undefined : 'diff-unique'}>
+          {t.text}
+          {i < tokens.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function GradePill({ hadith }: { hadith: Hadith }) {
+  if (!hadith.grade_composite) return null
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${gradeColor(hadith.grade_normalized)}`}
+    >
+      {hadith.grade_composite}
+    </span>
+  )
+}
+
+// Selected-hadith chip: shows the human-readable title + matn preview + grade
+// (fetched by ID), instead of an opaque raw-ID badge. (#1037)
+function HadithChip({ id, onClear }: { id: string; onClear: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['hadith', id],
+    queryFn: () => fetchHadith(id),
+    enabled: !!id,
+  })
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap rounded-md border border-border bg-muted/30 p-2">
+      <div className="flex flex-col min-w-0">
+        <span className="font-medium text-sm">
+          {data?.display_title ?? (isLoading ? 'Loading…' : id)}
+        </span>
+        {data?.matn_en && (
+          <small className="text-muted-foreground truncate" style={{ maxWidth: '34ch' }}>
+            {data.matn_en}
+          </small>
+        )}
+      </div>
+      {data && <GradePill hadith={data} />}
+      <Button variant="ghost" size="sm" onClick={onClear}>
+        Clear
+      </Button>
+    </div>
+  )
+}
 
 function HadithSearchSelect({
   label,
@@ -33,14 +111,7 @@ function HadithSearchSelect({
     <div style={{ position: 'relative', flex: 1 }}>
       <label className="text-sm font-medium text-muted-foreground mb-1 block">{label}</label>
       {value ? (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm py-1 px-3">
-            {value}
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={() => onChange('')}>
-            Clear
-          </Button>
-        </div>
+        <HadithChip id={value} onClear={() => onChange('')} />
       ) : (
         <>
           <Input
@@ -66,9 +137,13 @@ function HadithSearchSelect({
                     setOpen(false)
                   }}
                 >
-                  <span className="font-medium">{r.id}</span>
+                  {/* Lead with readable title; keep the ID as secondary metadata. */}
+                  <span className="font-medium">{r.title || r.id}</span>
+                  {r.collection && (
+                    <span className="text-muted-foreground text-xs"> · {r.collection}</span>
+                  )}
                   <br />
-                  <small className="text-muted-foreground">{r.title}</small>
+                  <small className="text-muted-foreground">{r.id}</small>
                 </div>
               ))}
             </div>
@@ -76,6 +151,79 @@ function HadithSearchSelect({
         </>
       )}
     </div>
+  )
+}
+
+function AnalysisStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="analysis-stat">
+      <span className="analysis-stat-label">{label}</span>
+      <span className="analysis-stat-value">{value}</span>
+    </div>
+  )
+}
+
+type SideDiffs = {
+  matnAr: DiffToken[]
+  matnEn: DiffToken[] | null
+  isnadAr: DiffToken[] | null
+  isnadEn: DiffToken[] | null
+}
+
+function ComparisonCard({ hadith, diffs }: { hadith: Hadith; diffs: SideDiffs }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{hadith.display_title ?? hadith.id}</CardTitle>
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <Badge variant="secondary">{corpusLabel(hadith.source_corpus)}</Badge>
+          {hadith.collection_name && (
+            <span className="text-xs text-muted-foreground">{hadith.collection_name}</span>
+          )}
+          <GradePill hadith={hadith} />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {diffs.isnadAr && (
+          <div
+            dir="rtl"
+            lang="ar"
+            className="font-arabic text-sm leading-[1.8] mb-1 text-muted-foreground"
+          >
+            <DiffText tokens={diffs.isnadAr} dir="rtl" lang="ar" />
+          </div>
+        )}
+        <div
+          dir="rtl"
+          lang="ar"
+          className="font-arabic text-base leading-[1.8] mb-4 p-3 rounded-md bg-muted/30"
+        >
+          <DiffText tokens={diffs.matnAr} dir="rtl" lang="ar" />
+        </div>
+
+        {(diffs.matnEn || diffs.isnadEn) && (
+          <>
+            <hr className="border-border my-3" />
+            <div className="text-sm leading-relaxed">
+              {diffs.isnadEn && (
+                <DiffText tokens={diffs.isnadEn} className="text-muted-foreground" />
+              )}{' '}
+              {diffs.matnEn && <DiffText tokens={diffs.matnEn} />}
+            </div>
+          </>
+        )}
+
+        {hadith.topic_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-3">
+            {hadith.topic_tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -92,6 +240,34 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
     enabled: !!idB,
   })
 
+  // The similarity score / variant type live on the PARALLEL_OF edge, so look the
+  // pair up via A's parallels. Surfaces the metric even on direct navigation, not
+  // only when arriving from a Browse row. (#1037)
+  const { data: parallels } = useQuery({
+    queryKey: ['hadith-parallels', idA],
+    queryFn: () => fetchHadithParallels(idA),
+    enabled: !!idA && !!idB,
+  })
+  const pairMeta = parallels?.parallels.find((p) => p.id === idB)
+
+  const diffs = useMemo(() => {
+    if (!hadithA || !hadithB) return null
+    const matnAr = diffTokens(hadithA.matn_ar, hadithB.matn_ar)
+    const matnEn =
+      hadithA.matn_en && hadithB.matn_en
+        ? diffTokens(hadithA.matn_en, hadithB.matn_en)
+        : null
+    const isnadAr =
+      hadithA.isnad_raw_ar && hadithB.isnad_raw_ar
+        ? diffTokens(hadithA.isnad_raw_ar, hadithB.isnad_raw_ar)
+        : null
+    const isnadEn =
+      hadithA.isnad_raw_en && hadithB.isnad_raw_en
+        ? diffTokens(hadithA.isnad_raw_en, hadithB.isnad_raw_en)
+        : null
+    return { matnAr, matnEn, isnadAr, isnadEn }
+  }, [hadithA, hadithB])
+
   if (loadingA || loadingB) {
     return (
       <div>
@@ -102,54 +278,80 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
     )
   }
 
-  if (!hadithA || !hadithB) {
+  if (!hadithA || !hadithB || !diffs) {
     return <p className="error-text">One or both hadiths could not be found.</p>
   }
 
+  const matnOverlap = diffs.matnEn?.overlap ?? diffs.matnAr.overlap
+  const sharedNarrators = diffs.isnadEn?.sharedCount ?? diffs.isnadAr?.sharedCount ?? null
+
+  const sideA: SideDiffs = {
+    matnAr: diffs.matnAr.a,
+    matnEn: diffs.matnEn?.a ?? null,
+    isnadAr: diffs.isnadAr?.a ?? null,
+    isnadEn: diffs.isnadEn?.a ?? null,
+  }
+  const sideB: SideDiffs = {
+    matnAr: diffs.matnAr.b,
+    matnEn: diffs.matnEn?.b ?? null,
+    isnadAr: diffs.isnadAr?.b ?? null,
+    isnadEn: diffs.isnadEn?.b ?? null,
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {[hadithA, hadithB].map((h) => (
-        <Card key={h.id}>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {h.source_corpus} &mdash; {h.id}
-            </CardTitle>
-            {h.grade_composite && (
-              <Badge variant={h.grade_composite.toLowerCase() === 'sahih' ? 'sahih' : 'outline'}>
-                {h.grade_composite}
-              </Badge>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div
-              dir="rtl"
-              lang="ar"
-              className="font-arabic text-base leading-[1.8] mb-4 p-3 rounded-md bg-muted/30"
-            >
-              {h.isnad_raw_ar && (
-                <span className="text-muted-foreground">{h.isnad_raw_ar} </span>
-              )}
-              {h.matn_ar}
-            </div>
-            {h.matn_en && (
-              <>
-                <hr className="border-border my-3" />
-                <div className="text-sm leading-relaxed">
-                  {h.isnad_raw_en && (
-                    <span className="text-muted-foreground">{h.isnad_raw_en} </span>
-                  )}
-                  {h.matn_en}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+    <div>
+      <div className="analysis-bar" aria-label="Comparison summary">
+        <AnalysisStat
+          label="Similarity"
+          value={
+            pairMeta?.similarity_score != null
+              ? `${(pairMeta.similarity_score * 100).toFixed(1)}%`
+              : `~${Math.round(matnOverlap * 100)}% word overlap`
+          }
+        />
+        {pairMeta?.variant_type && (
+          <AnalysisStat label="Variant" value={pairMeta.variant_type.replace(/_/g, ' ')} />
+        )}
+        <AnalysisStat
+          label="Sect pairing"
+          value={
+            pairMeta
+              ? pairMeta.cross_sect
+                ? 'Cross-sect'
+                : 'Within-sect'
+              : hadithA.source_corpus === hadithB.source_corpus
+                ? 'Same corpus'
+                : 'Different corpora'
+          }
+        />
+        {sharedNarrators != null && (
+          <AnalysisStat label="Shared isnad words" value={String(sharedNarrators)} />
+        )}
+        {!pairMeta && (
+          <span className="text-xs text-muted-foreground">
+            No recorded parallel link — showing direct text comparison.
+          </span>
+        )}
+      </div>
+
+      <div className="diff-legend" aria-hidden="true">
+        <span>
+          <span className="diff-legend-swatch" style={{ background: 'var(--color-hasan-bg)' }} />
+          Differs
+        </span>
+        <span>Unhighlighted text is shared by both narrations</span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ComparisonCard hadith={hadithA} diffs={sideA} />
+        <ComparisonCard hadith={hadithB} diffs={sideB} />
+      </div>
     </div>
   )
 }
 
 type SectFilter = 'all' | 'cross' | 'intra'
+type SortDir = 'desc' | 'asc'
 
 const SECT_FILTERS: { value: SectFilter; label: string; crossSect?: boolean }[] = [
   { value: 'all', label: 'All parallels', crossSect: undefined },
@@ -160,11 +362,18 @@ const SECT_FILTERS: { value: SectFilter; label: string; crossSect?: boolean }[] 
 export default function ComparativePage() {
   const [page, setPage] = useState(1)
   const [sectFilter, setSectFilter] = useState<SectFilter>('all')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const compareA = searchParams.get('a') ?? ''
   const compareB = searchParams.get('b') ?? ''
+  const hasComparison = Boolean(compareA && compareB)
+
+  // Controlled tabs so the Browse "Compare" button can actually switch the view —
+  // an uncontrolled defaultValue only applies on mount, making the button a
+  // visual no-op. (#1037)
+  const [tab, setTab] = useState<'browse' | 'compare'>(hasComparison ? 'compare' : 'browse')
 
   const crossSect = SECT_FILTERS.find((f) => f.value === sectFilter)?.crossSect
 
@@ -181,6 +390,14 @@ export default function ComparativePage() {
     [searchParams, setSearchParams],
   )
 
+  const compareFromBrowse = useCallback(
+    (aId: string, bId: string) => {
+      setSearchParams({ a: aId, b: bId })
+      setTab('compare')
+    },
+    [setSearchParams],
+  )
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['parallel-pairs', page, sectFilter],
     queryFn: () => fetchParallelPairs(page, 20, crossSect),
@@ -191,9 +408,23 @@ export default function ComparativePage() {
     setPage(1)
   }, [])
 
+  // Client-side sort of the current page by similarity. Nulls sort last either way.
+  const sortedItems = useMemo(() => {
+    if (!data) return []
+    const items = [...data.items]
+    items.sort((x, y) => {
+      const a = x.similarity_score
+      const b = y.similarity_score
+      if (a == null && b == null) return 0
+      if (a == null) return 1
+      if (b == null) return -1
+      return sortDir === 'desc' ? b - a : a - b
+    })
+    return items
+  }, [data, sortDir])
+
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0
-  const hasParallels = data && data.items.length > 0
-  const hasComparison = compareA && compareB
+  const hasParallels = sortedItems.length > 0
 
   return (
     <div>
@@ -203,7 +434,7 @@ export default function ComparativePage() {
         (sunni-sunni, shia-shia) and across the Sunni and Shia corpora.
       </p>
 
-      <Tabs defaultValue={hasComparison ? 'compare' : 'browse'}>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as 'browse' | 'compare')}>
         <TabsList>
           <TabsTrigger value="browse">Browse Parallels</TabsTrigger>
           <TabsTrigger value="compare">Compare Hadiths</TabsTrigger>
@@ -241,8 +472,9 @@ export default function ComparativePage() {
                   </div>
                   <h3 className="empty-state-heading">Select two hadiths to compare</h3>
                   <p className="empty-state-body">
-                    Search for hadiths above and select one for each side to view
-                    them side by side with their Arabic text, translations, and grades.
+                    Search for hadiths above and select one for each side to view a
+                    side-by-side analysis — Arabic text, translations, grades, and a
+                    word-level diff highlighting where the two narrations diverge.
                   </p>
                 </div>
               )}
@@ -301,30 +533,54 @@ export default function ComparativePage() {
                   <tr>
                     <th>Hadith A</th>
                     <th>Hadith B</th>
-                    <th>Similarity</th>
+                    <th
+                      className="th-sortable"
+                      onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+                      role="button"
+                      tabIndex={0}
+                      aria-sort={sortDir === 'desc' ? 'descending' : 'ascending'}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
+                        }
+                      }}
+                    >
+                      Similarity {sortDir === 'desc' ? '↓' : '↑'}
+                    </th>
                     <th>Variant Type</th>
                     <th>Sect Pairing</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((pair, idx) => (
+                  {sortedItems.map((pair, idx) => (
                     <tr key={`${pair.hadith_a_id}-${pair.hadith_b_id}-${idx}`}>
                       <td
-                        style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
+                        style={{ cursor: 'pointer', color: 'var(--color-primary)', maxWidth: '22rem' }}
                         onClick={() => navigate(`/hadiths/${pair.hadith_a_id}`)}
                       >
-                        <span className="font-medium">{pair.hadith_a_id}</span>
+                        <span className="font-medium">
+                          {pair.hadith_a_title || pair.hadith_a_id}
+                        </span>
                         <br />
-                        <small className="text-muted-foreground">{pair.hadith_a_corpus}</small>
+                        <small className="text-muted-foreground">
+                          {corpusLabel(pair.hadith_a_corpus)}
+                          {pair.hadith_a_snippet ? ` — ${pair.hadith_a_snippet}` : ''}
+                        </small>
                       </td>
                       <td
-                        style={{ cursor: 'pointer', color: 'var(--color-primary)' }}
+                        style={{ cursor: 'pointer', color: 'var(--color-primary)', maxWidth: '22rem' }}
                         onClick={() => navigate(`/hadiths/${pair.hadith_b_id}`)}
                       >
-                        <span className="font-medium">{pair.hadith_b_id}</span>
+                        <span className="font-medium">
+                          {pair.hadith_b_title || pair.hadith_b_id}
+                        </span>
                         <br />
-                        <small className="text-muted-foreground">{pair.hadith_b_corpus}</small>
+                        <small className="text-muted-foreground">
+                          {corpusLabel(pair.hadith_b_corpus)}
+                          {pair.hadith_b_snippet ? ` — ${pair.hadith_b_snippet}` : ''}
+                        </small>
                       </td>
                       <td>
                         {pair.similarity_score != null ? (
@@ -341,9 +597,7 @@ export default function ComparativePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setSearchParams({ a: pair.hadith_a_id, b: pair.hadith_b_id })
-                          }}
+                          onClick={() => compareFromBrowse(pair.hadith_a_id, pair.hadith_b_id)}
                         >
                           Compare
                         </Button>
@@ -358,7 +612,7 @@ export default function ComparativePage() {
                   Previous
                 </button>
                 <span>
-                  Page {data.page} of {totalPages}
+                  Page {data?.page} of {totalPages}
                 </span>
                 <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
                   Next
