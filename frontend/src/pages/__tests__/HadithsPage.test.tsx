@@ -103,7 +103,7 @@ describe("HadithsPage narrator-in-isnad filter (#1050)", () => {
     vi.clearAllMocks()
     vi.mocked(fetchHadiths).mockResolvedValue(hadithsPage(false))
     vi.mocked(fetchCollections).mockResolvedValue(emptyCollections)
-    vi.mocked(fetchHadithFacets).mockResolvedValue({ source_corpus: [], grades: [] })
+    vi.mocked(fetchHadithFacets).mockResolvedValue({ source_corpus: [], grades: [], topics: [] })
     vi.mocked(fetchNarrators).mockResolvedValue(narratorPage())
   })
 
