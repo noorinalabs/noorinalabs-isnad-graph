@@ -23,6 +23,18 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.0",
 ]
 
+# Optional ML runtime for the production semantic-embedding load only. NOT a
+# runtime dependency of the API (the lean API image stays torch-free) — it is
+# installed only in the dedicated embed image (`uv sync --extra ml`, Dockerfile
+# `embed` target) so `SentenceTransformerEmbedder` can load a real model on the
+# cluster (P5W4 / #1071). `paraphrase-multilingual-MiniLM-L12-v2` is 384-dim,
+# matching `EMBEDDING_DIM` and the `vector(384)` column. See src/enrich/embeddings.py.
+[project.optional-dependencies]
+ml = [
+    "torch>=2.0",
+    "sentence-transformers>=2.2",
+]
+
 [project.scripts]
 isnad = "src.cli:main"
 

@@ -130,6 +130,58 @@ def _cmd_embed_hadiths(batch_size: int, limit: int | None) -> None:
     print(f"  dim                : {result.dim}")
 
 
+def _cmd_reindex_embeddings(lists: int) -> None:
+    """Rebuild the ivfflat semantic-search index with a tuned ``lists`` count.
+
+    Closes #1057. Run after a bulk ``embed-hadiths`` load so the index partitions
+    match the populated row count. Uses ``CREATE INDEX CONCURRENTLY`` + an atomic
+    swap, so ``/search/semantic`` keeps serving throughout (no ``REINDEX`` lock on
+    the live index). Idempotent — safe to re-run.
+    """
+    from src.enrich.embeddings import reindex_embeddings
+    from src.utils.pg_client import PgClient
+
+    print(f"Rebuilding ivfflat index (lists={lists}) with CONCURRENTLY + atomic swap...")
+    with PgClient() as pg:
+        result = reindex_embeddings(pg, lists=lists)
+
+    print("=== reindex complete ===")
+    print(f"  index : {result.index_name}")
+    print(f"  lists : {result.lists}")
+
+
+def _cmd_verify_recall(queries: list[str], top_k: int) -> int:
+    """Verify semantic search returns topically relevant hits; return an exit code.
+
+    Closes #1088. This is the deploy workflow's verification gate after a
+    re-embed: it asserts the embeddings table is fully populated and that each
+    known query surfaces on-topic hadiths. Returns 0 on pass, 1 on failure.
+    """
+    from src.enrich.embeddings import get_embedder, verify_recall
+    from src.utils.pg_client import PgClient
+
+    embedder = get_embedder()
+    print(
+        f"Verifying recall (model={embedder.model_name}, queries={','.join(queries)}, "
+        f"top_k={top_k})..."
+    )
+    with PgClient() as pg:
+        result = verify_recall(pg, queries, top_k=top_k, embedder=embedder)
+
+    print("=== recall verification ===")
+    print(f"  embeddings loaded  : {result.embeddings_count}")
+    print(f"  embeddable hadiths : {result.embeddable_count}")
+    print(f"  structural ok      : {result.structural_ok}")
+    for check in result.checks:
+        status = "PASS" if check.passed else "FAIL"
+        print(
+            f"  [{status}] {check.query!r}: hits={check.hits} "
+            f"top_score={check.top_score:.4f} keyword={check.keyword_matched}"
+        )
+    print(f"  overall            : {'PASS' if result.passed else 'FAIL'}")
+    return 0 if result.passed else 1
+
+
 def main() -> None:
     """Run the isnad-graph CLI."""
     parser = argparse.ArgumentParser(description="isnad-graph: Hadith Analysis Platform")
@@ -150,6 +202,29 @@ def main() -> None:
     embed_parser.add_argument(
         "--limit", type=int, default=None, help="Only embed the first N hadiths (default: all)"
     )
+    reindex_parser = subparsers.add_parser(
+        "reindex-embeddings",
+        help="Rebuild the ivfflat semantic-search index (CONCURRENTLY, no downtime)",
+    )
+    reindex_parser.add_argument(
+        "--lists",
+        type=int,
+        default=185,
+        help="ivfflat lists (index partitions); ~sqrt(rows). Default 185 for ~34k hadiths.",
+    )
+    verify_parser = subparsers.add_parser(
+        "verify-recall",
+        help="Assert semantic search returns topically relevant hits (exit code = gate)",
+    )
+    verify_parser.add_argument(
+        "--queries",
+        type=str,
+        default="patience,prayer",
+        help="Comma-separated known queries to check (default: patience,prayer)",
+    )
+    verify_parser.add_argument(
+        "--top-k", type=int, default=5, help="Top-K results inspected per query (default 5)"
+    )
 
     args = parser.parse_args()
 
@@ -163,6 +238,11 @@ def main() -> None:
         _cmd_enrich_historical()
     elif args.command == "embed-hadiths":
         _cmd_embed_hadiths(args.batch_size, args.limit)
+    elif args.command == "reindex-embeddings":
+        _cmd_reindex_embeddings(args.lists)
+    elif args.command == "verify-recall":
+        queries = [q.strip() for q in args.queries.split(",") if q.strip()]
+        sys.exit(_cmd_verify_recall(queries, args.top_k))
 
 
 if __name__ == "__main__":

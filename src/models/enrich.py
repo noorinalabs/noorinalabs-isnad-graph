@@ -7,6 +7,9 @@ __all__ = [
     "EnrichSummary",
     "HistoricalResult",
     "MetricsResult",
+    "RecallCheck",
+    "RecallVerificationResult",
+    "ReindexEmbeddingsResult",
     "TopicResult",
 ]
 
@@ -21,6 +24,44 @@ class EmbeddingLoadResult(BaseModel):
     skipped_empty: int
     model_name: str
     dim: int
+
+
+class ReindexEmbeddingsResult(BaseModel):
+    """Result of rebuilding the ivfflat index after a bulk embedding load (#1057)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    lists: int
+    index_name: str
+
+
+class RecallCheck(BaseModel):
+    """Per-query outcome of the semantic-search recall smoke check (#1088)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    query: str
+    hits: int
+    top_score: float
+    keyword_matched: bool
+    passed: bool
+
+
+class RecallVerificationResult(BaseModel):
+    """Aggregate recall-verification outcome — the deploy workflow's gate (#1088).
+
+    ``passed`` is the single signal the ``isnad verify-recall`` CLI turns into its
+    exit code: structural health (every embeddable hadith has a vector, table is
+    populated) AND every per-query topical check passing.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    embeddings_count: int
+    embeddable_count: int
+    structural_ok: bool
+    checks: list[RecallCheck]
+    passed: bool
 
 
 class MetricsResult(BaseModel):

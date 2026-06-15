@@ -66,6 +66,43 @@ class PgClient:
             log.error("pg_execute_many_failed", query=query, error=str(exc))
             raise
 
+    def execute_autocommit(self, query: str, params: tuple[Any, ...] | None = None) -> None:
+        """Execute a single statement outside any transaction (autocommit).
+
+        Postgres forbids ``CREATE/DROP INDEX CONCURRENTLY`` inside a transaction
+        block, but psycopg opens an implicit transaction around ``execute``. This
+        flips the connection to autocommit for the one statement so the
+        concurrent index build runs without holding a lock on the live index
+        (#1057), then restores the previous mode.
+        """
+        previous = self._conn.autocommit
+        self._conn.autocommit = True
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(query, params)
+        except psycopg.Error as exc:
+            log.error("pg_execute_autocommit_failed", query=query, error=str(exc))
+            raise
+        finally:
+            self._conn.autocommit = previous
+
+    def execute_transaction(self, queries: list[str]) -> None:
+        """Execute *queries* atomically in a single transaction (all-or-nothing).
+
+        Used for the ivfflat index swap (drop the old index, rename the freshly
+        built one to the canonical name) so concurrent readers see either the old
+        index or the new one, never a window with neither (#1057).
+        """
+        try:
+            with self._conn.cursor() as cur:
+                for query in queries:
+                    cur.execute(query)
+            self._conn.commit()
+        except psycopg.Error as exc:
+            self._conn.rollback()
+            log.error("pg_execute_transaction_failed", error=str(exc))
+            raise
+
     # --- schema ----------------------------------------------------------
 
     def ensure_schema(self) -> None:
