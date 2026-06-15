@@ -14,10 +14,11 @@ dependencies = [
     "structlog>=24.1",
     "python-dotenv>=1.0",
     "fastapi>=0.115",
-    "starlette>=1.0.1",
+    "starlette>=1.3.1",  # CVE-2026-54283 (urlencoded-form DoS) + CVE-2026-54282 (request.url host spoof)
     "uvicorn[standard]>=0.34",
     "authlib>=1.3",
     "python-jose[cryptography]>=3.3",
+    "cryptography>=48.0.1",  # GHSA-537c-gmf6-5ccf (statically-linked OpenSSL in wheels); transitive via python-jose/authlib
     "redis>=5.0",
     "prometheus-fastapi-instrumentator>=7.0",
 ]
