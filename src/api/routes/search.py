@@ -87,6 +87,16 @@ def search(
                 )
             )
 
+    # --- Normalize Lucene scores to [0, 1] ---
+    # Neo4j's ``db.index.fulltext.queryNodes`` returns unbounded BM25-style
+    # scores (commonly 1–5, but no upper bound). The frontend multiplies by 100
+    # to render a percentage, so a raw score of 2.5 would display as "250%".
+    # Max-normalisation maps the top result to 1.0 and preserves relative order.
+    if results:
+        max_score = max(r.score for r in results)
+        if max_score > 0:
+            results = [r.model_copy(update={"score": r.score / max_score}) for r in results]
+
     # --- Total count across both result types ---
     # The result list above is capped at ``limit``; ``total`` must reflect the
     # full count of matching narrators + hadiths so clients can paginate.
@@ -266,13 +276,16 @@ def search_semantic(
     results: list[SearchResult] = []
     for r in rows:
         snippet = r.get("matn_en") or r["matn_ar"]
+        # ``1 - cosine_distance`` is theoretically in [-1, 1]; clamp to [0, 1]
+        # so a degenerate embedding never produces a negative relevance score.
+        raw_score = float(r.get("score") or 0.0)
         results.append(
             SearchResult(
                 id=r["id"],
                 type="hadith",
                 title=snippet[:120] + "..." if len(snippet) > 120 else snippet,
                 title_ar=r["matn_ar"][:120],
-                score=float(r.get("score") or 0.0),
+                score=max(0.0, min(1.0, raw_score)),
             )
         )
 
