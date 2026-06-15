@@ -15,14 +15,17 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.enrich.embeddings import (
+    DEFAULT_IVFFLAT_LISTS,
     EMBEDDING_DIM,
     HashingEmbedder,
     embedding_text,
     ensure_embedding_schema,
     fetch_hadiths_from_neo4j,
     get_embedder,
+    reindex_embeddings,
     run_embedding_load,
     to_pgvector_literal,
+    verify_recall,
 )
 
 
@@ -296,3 +299,119 @@ def test_run_embedding_load_batches() -> None:
     assert result.embeddings_loaded == 5
     # 3 batches (2 + 2 + 1) × 2 upserts each = 6 execute_many calls.
     assert pg.execute_many.call_count == 6
+
+
+# --- reindex_embeddings (#1057) -----------------------------------------------
+
+
+def test_reindex_builds_concurrently_then_atomic_swaps() -> None:
+    """The rebuild never locks the live index: CONCURRENTLY build + atomic swap."""
+    pg = MagicMock()
+    result = reindex_embeddings(pg, lists=185)
+
+    # The concurrent statements (which Postgres forbids inside a transaction) go
+    # through the autocommit path, NOT a plain locking REINDEX.
+    autocommit_sql = " ".join(call.args[0] for call in pg.execute_autocommit.call_args_list)
+    assert "DROP INDEX CONCURRENTLY IF EXISTS isnad_graph.hadith_embeddings_embedding_idx_new" in (
+        autocommit_sql
+    )
+    assert "CREATE INDEX CONCURRENTLY hadith_embeddings_embedding_idx_new" in autocommit_sql
+    assert "WITH (lists = 185)" in autocommit_sql
+    assert "REINDEX" not in autocommit_sql
+
+    # The swap is a single transaction: drop the old index, rename the new one in.
+    swap_queries = pg.execute_transaction.call_args.args[0]
+    assert swap_queries == [
+        "DROP INDEX IF EXISTS isnad_graph.hadith_embeddings_embedding_idx",
+        "ALTER INDEX isnad_graph.hadith_embeddings_embedding_idx_new "
+        "RENAME TO hadith_embeddings_embedding_idx",
+    ]
+    assert result.lists == 185
+    assert result.index_name == "hadith_embeddings_embedding_idx"
+
+
+def test_reindex_default_lists_is_tuned_for_corpus() -> None:
+    """Default lists is ~sqrt(34028) ≈ 185, up from the schema's initial 100."""
+    pg = MagicMock()
+    result = reindex_embeddings(pg)
+    assert result.lists == DEFAULT_IVFFLAT_LISTS == 185
+
+
+def test_reindex_rejects_non_positive_lists() -> None:
+    pg = MagicMock()
+    with pytest.raises(ValueError):
+        reindex_embeddings(pg, lists=0)
+
+
+# --- verify_recall (#1088) ----------------------------------------------------
+
+
+def _recall_pg(*, embeddings: int, embeddable: int, hits: list[dict[str, object]]) -> MagicMock:
+    """A mock PgClient routing the count queries and the cosine search by SQL text."""
+    pg = MagicMock()
+
+    def _execute(query: str, params: object = None) -> list[dict[str, object]]:
+        if "hadith_embeddings" in query and "JOIN" not in query and "count(*)" in query:
+            return [{"n": embeddings}]
+        if "FROM isnad_graph.hadiths" in query and "count(*)" in query:
+            return [{"n": embeddable}]
+        return hits  # the cosine search
+
+    pg.execute.side_effect = _execute
+    return pg
+
+
+def test_verify_recall_passes_on_healthy_corpus() -> None:
+    """Full table + topically-relevant top hits → pass, exit-code 0 territory."""
+    hits = [
+        {"matn_en": "Whoever prays with patience is rewarded", "matn_ar": "x", "score": 0.92},
+        {"matn_en": "Prayer at dawn", "matn_ar": "y", "score": 0.80},
+    ]
+    pg = _recall_pg(embeddings=34028, embeddable=34028, hits=hits)
+
+    result = verify_recall(pg, ["patience", "prayer"], embedder=HashingEmbedder())
+
+    assert result.structural_ok is True
+    assert result.passed is True
+    assert [c.query for c in result.checks] == ["patience", "prayer"]
+    assert all(c.passed for c in result.checks)
+
+
+def test_verify_recall_fails_when_top_hits_off_topic() -> None:
+    """Hits exist but none mention the topic → recall check fails."""
+    hits = [{"matn_en": "unrelated text about trade", "matn_ar": "z", "score": 0.5}]
+    pg = _recall_pg(embeddings=10, embeddable=10, hits=hits)
+
+    result = verify_recall(pg, ["patience"], embedder=HashingEmbedder())
+
+    assert result.structural_ok is True
+    assert result.passed is False
+    assert result.checks[0].keyword_matched is False
+
+
+def test_verify_recall_fails_on_partial_load() -> None:
+    """Embeddings count < embeddable hadiths → structural failure (partial load)."""
+    hits = [{"matn_en": "patience is a virtue", "matn_ar": "z", "score": 0.9}]
+    pg = _recall_pg(embeddings=9000, embeddable=34028, hits=hits)
+
+    result = verify_recall(pg, ["patience"], embedder=HashingEmbedder())
+
+    assert result.structural_ok is False
+    assert result.passed is False
+
+
+def test_verify_recall_fails_on_empty_results() -> None:
+    """A query returning no rows fails (degenerate / empty index)."""
+    pg = _recall_pg(embeddings=10, embeddable=10, hits=[])
+
+    result = verify_recall(pg, ["prayer"], embedder=HashingEmbedder())
+
+    assert result.passed is False
+    assert result.checks[0].hits == 0
+    assert result.checks[0].top_score == 0.0
+
+
+def test_verify_recall_rejects_non_positive_top_k() -> None:
+    pg = _recall_pg(embeddings=1, embeddable=1, hits=[])
+    with pytest.raises(ValueError):
+        verify_recall(pg, ["prayer"], top_k=0, embedder=HashingEmbedder())

@@ -165,6 +165,73 @@ jobs:
             echo "- **Digest:** ${{ steps.build.outputs.digest }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # Build and publish the SEPARATE embed image (torch + sentence-transformers).
+  # Deliberately NOT part of the api/frontend matrix above and NOT a dependency of
+  # notify-deploy: this image is heavy (multi-hundred-MB torch + a baked model) and
+  # is only consumed by the on-demand re-embed workflow in noorinalabs-deploy
+  # (workflow_dispatch), never by the standing api/frontend deploy. Decoupling it
+  # means a slow or flaky embed build can never block a normal api/frontend deploy.
+  # Image: ghcr.io/noorinalabs/noorinalabs-isnad-graph-embed
+  # Tags: same scheme as the api image (sha-<short>, latest, stg-<short>, stg-latest).
+  build-and-push-embed:
+    name: Build and push (embed)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (isnad-graph)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6
+        with:
+          images: ${{ env.REGISTRY }}/noorinalabs/noorinalabs-isnad-graph-embed
+          # Identical tag scheme to the api image — see build-and-push meta step.
+          tags: |
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,prefix=stg-,format=short,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=raw,value=stg-latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          file: Dockerfile
+          # The embed stage of the multi-stage Dockerfile. amd64-only: the VPS is
+          # amd64 and a cross-arch torch build through QEMU is prohibitively slow.
+          target: embed
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=embed
+          cache-to: type=gha,mode=max,scope=embed
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## GHCR Publish (embed): ${{ job.status }}"
+            echo ""
+            echo "- **Ref:** ${{ github.ref_name }}"
+            echo "- **Image:** ${{ env.REGISTRY }}/noorinalabs/noorinalabs-isnad-graph-embed"
+            echo "- **Platforms:** linux/amd64"
+            echo "- **SHA:** ${{ github.sha }}"
+            echo "- **Digest:** ${{ steps.build.outputs.digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Fire repository_dispatch to noorinalabs-deploy AFTER both images published.
   # Gated to main-branch pushes only — tag pushes and manual dispatches do NOT
   # auto-deploy. This replaces the standalone notify-deploy.yml workflow which
