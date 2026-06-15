@@ -6,7 +6,7 @@ import {
   fetchRoles,
   setUserRole,
 } from '../../api/admin-client'
-import { deriveHighestRole, type UserRole } from '../../hooks/useAuth'
+import { deriveHighestRole, useAuth, type UserRole } from '../../hooks/useAuth'
 
 // The selectable role vocabulary mirrors the user-service canonical hierarchy
 // (ontology/repos/user-service.yaml → trial | reader | researcher | admin).
@@ -19,8 +19,24 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+// Message shown when an admin tries to strip `admin` from their OWN row. The
+// user-service has no last-admin guard and the isnad-graph backend role route
+// is a 501 stub, so this client-side block is the only thing standing between
+// an operator and a self-inflicted lockout (recovery is the us#159 seed-admin
+// redeploy path). We block rather than confirm() so the demote can never go
+// through by reflex (ig#988).
+const SELF_DEMOTE_MESSAGE =
+  'You cannot remove admin from your own account — you could lock yourself out. ' +
+  'Ask another admin to change your role.'
+
 export default function UserManagementPage() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuth()
+  // Per-row error surface for role-change failures (silent before ig#988): a
+  // self-demote block or a rejected assign/remove mutation. Keyed by the user
+  // id so the message renders under the right row's select, and only one shows
+  // at a time (a fresh attempt clears the previous).
+  const [roleError, setRoleError] = useState<{ userId: string; message: string } | null>(null)
   // user-service list pagination is cursor-based (opaque `next_cursor`), not
   // page-numbered. Keep a stack of the cursors we've visited so "Previous" can
   // pop back; the first entry is `null` (the initial, un-cursored page).
@@ -54,8 +70,31 @@ export default function UserManagementPage() {
       role: string
       currentRoles: string[]
     }) => setUserRole(userId, role, currentRoles, roles ?? []),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: (_data, variables) => {
+      // The assign/remove landed — clear any stale error for this row.
+      setRoleError((prev) => (prev?.userId === variables.userId ? null : prev))
+      return queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+    },
+    onError: (err, variables) => {
+      // Surface the rejected mutation inline instead of failing silently.
+      setRoleError({ userId: variables.userId, message: (err as Error).message })
+    },
   })
+
+  // Guarded role change. Blocks an admin from stripping `admin` off their OWN
+  // account (self-demote lockout), otherwise runs the assign/remove mutation.
+  // A self-demote is "I am editing my own row, I currently hold admin, and the
+  // role I'm switching to is not admin" — selecting any lower role removes
+  // admin because setUserRole() collapses to exactly the chosen role.
+  const handleRoleChange = (userId: string, role: string, currentRoles: string[]) => {
+    const isSelf = !!currentUser && currentUser.id === userId
+    if (isSelf && currentRoles.includes('admin') && role !== 'admin') {
+      setRoleError({ userId, message: SELF_DEMOTE_MESSAGE })
+      return
+    }
+    setRoleError((prev) => (prev?.userId === userId ? null : prev))
+    roleMutation.mutate({ userId, role, currentRoles })
+  }
 
   const goNext = () => {
     if (data?.next_cursor) {
@@ -126,13 +165,7 @@ export default function UserManagementPage() {
                       <select
                         className="form-input w-[130px] p-1"
                         value={deriveHighestRole(currentRoles)}
-                        onChange={(e) =>
-                          roleMutation.mutate({
-                            userId: u.id,
-                            role: e.target.value,
-                            currentRoles,
-                          })
-                        }
+                        onChange={(e) => handleRoleChange(u.id, e.target.value, currentRoles)}
                         disabled={roleMutation.isPending || !roles}
                         aria-label={`Role for ${u.display_name ?? u.email}`}
                       >
@@ -142,6 +175,11 @@ export default function UserManagementPage() {
                           </option>
                         ))}
                       </select>
+                      {roleError?.userId === u.id && (
+                        <p className="error-text mt-1 max-w-[180px]" role="alert">
+                          {roleError.message}
+                        </p>
+                      )}
                     </td>
                     <td>
                       <span className={u.is_active ? 'text-active' : 'text-suspended'}>
