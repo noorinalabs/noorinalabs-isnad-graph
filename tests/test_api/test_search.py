@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -42,7 +43,9 @@ def test_search_fulltext_returns_results(client: TestClient, mock_neo4j: MagicMo
     assert body["total"] == 19
     assert len(body["results"]) == 2
     assert body["results"][0]["type"] == "narrator"
-    assert body["results"][0]["score"] == 2.5
+    # Raw Lucene scores (2.5 narrator, 1.8 hadith) are max-normalised on the
+    # API side (ig#1065): top result maps to 1.0, relative order is preserved.
+    assert body["results"][0]["score"] == pytest.approx(1.0)
     assert body["results"][1]["type"] == "hadith"
 
     # Verify the full-text query was used (CALL db.index.fulltext)
@@ -190,6 +193,64 @@ def test_search_empty_results(client: TestClient) -> None:
     body = resp.json()
     assert body["total"] == 0
     assert body["results"] == []
+
+
+def test_search_normalizes_lucene_scores_to_unit_range(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """Full-text raw Lucene scores >1 are max-normalised to [0,1] (ig#1065).
+
+    Relative ordering must be preserved: the narrator (raw 2.5) outscores the
+    hadith (raw 1.8), so after normalisation both must be ≤1.0 and the narrator
+    score must remain higher.
+    """
+    mock_neo4j.execute_read.side_effect = [
+        [{"id": "nar-1", "name_ar": "نص", "name_en": "narrator", "score": 2.5}],
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "hadith text", "score": 1.8}],
+        [{"total": 1}],
+        [{"total": 1}],
+    ]
+    resp = client.get("/api/v1/search?q=test")
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+
+    narrator = next(r for r in results if r["type"] == "narrator")
+    hadith = next(r for r in results if r["type"] == "hadith")
+
+    # All scores must be within [0, 1] — no "250%" badges.
+    assert narrator["score"] <= 1.0
+    assert hadith["score"] <= 1.0
+    assert narrator["score"] >= 0.0
+    assert hadith["score"] >= 0.0
+    # Top result maps to 1.0.
+    assert narrator["score"] == pytest.approx(1.0)
+    # Relative order preserved: narrator still outscores hadith.
+    assert narrator["score"] > hadith["score"]
+
+
+def test_semantic_search_clamps_negative_score(client: TestClient, app: object) -> None:
+    """Cosine similarity ``1 - distance`` can be negative; clamp to 0 (ig#1065)."""
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "hadith text", "score": -0.1}],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+    body = resp.json()
+    # Negative raw score must clamp to 0, never surface as a negative percentage.
+    assert body["results"][0]["score"] == pytest.approx(0.0)
+
+    del app.dependency_overrides[get_pg]
 
 
 def test_search_missing_query_is_noop(client: TestClient, mock_neo4j: MagicMock) -> None:

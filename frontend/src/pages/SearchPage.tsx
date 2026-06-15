@@ -819,12 +819,16 @@ export default function SearchPage() {
  * Result card components
  * ─────────────────────────────────────────── */
 
-function RelevanceBadge({ score }: { score: number }) {
+// Exported for unit testing (ig#1065).
+export function RelevanceBadge({ score }: { score: number }) {
   const level =
     score >= 0.9 ? 'text-sahih' : score >= 0.7 ? 'text-warning' : 'text-muted-foreground'
+  // Defensive clamp: the API normalises scores to [0,1] (ig#1065), but guard
+  // here too so a stale or out-of-range value never renders >100% or negative.
+  const pct = Math.min(100, Math.max(0, score * 100)).toFixed(0)
   return (
     <span className={`text-xs font-medium ${level}`}>
-      {(score * 100).toFixed(0)}%
+      {pct}%
     </span>
   )
 }
