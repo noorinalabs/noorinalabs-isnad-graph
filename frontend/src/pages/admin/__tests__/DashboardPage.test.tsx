@@ -135,4 +135,37 @@ describe("DashboardPage", () => {
     })
     expect(container.querySelector("h2")).toBeNull()
   })
+
+  it("renders Observability section with three links using relative hrefs", async () => {
+    const stats: DashboardStats = {
+      total_users: 10,
+      active_users: 10,
+      deactivated_users: 0,
+      new_registrations_7d: 0,
+      active_sessions: 1,
+      users_by_role: [],
+    }
+    vi.mocked(fetchDashboardStats).mockResolvedValue(stats)
+    renderPage()
+
+    await screen.findByText("Observability")
+
+    // Accessible names are the full text content of each <a>. Anchor patterns to
+    // avoid false-matches (e.g. "Logs (Loki) Explore log streams via Grafana"
+    // also contains "grafana" — use leading-word anchors instead).
+    const grafanaLink = screen.getByRole("link", { name: /^Grafana/i })
+    expect(grafanaLink).toHaveAttribute("href", "/grafana/")
+    expect(grafanaLink).toHaveAttribute("target", "_blank")
+    expect(grafanaLink).toHaveAttribute("rel", "noopener noreferrer")
+
+    const logsLink = screen.getByRole("link", { name: /^Logs/i })
+    expect(logsLink).toHaveAttribute("href", "/grafana/explore")
+    expect(logsLink).toHaveAttribute("target", "_blank")
+    expect(logsLink).toHaveAttribute("rel", "noopener noreferrer")
+
+    const alertsLink = screen.getByRole("link", { name: /^Alerts/i })
+    expect(alertsLink).toHaveAttribute("href", "/grafana/alerting/list")
+    expect(alertsLink).toHaveAttribute("target", "_blank")
+    expect(alertsLink).toHaveAttribute("rel", "noopener noreferrer")
+  })
 })
