@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.deps import get_neo4j, get_pg
 from src.api.models import SearchResult, SearchResultsResponse
+from src.config import Settings, get_settings
 from src.enrich.embeddings import get_embedder, to_pgvector_literal
 from src.utils.grades import normalize_grade
 from src.utils.neo4j_client import Neo4jClient
@@ -32,11 +33,49 @@ def _death_year_to_century(death_year_ah: object) -> int | None:
     return None
 
 
+def saturate_relevance(score: float, k: float) -> float:
+    """Map a raw BM25-style score onto a badge-friendly [0, 1) confidence.
+
+    Uses the saturating transform ``score / (score + k)``: strictly monotonic in
+    ``score`` (preserves relative ranking), bounded to ``[0, 1)`` for any
+    non-negative input, and — unlike the within-result-set max-normalisation it
+    replaces (ig#1065) — it does NOT force the top hit of every query to exactly
+    1.0. A weak top hit therefore reads as a weak *absolute* confidence rather
+    than 100%, which is the whole point of ig#1070.
+
+    ``k`` is the half-saturation constant (the raw score that maps to 0.5); it is
+    configurable via ``Settings.search.relevance_saturation_k`` and must be
+    calibrated against the real score distribution — see ``SearchSettings``.
+    Negative raw scores are clamped to 0.0 (degenerate / never expected for
+    full-text BM25, but cheap insurance).
+    """
+    if score <= 0.0:
+        return 0.0
+    return score / (score + k)
+
+
+def get_search_settings() -> Settings:
+    """Resolve application settings for the search route (overridable dependency).
+
+    A thin wrapper around ``get_settings`` rather than ``Depends(get_settings)``
+    directly: it keeps a clean ``() -> Settings`` signature so FastAPI never
+    introspects a *patched* ``get_settings``. The wider test suites
+    ``patch("src.config.get_settings")`` with a ``MagicMock`` (whose
+    ``(*args, **kwargs)`` signature FastAPI would otherwise treat as required
+    ``args``/``kwargs`` query params, 422-ing every ``/search`` request, since the
+    route modules are imported lazily inside ``create_app``). Resolving at call
+    time still honours a patched ``get_settings`` and lets tests override this
+    dependency directly. (ig#1070)
+    """
+    return get_settings()
+
+
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
     q: str = Query("", max_length=500, description="Search query"),
     limit: int = Query(20, ge=1, le=100),
     neo4j: Neo4jClient = Depends(get_neo4j),
+    settings: Settings = Depends(get_search_settings),
 ) -> SearchResultsResponse:
     """Full-text search across hadiths and narrators.
 
@@ -91,15 +130,23 @@ def search(
                 )
             )
 
-    # --- Normalize Lucene scores to [0, 1] ---
+    # --- Saturating relevance transform (absolute confidence) ---
     # Neo4j's ``db.index.fulltext.queryNodes`` returns unbounded BM25-style
-    # scores (commonly 1–5, but no upper bound). The frontend multiplies by 100
+    # scores (commonly 1–10, but no upper bound). The frontend multiplies by 100
     # to render a percentage, so a raw score of 2.5 would display as "250%".
-    # Max-normalisation maps the top result to 1.0 and preserves relative order.
+    #
+    # ig#1065 bounded this with within-result-set max-normalisation, but that
+    # forced the top hit of *every* query to exactly 100% regardless of how
+    # strong the match actually was — the badge colour thresholds then read as
+    # rank-within-result-set, not absolute confidence. ig#1070 replaces it with
+    # ``score / (score + k)`` (monotonic, bounded [0, 1), top hit no longer pinned
+    # to 1.0). ``k`` is configurable / calibration-pending — see ``SearchSettings``.
+    # Resolved via the injected ``settings`` dependency (not a module-level cached
+    # read) so it is honoured per request and deterministically overridable in
+    # tests through ``app.dependency_overrides[get_settings]`` (ig#1070).
     if results:
-        max_score = max(r.score for r in results)
-        if max_score > 0:
-            results = [r.model_copy(update={"score": r.score / max_score}) for r in results]
+        k = settings.search.relevance_saturation_k
+        results = [r.model_copy(update={"score": saturate_relevance(r.score, k)}) for r in results]
 
     # --- Total count across both result types ---
     # The result list above is capped at ``limit``; ``total`` must reflect the
