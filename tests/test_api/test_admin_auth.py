@@ -110,6 +110,13 @@ class TestAllEndpoints401:
         resp = noauth_client.patch("/api/v1/admin/users/u1", json={"is_admin": True})
         assert resp.status_code == 401
 
+    def test_post_data_purge_401(self, noauth_client: TestClient) -> None:
+        resp = noauth_client.post(
+            "/api/v1/admin/data/purge",
+            json={"source_corpus": "thaqalayn", "dry_run": True},
+        )
+        assert resp.status_code == 401
+
 
 class TestAllEndpoints404:
     """Verify every admin endpoint returns 404 (not 403) for non-admin users.
@@ -141,6 +148,13 @@ class TestAllEndpoints404:
 
     def test_patch_user_404(self, regular_client: TestClient) -> None:
         resp = regular_client.patch("/api/v1/admin/users/u1", json={"is_admin": True})
+        assert resp.status_code == 404
+
+    def test_post_data_purge_404(self, regular_client: TestClient) -> None:
+        resp = regular_client.post(
+            "/api/v1/admin/data/purge",
+            json={"source_corpus": "thaqalayn", "dry_run": True},
+        )
         assert resp.status_code == 404
 
 

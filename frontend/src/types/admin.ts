@@ -75,6 +75,29 @@ export interface DataSources {
   distinct_sources: number
 }
 
+// --- Per-source graph purge (ig#989) ---
+// GRAPH-level DETACH DELETE scoped to one source_corpus, served by isnad-graph's
+// own /api/v1/admin/data/purge (NOT the cross-service ingest-platform reset).
+// Two-phase: a dry run previews the node/edge counts that would be removed; a
+// real run requires `confirmation` to echo `source_corpus` exactly.
+
+export interface PurgeRequest {
+  source_corpus: string
+  dry_run: boolean
+  // Required only on a real run; must equal `source_corpus` to execute.
+  confirmation?: string
+}
+
+export interface PurgeResult {
+  source_corpus: string
+  node_counts: NodeCount[]
+  relationship_counts: RelationshipCount[]
+  total_nodes: number
+  total_relationships: number
+  dry_run: boolean
+  deleted: boolean
+}
+
 // --- Pipeline reset (ingest-platform cross-service contract, ingest#73) ---
 // The reset endpoints live in the ingest-platform service, NOT isnad-graph's
 // /api/v1/admin. These types mirror the wire contract the UI consumes.

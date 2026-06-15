@@ -5,6 +5,8 @@ import type {
   UsageAnalytics,
   DataOverview,
   DataSources,
+  PurgeRequest,
+  PurgeResult,
   ResetResponse,
   ResetStage,
   FullResetRequest,
@@ -255,6 +257,29 @@ export async function fetchDataOverview(): Promise<DataOverview> {
 
 export async function fetchDataSources(): Promise<DataSources> {
   return fetchAdminJson(`${API_BASE}/data/sources`)
+}
+
+// --- Per-source graph purge (ig#989, destructive) ---
+// Hits isnad-graph's OWN admin API (same-origin, cookie-credentialed) — unlike
+// the pipeline reset below, this is a graph-level DETACH DELETE. Two-phase:
+//   * dryRun=true  → preview counts, touches nothing.
+//   * dryRun=false → requires `confirmation === sourceCorpus`; the backend
+//     rejects a mismatch with 400 (mirrors the OBLITERATE typed-confirm gate).
+// The confirmation token only travels on the real run.
+export async function purgeSource(
+  sourceCorpus: string,
+  dryRun: boolean,
+  confirmation?: string,
+): Promise<PurgeResult> {
+  const body: PurgeRequest = { source_corpus: sourceCorpus, dry_run: dryRun }
+  if (!dryRun && confirmation !== undefined) {
+    body.confirmation = confirmation
+  }
+  return fetchAdminJson(`${API_BASE}/data/purge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
 }
 
 // ============================================================================
