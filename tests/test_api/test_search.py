@@ -382,6 +382,71 @@ def test_semantic_search_embeds_query_at_runtime(client: TestClient, app: object
     del app.dependency_overrides[get_pg]
 
 
+def test_semantic_search_different_queries_rank_differently(
+    client: TestClient, app: object
+) -> None:
+    """Two different queries produce different embedding vectors, so pgvector
+    ranks the same candidate hadiths in different orders for each (#1067).
+
+    The deterministic HashingEmbedder guarantees "prayer in congregation" and
+    "fasting in Ramadan" hash to distinct vectors — confirmed here by capturing
+    the bound parameter each request passes to the ``<=>`` operator.  A live
+    pgvector backend would therefore return different row orderings per query.
+
+    Also covers the "novel query" criterion: neither string is stored in
+    ``hadith_embeddings.text``, yet both calls return 200 — results are not
+    gated on the query being a verbatim stored hadith.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        # data query for "prayer in congregation"
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "hadith text a", "score": 0.8}],
+        [{"total": 20}],  # count for "prayer in congregation"
+        # data query for "fasting in Ramadan"
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "hadith text a", "score": 0.4}],
+        [{"total": 20}],  # count for "fasting in Ramadan"
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp_a = client.get("/api/v1/search/semantic?q=prayer in congregation")
+    resp_b = client.get("/api/v1/search/semantic?q=fasting in Ramadan")
+
+    assert resp_a.status_code == 200
+    assert resp_b.status_code == 200
+
+    # Each request issues 2 pg.execute calls: data query then count query.
+    # Indices 0 and 2 are the data queries; their second positional arg is
+    # (vec, vec, limit) — we capture the first element (the query vector).
+    calls = mock_pg.execute.call_args_list
+    _sql_prayer, params_prayer = calls[0].args
+    _sql_fasting, params_fasting = calls[2].args
+    vec_prayer = params_prayer[0]  # pgvector literal for "prayer in congregation"
+    vec_fasting = params_fasting[0]  # pgvector literal for "fasting in Ramadan"
+
+    # Distinct query texts → distinct hashing vectors → ORDER BY <=> evaluates
+    # differently per query (real ranking diverges without a live db).
+    assert vec_prayer != vec_fasting, (
+        "Identical embedding vectors for different queries — "
+        "query is not being embedded at runtime (#1067)"
+    )
+    # Neither param leaks the raw query string (would indicate the old exact-text
+    # lookup bug is back).
+    assert "prayer" not in vec_prayer
+    assert "fasting" not in vec_fasting
+    # Both are pgvector text literals (the %s::vector bound-param form).
+    assert vec_prayer.startswith("[") and vec_prayer.endswith("]")
+    assert vec_fasting.startswith("[") and vec_fasting.endswith("]")
+
+    del app.dependency_overrides[get_pg]
+
+
 def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) -> None:
     """semantic limit above its cap (50) is rejected with 422 — the frontend
     results page must stay within this cap (#1025).
