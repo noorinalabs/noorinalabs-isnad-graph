@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
 from src.api.models import HadithFacetsResponse, HadithResponse, PaginatedResponse
-from src.utils.grades import grade_filter_clause, normalize_grade
+from src.utils.grades import GRADE_TOKENS, grade_filter_clause, normalize_grade
 from src.utils.neo4j_client import Neo4jClient
 
 # Cypher expression for the effective raw grade: prefer the traversed Grading node,
@@ -112,18 +112,16 @@ def get_hadith_facets(
         "MATCH (h:Hadith) WHERE h.source_corpus IS NOT NULL "
         "RETURN DISTINCT h.source_corpus AS corpus ORDER BY corpus"
     )
-    # Distinct raw grades across all Grading nodes (bounded ~dozens of free-text
-    # values); normalize each to its canonical token and return the present set.
-    grade_rows = neo4j.execute_read(
-        "MATCH (:Hadith)-[:GRADED_BY]->(g:Grading) "
-        "WHERE g.grade IS NOT NULL RETURN DISTINCT g.grade AS grade"
-    )
-    grades = sorted(
-        {token for row in grade_rows if (token := normalize_grade(row["grade"])) is not None}
-    )
+    # The grade facet exposes the full canonical grade vocabulary — the single
+    # source of truth in ``src.utils.grades`` — rather than only the tokens that
+    # happen to be present in the loaded corpus. Deriving it from live ``Grading``
+    # nodes silently dropped valid grades whenever the data was sparse: e.g.
+    # ``munkar``/``shadh``/``hasan_sahih`` were unreachable in the UI even though
+    # the filter (:func:`grade_filter_clause`) fully supports them (#1062). Every
+    # token here filters correctly via the ``?grade=`` param on the list endpoint.
     return HadithFacetsResponse(
         source_corpus=[row["corpus"] for row in rows],
-        grades=grades,
+        grades=sorted(GRADE_TOKENS),
     )
 
 

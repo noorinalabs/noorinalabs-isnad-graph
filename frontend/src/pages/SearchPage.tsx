@@ -27,6 +27,7 @@ import {
   DialogTrigger,
 } from '../components/ui/Dialog'
 import { matchesFacets } from '../lib/searchFacets'
+import { GRADE_TOKENS, gradeLabel } from '../lib/grades'
 
 type SearchMode = 'fulltext' | 'semantic'
 type SortOption = 'relevance' | 'date-asc' | 'date-desc' | 'name-en' | 'name-ar'
@@ -45,7 +46,12 @@ interface SearchFilters {
 // unloaded Shia collections (al-Kafi, Bihar al-Anwar) and omitted loaded ones
 // (e.g. riyadussalihin). (#1026)
 
-const GRADINGS = ['Sahih', 'Hasan', "Da'if", "Mawdu'"]
+// Grade facet options are the full canonical grade vocabulary (canonical tokens,
+// displayed via gradeLabel), not a hardcoded subset — the previous static list
+// exposed only 4 of 7 grades, leaving munkar/shadh/hasan_sahih unreachable even
+// though the API filters them correctly. Selections store the canonical token so
+// the compound "hasan_sahih" matches (its label "Hasan Sahih" would not). (#1062)
+const GRADINGS = GRADE_TOKENS
 const CENTURIES = [1, 2, 3, 4, 5]
 const TOPICS = [
   'Jurisprudence (fiqh)',
@@ -340,7 +346,7 @@ export default function SearchPage() {
               onChange={() => toggleFilter('gradings', g)}
               className="rounded"
             />
-            {g}
+            {gradeLabel(g)}
           </label>
         ))}
       </div>

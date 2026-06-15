@@ -6,6 +6,8 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from src.utils.grades import GRADE_TOKENS
+
 SAMPLE_HADITH = {
     "id": "hdt:lk:abu_dawud:10:1574",
     "matn_ar": "إنما الأعمال بالنيات",
@@ -16,34 +18,35 @@ SAMPLE_HADITH = {
 
 
 def test_get_hadith_facets_empty(client: TestClient) -> None:
-    """GET /api/v1/hadiths/facets returns empty list when no data."""
+    """Corpus facet is empty with no data, but the grade vocabulary is corpus-independent."""
     resp = client.get("/api/v1/hadiths/facets")
     assert resp.status_code == 200
     body = resp.json()
     assert body["source_corpus"] == []
+    # The grade facet exposes the full canonical vocabulary regardless of whether
+    # any hadiths are loaded — it no longer collapses to empty on a sparse corpus
+    # (#1062), so every valid grade stays reachable as a filter.
+    assert body["grades"] == sorted(GRADE_TOKENS)
 
 
 def test_get_hadith_facets_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
-    """GET /api/v1/hadiths/facets returns distinct corpus + normalized grade values."""
-    mock_neo4j.execute_read.side_effect = [
-        # First call: corpus facets.
-        [{"corpus": "lk"}, {"corpus": "sunnah"}, {"corpus": "thaqalayn"}],
-        # Second call: raw free-text grades off Grading nodes.
-        [
-            {"grade": "Sahih - Authentic"},
-            {"grade": "Sahih-Authentic"},
-            {"grade": "Hasan Sahih"},
-            {"grade": "Da'if in chain"},
-            {"grade": "totally unknown"},
-        ],
+    """Corpus facets come from the data; the grade facet is the full canonical vocabulary."""
+    # Only the corpus query hits Neo4j now — grades are sourced from the canonical
+    # enum, not a per-corpus DISTINCT scan that silently dropped absent grades.
+    mock_neo4j.execute_read.return_value = [
+        {"corpus": "lk"},
+        {"corpus": "sunnah"},
+        {"corpus": "thaqalayn"},
     ]
     resp = client.get("/api/v1/hadiths/facets")
     assert resp.status_code == 200
     body = resp.json()
     assert body["source_corpus"] == ["lk", "sunnah", "thaqalayn"]
-    # Distinct normalized tokens, sorted; "Sahih - Authentic"/"Sahih-Authentic"
-    # collapse to one, and the unrecognized value is dropped.
-    assert body["grades"] == ["daif", "hasan_sahih", "sahih"]
+    assert body["grades"] == sorted(GRADE_TOKENS)
+    # The grades a sparse corpus used to hide are now facetable (#1062). Each one
+    # filters correctly — see test_utils/test_grades.py for the predicate proof.
+    for previously_unreachable in ("munkar", "shadh", "hasan_sahih"):
+        assert previously_unreachable in body["grades"]
 
 
 def test_list_hadiths_empty(client: TestClient) -> None:
