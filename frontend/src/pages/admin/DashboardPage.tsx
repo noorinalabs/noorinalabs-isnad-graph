@@ -34,6 +34,90 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+interface ObsLink {
+  label: string
+  description: string
+  href: string
+}
+
+const OBS_LINKS: ObsLink[] = [
+  {
+    label: 'Grafana',
+    description: 'Dashboards and metrics',
+    href: '/grafana/',
+  },
+  {
+    label: 'Logs (Loki)',
+    description: 'Explore log streams via Grafana',
+    href: '/grafana/explore',
+  },
+  {
+    label: 'Alerts',
+    description: 'Active and silenced alert rules',
+    href: '/grafana/alerting/list',
+  },
+]
+
+function ObservabilitySection() {
+  return (
+    <section style={{ marginTop: 'var(--spacing-6)' }}>
+      <h3
+        style={{
+          fontFamily: 'var(--font-heading)',
+          fontSize: 'var(--text-base)',
+          marginBottom: 'var(--spacing-3)',
+        }}
+      >
+        Observability
+      </h3>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 'var(--spacing-4)',
+        }}
+      >
+        {OBS_LINKS.map(({ label, description, href }) => (
+          <a
+            key={href}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'block',
+              padding: 'var(--spacing-4)',
+              background: 'var(--color-card)',
+              border: 'var(--border-width-thin) solid var(--color-border)',
+              borderRadius: 'var(--radius-lg)',
+              textDecoration: 'none',
+              color: 'var(--color-foreground)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 'var(--text-sm)',
+                fontWeight: 600,
+                fontFamily: 'var(--font-heading)',
+                marginBottom: 'var(--spacing-1)',
+              }}
+            >
+              {label}
+            </div>
+            <div
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-muted-foreground)',
+              }}
+            >
+              {description}
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function DashboardPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-dashboard-stats'],
@@ -93,6 +177,8 @@ export default function DashboardPage() {
           </table>
         </>
       )}
+
+      <ObservabilitySection />
     </div>
   )
 }
