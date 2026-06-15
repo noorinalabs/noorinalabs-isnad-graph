@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { resetStage, resetSource, resetFull, ResetError } from '../../api/admin-client'
+import { useModalA11y } from '../../hooks/useModalA11y'
 import type {
   ResetLevel,
   ResetResponse,
@@ -26,8 +27,90 @@ interface PendingReset {
   confirm: () => Promise<ResetResponse>
 }
 
-function formatSummary(summary: ResetSummary): string {
-  return typeof summary === 'string' ? summary : JSON.stringify(summary, null, 2)
+// Turns a snake_case / camelCase contract key into a human label,
+// e.g. "would_delete" → "Would delete", "kafkaTopics" → "Kafka topics".
+function humanizeKey(key: string): string {
+  const spaced = key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .trim()
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+// Renders a single summary value readably: counts get thousands separators,
+// booleans read as Yes/No, primitive arrays are comma-joined, and anything
+// still structured falls back to indented JSON (the contract is loose, so an
+// unexpected nested shape stays legible rather than breaking the page).
+function formatValue(value: unknown): string {
+  if (typeof value === 'number') return value.toLocaleString()
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (value === null || value === undefined) return '—'
+  if (Array.isArray(value) && value.every((v) => typeof v !== 'object' || v === null)) {
+    return value.length === 0 ? '—' : value.map((v) => formatValue(v)).join(', ')
+  }
+  if (typeof value === 'object') return JSON.stringify(value, null, 2)
+  return String(value)
+}
+
+// The dry-run / executed summary. A plain-string blob is shown verbatim; an
+// object blob is laid out as a readable label → value list instead of raw JSON.
+function ResetSummaryView({ summary }: { summary: ResetSummary }) {
+  if (typeof summary === 'string') {
+    return (
+      <pre
+        style={{
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontSize: 'var(--text-sm)',
+          marginTop: 8,
+        }}
+      >
+        {summary}
+      </pre>
+    )
+  }
+
+  const entries = Object.entries(summary)
+  if (entries.length === 0) {
+    return (
+      <p className="small-muted" style={{ marginTop: 8 }}>
+        No changes reported.
+      </p>
+    )
+  }
+
+  return (
+    <dl
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr',
+        gap: '4px 12px',
+        margin: '8px 0 0',
+        fontSize: 'var(--text-sm)',
+      }}
+    >
+      {entries.map(([key, value]) => {
+        const formatted = formatValue(value)
+        const isBlock = formatted.includes('\n')
+        return (
+          <div key={key} style={{ display: 'contents' }}>
+            <dt className="small-muted" style={{ fontWeight: 600 }}>
+              {humanizeKey(key)}
+            </dt>
+            <dd style={{ margin: 0 }}>
+              {isBlock ? (
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                  {formatted}
+                </pre>
+              ) : (
+                formatted
+              )}
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
 }
 
 // Renders a reset response — used for both the dry-run preview and the
@@ -53,16 +136,7 @@ function ResetResultPanel({ result }: { result: ResetResponse }) {
       <p className="small-muted">
         Audit entry: <code>{result.audit_entry_path}</code>
       </p>
-      <pre
-        style={{
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          fontSize: 'var(--text-sm)',
-          marginTop: 8,
-        }}
-      >
-        {formatSummary(result.summary)}
-      </pre>
+      <ResetSummaryView summary={result.summary} />
     </div>
   )
 }
@@ -84,6 +158,9 @@ function ResetConfirmModal({
   const [obliterate, setObliterate] = useState('')
   const [busy, setBusy] = useState<'idle' | 'preview' | 'confirm'>('idle')
   const [error, setError] = useState<string | null>(null)
+
+  // Esc-to-close, focus trap, auto-focus on open, and focus restore on close.
+  const dialogRef = useModalA11y(onClose)
 
   const runDryRun = async () => {
     setError(null)
@@ -128,9 +205,11 @@ function ResetConfirmModal({
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="reset-modal-title"
+        tabIndex={-1}
         style={{
           background: 'var(--color-background)',
           color: 'var(--color-foreground)',
