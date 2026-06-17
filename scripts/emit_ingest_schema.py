@@ -46,9 +46,9 @@ if TYPE_CHECKING:
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
-# Allow ``from src.models...`` imports when run as a standalone script.
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+# `from src.models...` imports resolve because `isnad-graph` is installed into the
+# venv by `uv sync` (this script's CI invocation is `uv run python …`); no
+# sys.path manipulation needed (#1095).
 
 
 # Cypher node label → Pydantic model class. Order is preserved in emitted output.
