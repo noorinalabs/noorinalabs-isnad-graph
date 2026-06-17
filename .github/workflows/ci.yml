@@ -29,6 +29,14 @@ jobs:
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
       - run: uv run mypy src/
+      # Grade-vocab single-source-of-truth gate (ig#1054). The frontend's
+      # GRADE_LABELS is generated from src/utils/grades.py into
+      # frontend/src/lib/grade-vocab.generated.json; fail if the committed JSON
+      # has drifted from the backend. Mirrored by the `grade-vocab-drift`
+      # pre-commit hook. Runs here (not in the node-only frontend job) because it
+      # needs to import the Python source of truth.
+      - name: Check grade-vocab drift (backend <-> frontend)
+        run: uv run python scripts/emit_grade_vocab.py check
 
   security-audit:
     runs-on: ubuntu-latest

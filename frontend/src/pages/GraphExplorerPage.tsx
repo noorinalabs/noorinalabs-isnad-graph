@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   fetchGraphNetwork,
   fetchNarrators,
@@ -31,6 +32,7 @@ function narratorDegree(n: {
 }
 
 export default function GraphExplorerPage() {
+  const { t } = useTranslation()
   // --- State ---
   const [searchInput, setSearchInput] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -245,7 +247,7 @@ export default function GraphExplorerPage() {
           <input
             ref={searchRef}
             type="text"
-            placeholder="Search narrator..."
+            placeholder={t('graph.searchPlaceholder')}
             value={searchInput}
             onChange={(e) => {
               setSearchInput(e.target.value)
@@ -253,7 +255,7 @@ export default function GraphExplorerPage() {
             }}
             onFocus={() => setSearchOpen(true)}
             className="form-input w-full pr-8"
-            aria-label="Search for a narrator"
+            aria-label={t('graph.searchAria')}
           />
           {searchInput && (
             <button
@@ -266,7 +268,7 @@ export default function GraphExplorerPage() {
                 background: 'none',
                 fontSize: '1rem',
               }}
-              aria-label="Clear search"
+              aria-label={t('graph.clearSearch')}
             >
               x
             </button>
@@ -298,12 +300,12 @@ export default function GraphExplorerPage() {
 
         {/* Depth control */}
         <div className="flex items-center gap-1">
-          <span className="muted-text" style={{ fontSize: '0.875rem' }}>Depth:</span>
+          <span className="muted-text" style={{ fontSize: '0.875rem' }}>{t('graph.depth')}</span>
           {[1, 2, 3].map((d) => (
             <button
               key={d}
               onClick={() => setDepth(d)}
-              title="Number of transmission steps from selected narrator"
+              title={t('graph.depthTitle')}
               className="cursor-pointer rounded-sm border border-border px-2.5 py-1"
               style={{
                 background:
@@ -320,12 +322,12 @@ export default function GraphExplorerPage() {
 
         {/* Layout toggle */}
         <div className="flex items-center gap-1">
-          <span className="muted-text" style={{ fontSize: '0.875rem' }}>Layout:</span>
+          <span className="muted-text" style={{ fontSize: '0.875rem' }}>{t('graph.layout')}</span>
           {(['force', 'hierarchy', 'radial'] as LayoutMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setLayoutMode(mode)}
-              className="cursor-pointer rounded-sm border border-border px-2 py-1 capitalize"
+              className="cursor-pointer rounded-sm border border-border px-2 py-1"
               style={{
                 background:
                   mode === layoutMode
@@ -335,7 +337,7 @@ export default function GraphExplorerPage() {
                 fontSize: '0.8rem',
               }}
             >
-              {mode}
+              {t(`graph.layout${mode.charAt(0).toUpperCase()}${mode.slice(1)}`)}
             </button>
           ))}
         </div>
@@ -346,12 +348,12 @@ export default function GraphExplorerPage() {
           className="btn"
           style={{ fontSize: '0.875rem' }}
         >
-          Filters
+          {t('common.filters')}
         </button>
 
         {/* Reset */}
         <button onClick={handleReset} className="btn" style={{ fontSize: '0.875rem' }}>
-          Reset
+          {t('graph.reset')}
         </button>
 
         {/* Legend toggle */}
@@ -360,7 +362,7 @@ export default function GraphExplorerPage() {
           className="btn"
           style={{ fontSize: '0.875rem' }}
         >
-          Legend
+          {t('graph.legend')}
         </button>
 
         {/* Chain highlight clear */}
@@ -370,11 +372,11 @@ export default function GraphExplorerPage() {
             className="btn text-primary"
             style={{ fontSize: '0.875rem' }}
           >
-            Clear highlight
+            {t('graph.clearHighlight')}
           </button>
         )}
 
-        {isLoading && <span className="muted-text" style={{ fontSize: '0.875rem' }}>Loading...</span>}
+        {isLoading && <span className="muted-text" style={{ fontSize: '0.875rem' }}>{t('common.loading')}</span>}
       </div>
 
       {/* --- Node limit warning --- */}
@@ -385,14 +387,13 @@ export default function GraphExplorerPage() {
             fontSize: '0.875rem',
           }}
         >
-          This query returned {allNodes.length} nodes. For performance, results are capped at{' '}
-          {NODE_LIMIT}. Apply filters or reduce depth.
+          {t('graph.nodeLimitWarning', { count: allNodes.length, limit: NODE_LIMIT })}
           <button
             onClick={() => setFilterOpen(true)}
             className="btn ml-2"
             style={{ fontSize: '0.8rem' }}
           >
-            Open Filters
+            {t('graph.openFilters')}
           </button>
         </div>
       )}
@@ -404,7 +405,7 @@ export default function GraphExplorerPage() {
           ref={containerRef}
           className="relative flex-1 bg-background"
           role="application"
-          aria-label="Narrator transmission network graph"
+          aria-label={t('graph.canvasAria')}
         >
           {allNodes.length > 0 ? (
             <ForceGraph
@@ -430,13 +431,13 @@ export default function GraphExplorerPage() {
                   <line x1="34" y1="48" x2="44" y2="48" strokeDasharray="4 3" />
                 </svg>
               </div>
-              <div className="empty-state-heading">No graph data</div>
+              <div className="empty-state-heading">{t('graph.emptyHeading')}</div>
               <div className="empty-state-body">
-                Search for a narrator to explore the transmission network.
+                {t('graph.emptyBody')}
               </div>
               {suggestedNarrators.length > 0 && (
                 <p className="mt-4" style={{ fontSize: 'var(--text-sm)' }}>
-                  Try:{' '}
+                  {t('graph.tryPrefix')}{' '}
                   {suggestedNarrators.map((n, i) => (
                     <span key={n.id}>
                       {i > 0 && ', '}
@@ -474,13 +475,13 @@ export default function GraphExplorerPage() {
                   {hoveredNode.name_ar}
                 </div>
               )}
-              {hoveredNode.generation && <div>Gen: {hoveredNode.generation}</div>}
-              {hoveredNode.death_year_ah != null && <div>d. {hoveredNode.death_year_ah} AH</div>}
+              {hoveredNode.generation && <div>{t('graph.tooltipGen', { generation: hoveredNode.generation })}</div>}
+              {hoveredNode.death_year_ah != null && <div>{t('graph.tooltipDeath', { year: hoveredNode.death_year_ah })}</div>}
               <div>
-                {(hoveredNode.in_degree ?? 0) + (hoveredNode.out_degree ?? 0)} connections
+                {t('graph.connections', { count: (hoveredNode.in_degree ?? 0) + (hoveredNode.out_degree ?? 0) })}
               </div>
               {hoveredNode.trustworthiness_consensus && (
-                <div>Trustworthiness: {hoveredNode.trustworthiness_consensus}</div>
+                <div>{t('graph.tooltipTrust', { value: hoveredNode.trustworthiness_consensus })}</div>
               )}
             </div>
           )}
@@ -495,10 +496,10 @@ export default function GraphExplorerPage() {
                 boxShadow: 'var(--shadow-md)',
               }}
             >
-              <div className="mb-2 font-semibold">Legend</div>
+              <div className="mb-2 font-semibold">{t('graph.legend')}</div>
 
               <div className="mb-2">
-                <div className="mb-1 font-medium">Node size: degree</div>
+                <div className="mb-1 font-medium">{t('graph.legendNodeSize')}</div>
                 <div className="flex items-center gap-2">
                   <svg width="8" height="8">
                     <circle cx="4" cy="4" r="3" fill="var(--color-muted-foreground)" />
@@ -517,7 +518,7 @@ export default function GraphExplorerPage() {
 
               <div className="mb-2">
                 <div className="mb-1 font-medium">
-                  Node color: community
+                  {t('graph.legendNodeColor')}
                 </div>
                 {communities.map(([cid, count]) => (
                   <div key={cid} className="flex items-center gap-1">
@@ -525,18 +526,18 @@ export default function GraphExplorerPage() {
                       className="inline-block h-2.5 w-2.5 rounded-full"
                       style={{ background: communityColor(cid) }}
                     />
-                    Community {cid} ({count})
+                    {t('graph.legendCommunity', { id: cid, count })}
                   </div>
                 ))}
               </div>
 
               <div className="mb-2">
                 <div className="mb-1 font-medium">
-                  Edge: transmission direction
+                  {t('graph.legendEdge')}
                 </div>
-                <div>Solid = TRANSMITTED_TO</div>
-                <div>Dashed = STUDIED_UNDER</div>
-                <div>Thickness = frequency</div>
+                <div>{t('graph.legendSolid')}</div>
+                <div>{t('graph.legendDashed')}</div>
+                <div>{t('graph.legendThickness')}</div>
               </div>
             </div>
           )}
@@ -545,8 +546,8 @@ export default function GraphExplorerPage() {
           {allNodes.length > 0 && (
             <div className="absolute bottom-10 left-3 z-10 flex flex-col gap-0.5">
               {[
-                { label: '+', title: 'Zoom in' },
-                { label: '-', title: 'Zoom out' },
+                { label: '+', title: t('graph.zoomIn') },
+                { label: '-', title: t('graph.zoomOut') },
               ].map((btn) => (
                 <button
                   key={btn.label}
@@ -577,7 +578,7 @@ export default function GraphExplorerPage() {
                   letterSpacing: '0.05em',
                 }}
               >
-                Narrator
+                {t('graph.narratorLabel')}
               </span>
               <button
                 onClick={() => setDetailOpen(false)}
@@ -586,7 +587,7 @@ export default function GraphExplorerPage() {
                   background: 'none',
                   fontSize: '1rem',
                 }}
-                aria-label="Close detail panel"
+                aria-label={t('graph.closeDetail')}
               >
                 x
               </button>
@@ -603,7 +604,7 @@ export default function GraphExplorerPage() {
                 }}
               />
             ) : (
-              <p className="muted-text" style={{ fontSize: '0.875rem' }}>Loading details...</p>
+              <p className="muted-text" style={{ fontSize: '0.875rem' }}>{t('graph.loadingDetails')}</p>
             )}
           </div>
         )}
@@ -617,11 +618,11 @@ export default function GraphExplorerPage() {
         }}
       >
         <span>
-          {allNodes.length} nodes, {allEdges.length} edges
+          {t('graph.statusNodesEdges', { nodes: allNodes.length, edges: allEdges.length })}
         </span>
         {communities.length > 0 && (
           <span>
-            {communities.length} communit{communities.length === 1 ? 'y' : 'ies'}
+            {t('graph.statusCommunities', { count: communities.length })}
           </span>
         )}
       </div>
@@ -642,6 +643,7 @@ function NarratorDetailPanel({
   chainsTotal: number
   onChainSelect: (chain: ChainSummary) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div>
       {/* Names */}
@@ -666,34 +668,34 @@ function NarratorDetailPanel({
       <div className="mb-4" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
         {narrator.kunya && (
           <div>
-            <span className="muted-text">Kunya:</span> {narrator.kunya}
+            <span className="muted-text">{t('narratorFields.kunya')}:</span> {narrator.kunya}
           </div>
         )}
         {narrator.nisba && (
           <div>
-            <span className="muted-text">Nisba:</span> {narrator.nisba}
+            <span className="muted-text">{t('narratorFields.nisba')}:</span> {narrator.nisba}
           </div>
         )}
         {narrator.generation && (
           <div>
-            <span className="muted-text">Generation:</span> {narrator.generation}
+            <span className="muted-text">{t('narratorFields.generation')}:</span> {narrator.generation}
           </div>
         )}
         <div>
-          <span className="muted-text">Birth:</span>{' '}
+          <span className="muted-text">{t('narratorFields.birth')}:</span>{' '}
           {narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : '\u2014'}
           {' | '}
-          <span className="muted-text">Death:</span>{' '}
+          <span className="muted-text">{t('narratorFields.death')}:</span>{' '}
           {narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : '\u2014'}
         </div>
         {narrator.sect_affiliation && (
           <div>
-            <span className="muted-text">Sect:</span> {narrator.sect_affiliation}
+            <span className="muted-text">{t('narratorFields.sect')}:</span> {narrator.sect_affiliation}
           </div>
         )}
         {narrator.trustworthiness_consensus && (
           <div>
-            <span className="muted-text">Trustworthiness:</span>{' '}
+            <span className="muted-text">{t('narratorFields.trustworthiness')}:</span>{' '}
             {narrator.trustworthiness_consensus}
           </div>
         )}
@@ -710,30 +712,30 @@ function NarratorDetailPanel({
             letterSpacing: '0.05em',
           }}
         >
-          Network Statistics
+          {t('narratorFields.networkStatistics')}
         </div>
         <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
           <div>
-            <span className="muted-text">Teachers (in):</span> {narrator.in_degree ?? '\u2014'}
+            <span className="muted-text">{t('narratorFields.teachersIn')}:</span> {narrator.in_degree ?? '\u2014'}
           </div>
           <div>
-            <span className="muted-text">Students (out):</span>{' '}
+            <span className="muted-text">{t('narratorFields.studentsOut')}:</span>{' '}
             {narrator.out_degree ?? '\u2014'}
           </div>
           {narrator.betweenness_centrality != null && (
             <div>
-              <span className="muted-text">Betweenness:</span>{' '}
+              <span className="muted-text">{t('narratorFields.betweenness')}:</span>{' '}
               {narrator.betweenness_centrality.toFixed(4)}
             </div>
           )}
           {narrator.pagerank != null && (
             <div>
-              <span className="muted-text">PageRank:</span> {narrator.pagerank.toFixed(4)}
+              <span className="muted-text">{t('narratorFields.pagerank')}:</span> {narrator.pagerank.toFixed(4)}
             </div>
           )}
           {narrator.community_id != null && (
             <div className="flex items-center gap-1">
-              <span className="muted-text">Community:</span> {narrator.community_id}
+              <span className="muted-text">{t('narratorFields.community')}:</span> {narrator.community_id}
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
                 style={{ background: communityColor(narrator.community_id) }}
@@ -755,12 +757,12 @@ function NarratorDetailPanel({
               letterSpacing: '0.05em',
             }}
           >
-            Chains ({chainsTotal} total)
+            {t('graph.panelChains', { count: chainsTotal })}
           </span>
         </div>
         <div className="max-h-[200px] overflow-y-auto">
           {chains.length === 0 && (
-            <div className="muted-text" style={{ fontSize: '0.85rem' }}>No chains found.</div>
+            <div className="muted-text" style={{ fontSize: '0.85rem' }}>{t('graph.panelNoChains')}</div>
           )}
           {chains.map((c) => (
             <div
@@ -798,7 +800,7 @@ function NarratorDetailPanel({
           fontSize: '0.85rem',
         }}
       >
-        View Full Profile
+        {t('graph.panelViewProfile')}
       </Link>
     </div>
   )

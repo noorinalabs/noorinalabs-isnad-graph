@@ -7,13 +7,22 @@ Uses the production-shaped free-text grade strings actually present in the graph
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from src.utils.grades import (
+    GRADE_LABELS,
     GRADE_TOKENS,
     grade_filter_clause,
     normalize_grade,
 )
+
+# Generated frontend artifact derived from GRADE_LABELS (ig#1054). Kept in sync
+# by scripts/emit_grade_vocab.py (CI: grade-vocab-drift step; pre-commit hook).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_GRADE_VOCAB_JSON = _REPO_ROOT / "frontend" / "src" / "lib" / "grade-vocab.generated.json"
 
 # (raw free-text grade, expected canonical token) — drawn from the stg distribution
 # cited in the issue plus the apostrophe/Arabic variants.
@@ -35,6 +44,29 @@ PRODUCTION_GRADES: list[tuple[str, str]] = [
     ("Munkar", "munkar"),
     ("Shadh", "shadh"),
 ]
+
+
+def test_grade_labels_cover_canonical_token_set() -> None:
+    """Every canonical token has exactly one display label — no missing/stray keys.
+
+    This is the backend invariant scripts/emit_grade_vocab.py guards before
+    emitting the frontend artifact; assert it here so the suite fails loudly if a
+    token is added to _PREDICATES without a matching GRADE_LABELS entry.
+    """
+    assert set(GRADE_LABELS) == set(GRADE_TOKENS)
+
+
+def test_frontend_grade_vocab_in_sync_with_backend() -> None:
+    """The committed frontend JSON must equal GRADE_LABELS (single source of truth).
+
+    Mirrors the grade-vocab-drift CI/pre-commit gate so direct edits to either
+    side are caught by the test suite too (ig#1054).
+    """
+    on_disk = json.loads(_GRADE_VOCAB_JSON.read_text(encoding="utf-8"))
+    assert on_disk == dict(GRADE_LABELS)
+    # Key order is load-bearing: the frontend facet derives its display order from
+    # Object.keys(GRADE_LABELS), so the generated order must match the backend's.
+    assert list(on_disk.keys()) == list(GRADE_LABELS.keys())
 
 
 @pytest.mark.parametrize(("raw", "expected"), PRODUCTION_GRADES)
