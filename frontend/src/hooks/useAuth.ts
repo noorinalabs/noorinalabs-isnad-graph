@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { createElement } from 'react'
 import type { components } from '../types/user-service'
 import { refreshAccessToken } from '../api/token-refresh'
+import { readJsonResponse } from '../lib/authJson'
 
 export type UserRole = 'trial' | 'reader' | 'researcher' | 'admin'
 
@@ -129,8 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Revoke only the current session (best-effort)
       const headers = { Authorization: `Bearer ${token}` }
       fetch(`${SESSIONS_BASE}`, { headers, credentials: 'include' })
-        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-        .then((data: { sessions: Array<{ id: string; is_current: boolean }> }) => {
+        .then((res) =>
+          res.ok
+            ? readJsonResponse<{ sessions: Array<{ id: string; is_current: boolean }> }>(res)
+            : Promise.reject(res),
+        )
+        .then((data) => {
           const current = data.sessions.find((s) => s.is_current)
           if (current) {
             return fetch(`${SESSIONS_BASE}/${current.id}`, {
@@ -185,8 +190,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (res.ok) {
-        const data: AuthUser = await res.json()
-        setUser(data)
+        try {
+          const data = await readJsonResponse<AuthUser>(res)
+          setUser(data)
+        } catch {
+          // Non-JSON 200 (e.g. a misrouted origin serving index.html — the
+          // deploy#420 class). Treat as unauthenticated rather than letting an
+          // unhandled parse error leave the app stuck on the loading spinner.
+          setUser(null)
+        }
       } else {
         setUser(null)
       }
@@ -205,7 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const headers = { Authorization: `Bearer ${token}` }
         const res = await fetch(`${SESSIONS_BASE}`, { headers, credentials: 'include' })
         if (res.ok) {
-          const data: { sessions: Array<{ id: string; is_current: boolean }> } = await res.json()
+          const data =
+            await readJsonResponse<{ sessions: Array<{ id: string; is_current: boolean }> }>(res)
           const current = data.sessions.find((s) => s.is_current)
           if (current) {
             await fetch(`${SESSIONS_BASE}/${current.id}`, {
@@ -266,7 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        const data: AuthUser = await res.json()
+        const data = await readJsonResponse<AuthUser>(res)
         setUser(data)
       }
     } catch {
