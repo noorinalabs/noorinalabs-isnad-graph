@@ -9,6 +9,11 @@ from testcontainers.postgres import PostgresContainer
 from src.utils.neo4j_client import Neo4jClient
 
 NEO4J_TEST_PASSWORD = "testpassword123"
+# Single source of truth for the testcontainers Neo4j base image tag.
+# Org-standardized on neo4j:5-community (noorinalabs-main#642) to share the image
+# cache and avoid redundant CI pulls. This is the upstream community base image,
+# NOT the app's custom isnad-graph-neo4j:5-community (which bundles APOC/plugins).
+NEO4J_TEST_IMAGE = "neo4j:5-community"
 
 
 @pytest.fixture(scope="session")
@@ -20,7 +25,7 @@ def neo4j_container():
     at container-start time, which clobbers any ``with_env("NEO4J_AUTH", ...)`` set on the
     fixture side (it would otherwise default to ``neo4j/password`` → AuthError). See ig#975.
     """
-    container = Neo4jContainer("neo4j:5-community", password=NEO4J_TEST_PASSWORD)
+    container = Neo4jContainer(NEO4J_TEST_IMAGE, password=NEO4J_TEST_PASSWORD)
     with container as neo4j:
         yield neo4j
 
