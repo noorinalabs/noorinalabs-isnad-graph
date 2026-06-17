@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   searchAll,
   searchSemantic,
@@ -87,6 +88,7 @@ function hasActiveFilters(filters: SearchFilters): boolean {
 }
 
 export default function SearchPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [inputValue, setInputValue] = useState(searchParams.get('q') ?? '')
   const [query, setQuery] = useState(searchParams.get('q') ?? '')
@@ -295,12 +297,18 @@ export default function SearchPage() {
       }
     : null
 
+  const entityTypeLabel: Record<EntityType, string> = {
+    narrator: t('search.entityNarrator'),
+    hadith: t('search.entityHadith'),
+    collection: t('search.entityCollection'),
+  }
+
   const filterSidebar = (
     <div className="flex flex-col gap-5">
       {/* Entity type filter */}
       <div role="group" aria-labelledby="filter-entity-type">
         <h4 id="filter-entity-type" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
-          Entity Type
+          {t('search.filterEntityType')}
         </h4>
         {(['narrator', 'hadith', 'collection'] as EntityType[]).map((type) => (
           <label key={type} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
@@ -310,7 +318,7 @@ export default function SearchPage() {
               onChange={() => toggleEntityType(type)}
               className="rounded"
             />
-            <span className="capitalize">{type}</span>
+            <span>{entityTypeLabel[type]}</span>
             <span className="text-muted-foreground ms-auto">
               ({searchData?.results.filter((r) => r.type === type).length ?? 0})
             </span>
@@ -321,10 +329,10 @@ export default function SearchPage() {
       {/* Collection filter */}
       <div role="group" aria-labelledby="filter-collection">
         <h4 id="filter-collection" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
-          Collection
+          {t('search.filterCollection')}
         </h4>
         {collectionOptions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No collections available</p>
+          <p className="text-sm text-muted-foreground">{t('search.noCollections')}</p>
         ) : (
           collectionOptions.map((c) => (
             <label key={c} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
@@ -343,7 +351,7 @@ export default function SearchPage() {
       {/* Grading filter */}
       <div role="group" aria-labelledby="filter-grading">
         <h4 id="filter-grading" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
-          Grading
+          {t('search.filterGrading')}
         </h4>
         {GRADINGS.map((g) => (
           <label key={g} className="flex items-center gap-2 py-1 cursor-pointer text-sm">
@@ -361,7 +369,7 @@ export default function SearchPage() {
       {/* Century filter */}
       <div role="group" aria-labelledby="filter-century">
         <h4 id="filter-century" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
-          Century (AH)
+          {t('search.filterCentury')}
         </h4>
         <div className="flex flex-wrap gap-1">
           {CENTURIES.map((c) => (
@@ -381,10 +389,10 @@ export default function SearchPage() {
       {filters.entityTypes.includes('hadith') && (
         <div role="group" aria-labelledby="filter-topic">
           <h4 id="filter-topic" className="text-sm font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
-            Topic
+            {t('search.filterTopic')}
           </h4>
           {topicOptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No topics available</p>
+            <p className="text-sm text-muted-foreground">{t('search.noTopics')}</p>
           ) : (
             topicOptions.map((t) => (
               <label
@@ -415,7 +423,7 @@ export default function SearchPage() {
             setPage(1)
           }}
         >
-          Clear all filters
+          {t('search.clearAllFilters')}
         </Button>
       )}
     </div>
@@ -423,7 +431,7 @@ export default function SearchPage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto">
-      <h2 className="page-heading">Search</h2>
+      <h2 className="page-heading">{t('search.heading')}</h2>
 
       {/* Search bar */}
       <form onSubmit={handleSubmit} className="mb-4">
@@ -438,7 +446,7 @@ export default function SearchPage() {
                 aria-haspopup="listbox"
                 aria-autocomplete="list"
                 aria-activedescendant={activeIndex >= 0 ? `typeahead-${activeIndex}` : undefined}
-                placeholder="Search hadith, narrators, collections..."
+                placeholder={t('search.placeholder')}
                 value={inputValue}
                 onChange={(e) => {
                   setInputValue(e.target.value)
@@ -474,7 +482,7 @@ export default function SearchPage() {
                     inputRef.current?.focus()
                   }}
                   className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
+                  aria-label={t('search.clearSearch')}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M18 6 6 18" />
@@ -483,7 +491,7 @@ export default function SearchPage() {
                 </button>
               )}
             </div>
-            <Button type="submit">Search</Button>
+            <Button type="submit">{t('common.search')}</Button>
           </div>
 
           {/* Search mode toggle */}
@@ -496,9 +504,9 @@ export default function SearchPage() {
                 onChange={() => setMode('fulltext')}
                 className="accent-primary"
               />
-              Full-text
+              {t('search.modeFulltext')}
             </label>
-            <label className="flex items-center gap-1.5 text-sm cursor-pointer" title="Find hadith with similar meaning, even with different wording">
+            <label className="flex items-center gap-1.5 text-sm cursor-pointer" title={t('search.modeSemanticHint')}>
               <input
                 type="radio"
                 name="searchMode"
@@ -506,7 +514,7 @@ export default function SearchPage() {
                 onChange={() => setMode('semantic')}
                 className="accent-primary"
               />
-              Semantic
+              {t('search.modeSemantic')}
             </label>
           </div>
 
@@ -518,14 +526,14 @@ export default function SearchPage() {
               className="absolute z-50 top-14 start-0 w-full bg-popover border rounded-md shadow-lg overflow-hidden"
             >
               {isLoading && (
-                <div className="p-3 text-sm text-muted-foreground">Searching...</div>
+                <div className="p-3 text-sm text-muted-foreground">{t('search.searching')}</div>
               )}
               {!isLoading && (
                 <>
                   {typeaheadGroups.narrator.length > 0 && (
                     <div>
                       <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/50">
-                        Narrators
+                        {t('search.groupNarrators')}
                       </div>
                       {typeaheadGroups.narrator.map((r, i) => {
                         const globalIndex = i
@@ -552,7 +560,7 @@ export default function SearchPage() {
                   {typeaheadGroups.hadith.length > 0 && (
                     <div>
                       <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/50">
-                        Hadith
+                        {t('search.groupHadith')}
                       </div>
                       {typeaheadGroups.hadith.map((r, i) => {
                         const globalIndex = typeaheadGroups.narrator.length + i
@@ -579,7 +587,7 @@ export default function SearchPage() {
                   {typeaheadGroups.collection.length > 0 && (
                     <div>
                       <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/50">
-                        Collections
+                        {t('search.groupCollections')}
                       </div>
                       {typeaheadGroups.collection.map((r, i) => {
                         const globalIndex =
@@ -609,7 +617,7 @@ export default function SearchPage() {
                   {typeaheadGroups.narrator.length === 0 &&
                     typeaheadGroups.hadith.length === 0 &&
                     typeaheadGroups.collection.length === 0 && (
-                      <div className="p-3 text-sm text-muted-foreground">No suggestions</div>
+                      <div className="p-3 text-sm text-muted-foreground">{t('search.noSuggestions')}</div>
                     )}
                 </>
               )}
@@ -638,9 +646,9 @@ export default function SearchPage() {
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
             </svg>
-            <h3 className="text-lg font-semibold mb-2">Search the hadith corpus</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('search.emptyHeading')}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Enter a narrator name, hadith text, or topic to begin exploring.
+              {t('search.emptyBody')}
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
               {SUGGESTED_QUERIES.map((sq) => (
@@ -677,12 +685,12 @@ export default function SearchPage() {
                 variant="outline"
                 className="lg:hidden fixed bottom-4 end-4 z-40 shadow-lg"
               >
-                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                {t('common.filters')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[80vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Filters</DialogTitle>
+                <DialogTitle>{t('common.filters')}</DialogTitle>
               </DialogHeader>
               {filterSidebar}
             </DialogContent>
@@ -693,21 +701,21 @@ export default function SearchPage() {
             {/* Results header */}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="text-sm text-muted-foreground" aria-live="polite">
-                Showing {sortedResults.length} results for{' '}
+                {t('search.resultsCount', { count: sortedResults.length })}{' '}
                 <bdi dir="auto" className="font-medium text-foreground">
                   &quot;{query}&quot;
                 </bdi>
               </div>
               <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Sort by" />
+                  <SelectValue placeholder={t('search.sortBy')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="relevance">Relevance</SelectItem>
-                  <SelectItem value="date-asc">Date (oldest)</SelectItem>
-                  <SelectItem value="date-desc">Date (newest)</SelectItem>
-                  <SelectItem value="name-en">Name (A-Z)</SelectItem>
-                  <SelectItem value="name-ar">Name (ا-ي)</SelectItem>
+                  <SelectItem value="relevance">{t('search.sortRelevance')}</SelectItem>
+                  <SelectItem value="date-asc">{t('search.sortDateOldest')}</SelectItem>
+                  <SelectItem value="date-desc">{t('search.sortDateNewest')}</SelectItem>
+                  <SelectItem value="name-en">{t('search.sortNameAz')}</SelectItem>
+                  <SelectItem value="name-ar">{t('search.sortNameAr')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -731,17 +739,17 @@ export default function SearchPage() {
             {isError && (
               <Card className="text-center">
                 <CardContent className="py-8">
-                  <p className="font-medium mb-2">Search failed</p>
+                  <p className="font-medium mb-2">{t('search.searchFailed')}</p>
                   <p className="text-sm text-muted-foreground mb-4">
                     {searchError instanceof Error
                       ? searchError.message
-                      : 'An unexpected error occurred. Please try again.'}
+                      : t('search.searchFailedBody')}
                   </p>
                   <Button
                     variant="outline"
                     onClick={() => setQuery(inputValue)}
                   >
-                    Retry
+                    {t('search.retry')}
                   </Button>
                 </CardContent>
               </Card>
@@ -752,16 +760,16 @@ export default function SearchPage() {
               <Card className="text-center">
                 <CardContent className="py-8">
                   <p className="font-medium mb-3">
-                    No results found for &quot;{query}&quot;
+                    {t('search.noResultsTitle', { query })}
                   </p>
                   <ul className="text-sm text-muted-foreground text-start max-w-sm mx-auto space-y-1">
-                    <li>Try Arabic script: type the name in Arabic for more precise matching</li>
-                    <li>Check transliteration: Abu vs. Aboo, al- vs. el-</li>
+                    <li>{t('search.tipArabic')}</li>
+                    <li>{t('search.tipTransliteration')}</li>
                     {mode === 'fulltext' && (
-                      <li>Try semantic search: toggle to find similar meanings</li>
+                      <li>{t('search.tipSemantic')}</li>
                     )}
                     {hasActiveFilters(filters) && (
-                      <li>Broaden filters: you have {activeFilterCount} active filter(s) narrowing results</li>
+                      <li>{t('search.tipBroaden', { count: activeFilterCount })}</li>
                     )}
                   </ul>
                   {hasActiveFilters(filters) && (
@@ -770,7 +778,7 @@ export default function SearchPage() {
                       className="mt-4"
                       onClick={() => setFilters(DEFAULT_FILTERS)}
                     >
-                      Clear all filters
+                      {t('search.clearAllFilters')}
                     </Button>
                   )}
                 </CardContent>
@@ -788,14 +796,14 @@ export default function SearchPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <nav aria-label="Search results pagination" className="flex items-center justify-center gap-1 mt-6">
+              <nav aria-label={t('search.paginationLabel')} className="flex items-center justify-center gap-1 mt-6">
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
                 >
-                  Prev
+                  {t('common.prev')}
                 </Button>
                 {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                   let pageNum: number
@@ -825,7 +833,7 @@ export default function SearchPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Next
+                  {t('common.next')}
                 </Button>
               </nav>
             )}
@@ -868,17 +876,23 @@ function ResultCard({
   mode: SearchMode
   onClick: () => void
 }) {
+  const { t } = useTranslation()
   const badgeVariant: Record<string, 'sunni' | 'shia' | 'sahih' | 'outline'> = {
     narrator: 'sunni',
     hadith: 'shia',
     collection: 'outline',
+  }
+  const typeLabel: Record<string, string> = {
+    narrator: t('search.entityNarrator'),
+    hadith: t('search.entityHadith'),
+    collection: t('search.entityCollection'),
   }
 
   return (
     <Card
       className="cursor-pointer transition-shadow hover:shadow-md"
       role="article"
-      aria-label={`${result.type}: ${result.title}`}
+      aria-label={`${typeLabel[result.type] ?? result.type}: ${result.title}`}
       onClick={onClick}
       tabIndex={0}
       onKeyDown={(e) => {
@@ -888,10 +902,10 @@ function ResultCard({
       <CardContent className="py-4">
         <div className="flex items-center justify-between mb-2">
           <Badge variant={badgeVariant[result.type] ?? 'outline'} className="text-xs uppercase">
-            {result.type}
+            {typeLabel[result.type] ?? result.type}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            {mode === 'semantic' ? 'Similarity' : 'Relevance'}:{' '}
+            {mode === 'semantic' ? t('common.similarity') : t('common.relevance')}:{' '}
             <RelevanceBadge score={result.score} />
           </span>
         </div>
