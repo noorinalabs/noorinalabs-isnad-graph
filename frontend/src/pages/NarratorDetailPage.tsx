@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { fetchNarrator, fetchNarratorChains, fetchGraphNetwork } from '../api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -24,6 +25,7 @@ function ratingScore(rating: string | null): number {
 }
 
 export default function NarratorDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const [hadithPage, setHadithPage] = useState(1)
 
@@ -71,7 +73,7 @@ export default function NarratorDetailPage() {
   if (error) {
     return (
       <div className="max-w-5xl mx-auto">
-        <p className="text-destructive">Error: {(error as Error).message}</p>
+        <p className="text-destructive">{t('common.error', { message: (error as Error).message })}</p>
       </div>
     )
   }
@@ -79,7 +81,7 @@ export default function NarratorDetailPage() {
   if (!narrator) {
     return (
       <div className="max-w-5xl mx-auto">
-        <p>Narrator not found.</p>
+        <p>{t('narratorDetail.notFound')}</p>
       </div>
     )
   }
@@ -88,15 +90,15 @@ export default function NarratorDetailPage() {
   const scorePercent = (score / 5) * 100
 
   const profileFields: [string, string | null][] = [
-    ['Full name', narrator.name_en],
-    ['Kunya', narrator.kunya],
-    ['Nisba', narrator.nisba],
-    ['Laqab', narrator.laqab],
-    ['Generation', narrator.generation],
-    ['Birth', narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : null],
-    ['Death', narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : null],
-    ['Gender', narrator.gender],
-    ['Sect', narrator.sect_affiliation],
+    [t('narratorFields.fullName'), narrator.name_en],
+    [t('narratorFields.kunya'), narrator.kunya],
+    [t('narratorFields.nisba'), narrator.nisba],
+    [t('narratorFields.laqab'), narrator.laqab],
+    [t('narratorFields.generation'), narrator.generation],
+    [t('narratorFields.birth'), narrator.birth_year_ah != null ? `${narrator.birth_year_ah} AH` : null],
+    [t('narratorFields.death'), narrator.death_year_ah != null ? `${narrator.death_year_ah} AH` : null],
+    [t('narratorFields.gender'), narrator.gender],
+    [t('narratorFields.sect'), narrator.sect_affiliation],
   ]
 
   const hadithsPerPage = 10
@@ -112,14 +114,14 @@ export default function NarratorDetailPage() {
       {/* Breadcrumb */}
       <nav className="mb-4 text-sm text-muted-foreground">
         <Link to="/narrators" className="hover:text-foreground">
-          Narrators
+          {t('nav.narrators')}
         </Link>
         <span className="mx-1.5">/</span>
         <span className="text-foreground">{narrator.name_en || narrator.name_ar}</span>
       </nav>
 
       {/* Profile card */}
-      <Card className="mb-6" aria-label={`Narrator profile: ${narrator.name_en || narrator.name_ar}`}>
+      <Card className="mb-6" aria-label={t('narratorDetail.profileAria', { name: narrator.name_en || narrator.name_ar })}>
         <CardContent className="py-6">
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Biography section */}
@@ -153,24 +155,26 @@ export default function NarratorDetailPage() {
                         <div className="text-4xl mb-2" aria-hidden="true">
                           &#9679;
                         </div>
-                        <p aria-label={`Transmission network preview showing ${networkData.teachers} teachers and ${networkData.students} students`}>
-                          {networkData.nodes.length} nodes in ego-graph
+                        <p aria-label={t('narratorDetail.networkPreviewAria', { teachers: networkData.teachers, students: networkData.students })}>
+                          {t('narratorDetail.nodesInEgoGraph', { count: networkData.nodes.length })}
                         </p>
                       </div>
                     ) : (
-                      'Loading network...'
+                      t('narratorDetail.loadingNetwork')
                     )}
                   </div>
                   <div className="flex justify-between items-center text-sm mt-2">
                     <span>
-                      Teachers: {networkData?.teachers ?? '...'} | Students:{' '}
-                      {networkData?.students ?? '...'}
+                      {t('narratorDetail.teachersStudents', {
+                        teachers: networkData?.teachers ?? '...',
+                        students: networkData?.students ?? '...',
+                      })}
                     </span>
                     <Link
                       to={`/graph?narrator=${id}`}
                       className="text-primary hover:underline text-sm"
                     >
-                      Open in Graph Explorer
+                      {t('narratorDetail.openInGraph')}
                     </Link>
                   </div>
                 </CardContent>
@@ -183,20 +187,20 @@ export default function NarratorDetailPage() {
       {/* Reliability ratings */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">Reliability Ratings</CardTitle>
+          <CardTitle className="text-lg">{t('narratorDetail.reliabilityRatings')}</CardTitle>
         </CardHeader>
         <CardContent>
           {/* Aggregate bar */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1">
               <span className={`font-semibold ${ratingColor(narrator.trustworthiness_consensus)}`}>
-                Aggregate: {narrator.trustworthiness_consensus ?? 'Unknown'}
+                {t('narratorDetail.aggregate', { value: narrator.trustworthiness_consensus ?? t('common.unknown') })}
               </span>
               <span className="text-sm text-muted-foreground">
-                {score.toFixed(1)}/5.0
+                {t('narratorDetail.scoreOutOf', { score: score.toFixed(1) })}
               </span>
             </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={5} aria-label={`Trustworthiness rating: ${score.toFixed(1)} out of 5`}>
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={5} aria-label={t('narratorDetail.trustAria', { score: score.toFixed(1) })}>
               <div
                 className={`h-full rounded-full transition-all ${
                   score >= 4 ? 'bg-sahih' : score >= 3 ? 'bg-warning' : 'bg-destructive'
@@ -208,7 +212,7 @@ export default function NarratorDetailPage() {
 
           {/* Rating scale legend */}
           <p className="text-xs text-muted-foreground">
-            Rating scale: {RATING_SCALE.join(' > ')}
+            {t('narratorDetail.ratingScale', { scale: RATING_SCALE.join(' > ') })}
           </p>
         </CardContent>
       </Card>
@@ -216,17 +220,17 @@ export default function NarratorDetailPage() {
       {/* Network statistics */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">Network Statistics</CardTitle>
+          <CardTitle className="text-lg">{t('narratorFields.networkStatistics')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
-              ['Teachers (in-degree)', narrator.in_degree, 'Number of narrators who transmitted to this narrator'],
-              ['Students (out-degree)', narrator.out_degree, 'Number of narrators this narrator transmitted to'],
-              ['Total connections', narrator.in_degree != null && narrator.out_degree != null ? narrator.in_degree + narrator.out_degree : null, 'Combined in-degree and out-degree'],
-              ['Betweenness', narrator.betweenness_centrality?.toFixed(4), 'How often this narrator appears on shortest paths between other narrators'],
-              ['PageRank', narrator.pagerank?.toFixed(4), 'Importance based on the importance of connected narrators'],
-              ['Community', narrator.community_id != null ? `#${narrator.community_id}` : null, 'Transmission community cluster'],
+              [t('narratorDetail.statTeachersIn'), narrator.in_degree, t('narratorDetail.statTeachersInTip')],
+              [t('narratorDetail.statStudentsOut'), narrator.out_degree, t('narratorDetail.statStudentsOutTip')],
+              [t('narratorDetail.statTotalConnections'), narrator.in_degree != null && narrator.out_degree != null ? narrator.in_degree + narrator.out_degree : null, t('narratorDetail.statTotalConnectionsTip')],
+              [t('narratorFields.betweenness'), narrator.betweenness_centrality?.toFixed(4), t('narratorDetail.statBetweennessTip')],
+              [t('narratorFields.pagerank'), narrator.pagerank?.toFixed(4), t('narratorDetail.statPagerankTip')],
+              [t('narratorFields.community'), narrator.community_id != null ? `#${narrator.community_id}` : null, t('narratorDetail.statCommunityTip')],
             ].map(
               ([label, value, tooltip]) =>
                 value != null && (
@@ -250,7 +254,7 @@ export default function NarratorDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">
-                Hadith Narrated ({chainsData?.total ?? chains.length} total)
+                {t('narratorDetail.hadithNarrated', { count: chainsData?.total ?? chains.length })}
               </CardTitle>
             </div>
           </CardHeader>
@@ -266,7 +270,7 @@ export default function NarratorDetailPage() {
                     <CardContent className="py-3">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm">
-                          Hadith {chain.hadith_id}
+                          {t('narratorDetail.hadithNumber', { id: chain.hadith_id })}
                         </span>
                         {chain.grade && (
                           <Badge
@@ -300,7 +304,7 @@ export default function NarratorDetailPage() {
             {/* Pagination */}
             {totalHadithPages > 1 && (
               <nav
-                aria-label="Hadith list pagination"
+                aria-label={t('narratorDetail.paginationAria')}
                 className="flex items-center justify-center gap-1 mt-4"
               >
                 <Button
@@ -309,10 +313,10 @@ export default function NarratorDetailPage() {
                   disabled={hadithPage <= 1}
                   onClick={() => setHadithPage((p) => p - 1)}
                 >
-                  Prev
+                  {t('common.prev')}
                 </Button>
                 <span className="text-sm text-muted-foreground px-2">
-                  {hadithPage} of {totalHadithPages}
+                  {t('common.xOfY', { current: hadithPage, total: totalHadithPages })}
                 </span>
                 <Button
                   variant="outline"
@@ -320,7 +324,7 @@ export default function NarratorDetailPage() {
                   disabled={hadithPage >= totalHadithPages}
                   onClick={() => setHadithPage((p) => p + 1)}
                 >
-                  Next
+                  {t('common.next')}
                 </Button>
               </nav>
             )}

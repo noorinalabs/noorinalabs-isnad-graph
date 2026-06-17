@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { fetchHadith, fetchHadithParallels, fetchHadithChain } from '../api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -14,6 +15,7 @@ function similarityLevel(score: number): string {
 }
 
 export default function HadithDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
@@ -86,7 +88,7 @@ export default function HadithDetailPage() {
   if (error) {
     return (
       <div className="max-w-5xl mx-auto">
-        <p className="text-destructive">Error: {(error as Error).message}</p>
+        <p className="text-destructive">{t('common.error', { message: (error as Error).message })}</p>
       </div>
     )
   }
@@ -94,21 +96,21 @@ export default function HadithDetailPage() {
   if (!hadith) {
     return (
       <div className="max-w-5xl mx-auto">
-        <p>Hadith not found.</p>
+        <p>{t('hadithDetail.notFound')}</p>
       </div>
     )
   }
 
   const parallels = parallelsData?.parallels ?? []
-  const citation = `${hadith.display_title || hadith.source_corpus}, Hadith ${hadith.id}. Retrieved from isnad-graph.noorinalabs.com`
-  const shortCitation = `${hadith.display_title || hadith.source_corpus}, Hadith ${hadith.id}.`
+  const citation = t('hadithDetail.citation', { title: hadith.display_title || hadith.source_corpus, id: hadith.id })
+  const shortCitation = t('hadithDetail.shortCitation', { title: hadith.display_title || hadith.source_corpus, id: hadith.id })
 
   const handleShare = async () => {
     const url = window.location.href
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${hadith.display_title || hadith.source_corpus} - Hadith ${hadith.id}`,
+          title: t('hadithDetail.shareTitle', { title: hadith.display_title || hadith.source_corpus, id: hadith.id }),
           text: shortCitation,
           url,
         })
@@ -125,7 +127,7 @@ export default function HadithDetailPage() {
       {/* Breadcrumb */}
       <nav className="mb-4 text-sm text-muted-foreground">
         <Link to="/hadiths" className="hover:text-foreground">
-          Hadiths
+          {t('nav.hadiths')}
         </Link>
         <span className="mx-1.5">/</span>
         <span className="text-foreground">
@@ -134,7 +136,7 @@ export default function HadithDetailPage() {
       </nav>
 
       {/* Hadith text section */}
-      <Card className="mb-6" aria-label="Hadith text">
+      <Card className="mb-6" aria-label={t('hadithDetail.textAria')}>
         <CardContent className="py-6">
           <div className="flex items-center gap-3 mb-4">
             <h2 className="text-xl font-semibold">
@@ -182,7 +184,7 @@ export default function HadithDetailPage() {
         {/* Isnad chain — reconstructed from the hadith's TRANSMITTED_TO edges */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Isnad Chain</CardTitle>
+            <CardTitle className="text-lg">{t('hadithDetail.isnadChain')}</CardTitle>
           </CardHeader>
           <CardContent>
             {chainLoading ? (
@@ -192,7 +194,7 @@ export default function HadithDetailPage() {
                 ))}
               </div>
             ) : chainNarrators.length > 0 ? (
-              <ol className="space-y-0" aria-label="Isnad chain in transmission order">
+              <ol className="space-y-0" aria-label={t('hadithDetail.isnadChainAria')}>
                 {chainNarrators.map((narrator, idx) => (
                   <li key={narrator.id}>
                     <Link
@@ -218,9 +220,9 @@ export default function HadithDetailPage() {
             ) : (
               <div className="flex items-center justify-center min-h-[200px] text-muted-foreground text-sm border rounded-md bg-muted/30 p-4">
                 <div className="text-center">
-                  <p className="mb-2">No isnad chain available for this hadith yet.</p>
+                  <p className="mb-2">{t('hadithDetail.noChainTitle')}</p>
                   <p className="text-xs">
-                    Chain data is populated as narrator segmentation completes.
+                    {t('hadithDetail.noChainBody')}
                   </p>
                 </div>
               </div>
@@ -231,7 +233,7 @@ export default function HadithDetailPage() {
         {/* Grading and metadata panel */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Grading</CardTitle>
+            <CardTitle className="text-lg">{t('hadithDetail.grading')}</CardTitle>
           </CardHeader>
           <CardContent>
             {/* Grade bar */}
@@ -239,7 +241,7 @@ export default function HadithDetailPage() {
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-semibold">
-                    Primary Grade: {hadith.grade_composite}
+                    {t('hadithDetail.primaryGrade', { grade: hadith.grade_composite })}
                   </span>
                 </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
@@ -254,29 +256,29 @@ export default function HadithDetailPage() {
             {/* Metadata */}
             <div className="mt-4">
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Metadata
+                {t('hadithDetail.metadata')}
               </h4>
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
                 {hadith.collection_name && (
                   <>
-                    <dt className="font-medium text-muted-foreground">Collection</dt>
+                    <dt className="font-medium text-muted-foreground">{t('hadithDetail.mdCollection')}</dt>
                     <dd>{hadith.collection_name}</dd>
                   </>
                 )}
-                <dt className="font-medium text-muted-foreground">Source Corpus</dt>
+                <dt className="font-medium text-muted-foreground">{t('hadithDetail.mdSourceCorpus')}</dt>
                 <dd>{hadith.source_corpus}</dd>
-                <dt className="font-medium text-muted-foreground">Hadith ID</dt>
+                <dt className="font-medium text-muted-foreground">{t('hadithDetail.mdHadithId')}</dt>
                 <dd className="font-mono text-xs">{hadith.id}</dd>
                 {hadith.has_sunni_parallel && (
                   <>
-                    <dt className="font-medium text-muted-foreground">Sunni parallel</dt>
-                    <dd>Yes</dd>
+                    <dt className="font-medium text-muted-foreground">{t('hadithDetail.mdSunniParallel')}</dt>
+                    <dd>{t('common.yes')}</dd>
                   </>
                 )}
                 {hadith.has_shia_parallel && (
                   <>
-                    <dt className="font-medium text-muted-foreground">Shia parallel</dt>
-                    <dd>Yes</dd>
+                    <dt className="font-medium text-muted-foreground">{t('hadithDetail.mdShiaParallel')}</dt>
+                    <dd>{t('common.yes')}</dd>
                   </>
                 )}
               </dl>
@@ -289,7 +291,7 @@ export default function HadithDetailPage() {
       {hadith.topic_tags && hadith.topic_tags.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">Topics</CardTitle>
+            <CardTitle className="text-lg">{t('hadithDetail.topics')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
@@ -311,12 +313,12 @@ export default function HadithDetailPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">
-                Parallel Hadith ({parallelsData?.total ?? parallels.length} found)
+                {t('hadithDetail.parallelHadith', { count: parallelsData?.total ?? parallels.length })}
               </CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3" aria-label={`${parallels.length} parallel hadith found`}>
+            <div className="space-y-3" aria-label={t('hadithDetail.parallelAria', { count: parallels.length })}>
               {parallels.map((p) => (
                 <Link key={p.id} to={`/hadiths/${p.id}`} className="block">
                   <Card className="hover:shadow-md transition-shadow">
@@ -325,7 +327,7 @@ export default function HadithDetailPage() {
                         <span className="font-medium text-sm">{p.source_corpus}</span>
                         {p.similarity_score != null && (
                           <span className={`text-xs font-medium ${similarityLevel(p.similarity_score)}`}>
-                            Similarity: {(p.similarity_score * 100).toFixed(0)}%
+                            {t('hadithDetail.similarityPercent', { percent: (p.similarity_score * 100).toFixed(0) })}
                           </span>
                         )}
                       </div>
@@ -352,7 +354,7 @@ export default function HadithDetailPage() {
                         )}
                         {p.cross_sect && (
                           <Badge variant="outline" className="text-xs">
-                            Cross-sect
+                            {t('common.crossSect')}
                           </Badge>
                         )}
                         <Link
@@ -360,7 +362,7 @@ export default function HadithDetailPage() {
                           className="text-primary hover:underline ms-auto"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          Compare
+                          {t('nav.compare')}
                         </Link>
                       </div>
                     </CardContent>
@@ -375,12 +377,12 @@ export default function HadithDetailPage() {
       {/* Citation & Share */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">Cite &amp; Share</CardTitle>
+          <CardTitle className="text-lg">{t('hadithDetail.citeShare')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
             <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Academic Citation
+              {t('hadithDetail.academicCitation')}
             </h4>
             <p className="text-sm p-3 rounded-md bg-muted/30 font-mono leading-relaxed">
               {citation}
@@ -392,14 +394,14 @@ export default function HadithDetailPage() {
               size="sm"
               onClick={() => copyToClipboard(citation, 'citation')}
             >
-              {copiedField === 'citation' ? 'Copied!' : 'Copy citation'}
+              {copiedField === 'citation' ? t('hadithDetail.copied') : t('hadithDetail.copyCitation')}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => copyToClipboard(hadith.matn_ar, 'arabic')}
             >
-              {copiedField === 'arabic' ? 'Copied!' : 'Copy Arabic text'}
+              {copiedField === 'arabic' ? t('hadithDetail.copied') : t('hadithDetail.copyArabic')}
             </Button>
             {hadith.matn_en && (
               <Button
@@ -407,7 +409,7 @@ export default function HadithDetailPage() {
                 size="sm"
                 onClick={() => copyToClipboard(hadith.matn_en!, 'translation')}
               >
-                {copiedField === 'translation' ? 'Copied!' : 'Copy translation'}
+                {copiedField === 'translation' ? t('hadithDetail.copied') : t('hadithDetail.copyTranslation')}
               </Button>
             )}
             <Button
@@ -415,14 +417,14 @@ export default function HadithDetailPage() {
               size="sm"
               onClick={() => copyToClipboard(window.location.href, 'link')}
             >
-              {copiedField === 'link' ? 'Link copied!' : 'Copy link'}
+              {copiedField === 'link' ? t('hadithDetail.linkCopied') : t('hadithDetail.copyLink')}
             </Button>
             <Button
               variant="default"
               size="sm"
               onClick={handleShare}
             >
-              {copiedField === 'share' ? 'Link copied!' : 'Share'}
+              {copiedField === 'share' ? t('hadithDetail.linkCopied') : t('hadithDetail.share')}
             </Button>
           </div>
         </CardContent>

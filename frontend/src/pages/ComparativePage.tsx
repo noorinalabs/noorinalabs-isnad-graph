@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   fetchParallelPairs,
   fetchHadith,
@@ -60,6 +61,7 @@ function GradePill({ hadith }: { hadith: Hadith }) {
 // Selected-hadith chip: shows the human-readable title + matn preview + grade
 // (fetched by ID), instead of an opaque raw-ID badge. (#1037)
 function HadithChip({ id, onClear }: { id: string; onClear: () => void }) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['hadith', id],
     queryFn: () => fetchHadith(id),
@@ -70,7 +72,7 @@ function HadithChip({ id, onClear }: { id: string; onClear: () => void }) {
     <div className="flex items-center gap-2 flex-wrap rounded-md border border-border bg-muted/30 p-2">
       <div className="flex flex-col min-w-0">
         <span className="font-medium text-sm">
-          {data?.display_title ?? (isLoading ? 'Loading…' : id)}
+          {data?.display_title ?? (isLoading ? t('common.loading') : id)}
         </span>
         {data?.matn_en && (
           <small className="text-muted-foreground truncate" style={{ maxWidth: '34ch' }}>
@@ -80,7 +82,7 @@ function HadithChip({ id, onClear }: { id: string; onClear: () => void }) {
       </div>
       {data && <GradePill hadith={data} />}
       <Button variant="ghost" size="sm" onClick={onClear}>
-        Clear
+        {t('comparative.clear')}
       </Button>
     </div>
   )
@@ -95,6 +97,7 @@ function HadithSearchSelect({
   value: string
   onChange: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -115,7 +118,7 @@ function HadithSearchSelect({
       ) : (
         <>
           <Input
-            placeholder="Search by hadith text or ID..."
+            placeholder={t('comparative.searchPlaceholder')}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
@@ -228,6 +231,7 @@ function ComparisonCard({ hadith, diffs }: { hadith: Hadith; diffs: SideDiffs })
 }
 
 function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
+  const { t } = useTranslation()
   const { data: hadithA, isLoading: loadingA } = useQuery({
     queryKey: ['hadith', idA],
     queryFn: () => fetchHadith(idA),
@@ -279,7 +283,7 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
   }
 
   if (!hadithA || !hadithB || !diffs) {
-    return <p className="error-text">One or both hadiths could not be found.</p>
+    return <p className="error-text">{t('comparative.notFoundPair')}</p>
   }
 
   const matnOverlap = diffs.matnEn?.overlap ?? diffs.matnAr.overlap
@@ -300,36 +304,36 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
 
   return (
     <div>
-      <div className="analysis-bar" aria-label="Comparison summary">
+      <div className="analysis-bar" aria-label={t('comparative.comparisonSummary')}>
         <AnalysisStat
-          label="Similarity"
+          label={t('common.similarity')}
           value={
             pairMeta?.similarity_score != null
               ? `${(pairMeta.similarity_score * 100).toFixed(1)}%`
-              : `~${Math.round(matnOverlap * 100)}% word overlap`
+              : t('comparative.wordOverlap', { percent: Math.round(matnOverlap * 100) })
           }
         />
         {pairMeta?.variant_type && (
-          <AnalysisStat label="Variant" value={pairMeta.variant_type.replace(/_/g, ' ')} />
+          <AnalysisStat label={t('comparative.statVariant')} value={pairMeta.variant_type.replace(/_/g, ' ')} />
         )}
         <AnalysisStat
-          label="Sect pairing"
+          label={t('comparative.statSectPairing')}
           value={
             pairMeta
               ? pairMeta.cross_sect
-                ? 'Cross-sect'
-                : 'Within-sect'
+                ? t('common.crossSect')
+                : t('common.withinSect')
               : hadithA.source_corpus === hadithB.source_corpus
-                ? 'Same corpus'
-                : 'Different corpora'
+                ? t('comparative.sameCorpus')
+                : t('comparative.differentCorpora')
           }
         />
         {sharedNarrators != null && (
-          <AnalysisStat label="Shared isnad words" value={String(sharedNarrators)} />
+          <AnalysisStat label={t('comparative.statSharedIsnad')} value={String(sharedNarrators)} />
         )}
         {!pairMeta && (
           <span className="text-xs text-muted-foreground">
-            No recorded parallel link — showing direct text comparison.
+            {t('comparative.noRecordedLink')}
           </span>
         )}
       </div>
@@ -337,9 +341,9 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
       <div className="diff-legend" aria-hidden="true">
         <span>
           <span className="diff-legend-swatch" style={{ background: 'var(--color-hasan-bg)' }} />
-          Differs
+          {t('comparative.legendDiffers')}
         </span>
-        <span>Unhighlighted text is shared by both narrations</span>
+        <span>{t('comparative.legendShared')}</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -353,13 +357,14 @@ function ComparisonView({ idA, idB }: { idA: string; idB: string }) {
 type SectFilter = 'all' | 'cross' | 'intra'
 type SortDir = 'desc' | 'asc'
 
-const SECT_FILTERS: { value: SectFilter; label: string; crossSect?: boolean }[] = [
-  { value: 'all', label: 'All parallels', crossSect: undefined },
-  { value: 'intra', label: 'Within a sect', crossSect: false },
-  { value: 'cross', label: 'Cross-sect', crossSect: true },
+const SECT_FILTERS: { value: SectFilter; labelKey: string; crossSect?: boolean }[] = [
+  { value: 'all', labelKey: 'comparative.sectAll', crossSect: undefined },
+  { value: 'intra', labelKey: 'comparative.sectWithin', crossSect: false },
+  { value: 'cross', labelKey: 'comparative.sectCross', crossSect: true },
 ]
 
 export default function ComparativePage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [sectFilter, setSectFilter] = useState<SectFilter>('all')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -428,32 +433,31 @@ export default function ComparativePage() {
 
   return (
     <div>
-      <h2 className="page-heading">Comparative Analysis</h2>
+      <h2 className="page-heading">{t('comparative.heading')}</h2>
       <p className="muted-text" style={{ marginBottom: 'var(--spacing-4)' }}>
-        Compare hadith texts side by side and browse parallel pairs — within each sect
-        (sunni-sunni, shia-shia) and across the Sunni and Shia corpora.
+        {t('comparative.intro')}
       </p>
 
       <Tabs value={tab} onValueChange={(value) => setTab(value as 'browse' | 'compare')}>
         <TabsList>
-          <TabsTrigger value="browse">Browse Parallels</TabsTrigger>
-          <TabsTrigger value="compare">Compare Hadiths</TabsTrigger>
+          <TabsTrigger value="browse">{t('comparative.tabBrowse')}</TabsTrigger>
+          <TabsTrigger value="compare">{t('comparative.tabCompare')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="compare">
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="text-lg">Select Hadiths to Compare</CardTitle>
+              <CardTitle className="text-lg">{t('comparative.selectTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row gap-4 mb-6">
                 <HadithSearchSelect
-                  label="First hadith"
+                  label={t('comparative.firstHadith')}
                   value={compareA}
                   onChange={(id) => setCompare('a', id)}
                 />
                 <HadithSearchSelect
-                  label="Second hadith"
+                  label={t('comparative.secondHadith')}
                   value={compareB}
                   onChange={(id) => setCompare('b', id)}
                 />
@@ -470,11 +474,9 @@ export default function ComparativePage() {
                       <path d="M10 12h4" />
                     </svg>
                   </div>
-                  <h3 className="empty-state-heading">Select two hadiths to compare</h3>
+                  <h3 className="empty-state-heading">{t('comparative.emptySelectHeading')}</h3>
                   <p className="empty-state-body">
-                    Search for hadiths above and select one for each side to view a
-                    side-by-side analysis — Arabic text, translations, grades, and a
-                    word-level diff highlighting where the two narrations diverge.
+                    {t('comparative.emptySelectBody')}
                   </p>
                 </div>
               )}
@@ -483,7 +485,7 @@ export default function ComparativePage() {
         </TabsContent>
 
         <TabsContent value="browse">
-          <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter parallels by sect pairing">
+          <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label={t('comparative.filterSectAria')}>
             {SECT_FILTERS.map((f) => (
               <Button
                 key={f.value}
@@ -492,7 +494,7 @@ export default function ComparativePage() {
                 onClick={() => selectSectFilter(f.value)}
                 aria-pressed={sectFilter === f.value}
               >
-                {f.label}
+                {t(f.labelKey)}
               </Button>
             ))}
           </div>
@@ -504,7 +506,7 @@ export default function ComparativePage() {
               ))}
             </div>
           )}
-          {error && <p className="error-text">Error: {(error as Error).message}</p>}
+          {error && <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>}
 
           {!isLoading && !error && !hasParallels && (
             <div className="empty-state">
@@ -516,12 +518,9 @@ export default function ComparativePage() {
                   <path d="m15 9 6-6" />
                 </svg>
               </div>
-              <h3 className="empty-state-heading">No parallel hadith pairs yet</h3>
+              <h3 className="empty-state-heading">{t('comparative.noParallelsHeading')}</h3>
               <p className="empty-state-body">
-                Parallel hadith pairs — both within a single sect (sunni-sunni, shia-shia)
-                and across the Sunni and Shia collections — will appear here once the
-                deduplication pipeline has identified matching texts. You can still compare
-                individual hadiths using the Compare tab.
+                {t('comparative.noParallelsBody')}
               </p>
             </div>
           )}
@@ -531,8 +530,8 @@ export default function ComparativePage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Hadith A</th>
-                    <th>Hadith B</th>
+                    <th>{t('comparative.colHadithA')}</th>
+                    <th>{t('comparative.colHadithB')}</th>
                     <th
                       className="th-sortable"
                       onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
@@ -546,10 +545,10 @@ export default function ComparativePage() {
                         }
                       }}
                     >
-                      Similarity {sortDir === 'desc' ? '↓' : '↑'}
+                      {t('common.similarity')} {sortDir === 'desc' ? '↓' : '↑'}
                     </th>
-                    <th>Variant Type</th>
-                    <th>Sect Pairing</th>
+                    <th>{t('comparative.colVariantType')}</th>
+                    <th>{t('comparative.colSectPairing')}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -592,14 +591,14 @@ export default function ComparativePage() {
                         )}
                       </td>
                       <td>{pair.variant_type ?? '-'}</td>
-                      <td>{pair.cross_sect ? 'Cross-sect' : 'Within-sect'}</td>
+                      <td>{pair.cross_sect ? t('common.crossSect') : t('common.withinSect')}</td>
                       <td>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => compareFromBrowse(pair.hadith_a_id, pair.hadith_b_id)}
                         >
-                          Compare
+                          {t('nav.compare')}
                         </Button>
                       </td>
                     </tr>
@@ -609,13 +608,13 @@ export default function ComparativePage() {
 
               <div className="pagination">
                 <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
+                  {t('common.previous')}
                 </button>
                 <span>
-                  Page {data?.page} of {totalPages}
+                  {t('common.pageOf', { current: data?.page, total: totalPages })}
                 </span>
                 <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                  Next
+                  {t('common.next')}
                 </button>
               </div>
             </>
