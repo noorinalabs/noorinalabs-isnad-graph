@@ -70,6 +70,38 @@ def get_search_settings() -> Settings:
     return get_settings()
 
 
+def _hadith_row_to_search_result(row: dict[str, Any], score: float) -> SearchResult:
+    """Map a hadith DB row to a ``SearchResult`` with shared facet canonicalization.
+
+    Both search paths — full-text (Neo4j) and semantic (pgvector) — project the
+    same hadith facet columns (``collection_name``, ``grade``, ``topic_tags``) and
+    MUST surface them identically so the frontend facet matcher refines either
+    result set against the same canonical token vocabulary:
+
+    - ``grade`` is normalized to its canonical token (#1060), and
+    - ``topic_tags`` are projected onto the canonical topic vocabulary (#1061);
+      raw tags would never match an active topic facet and would wrongly exclude
+      the hit.
+
+    The relevance ``score`` is computed by the caller and passed in, because the
+    two paths scale it differently (raw BM25 — later run through
+    ``saturate_relevance`` in a batch — vs. clamped cosine similarity). Keeping
+    this mapping in one place removes the duplication flagged in #1087 so a future
+    canonicalization/vocabulary change lands once, not per branch.
+    """
+    snippet = row.get("matn_en") or row["matn_ar"]
+    return SearchResult(
+        id=row["id"],
+        type="hadith",
+        title=snippet[:120] + "..." if len(snippet) > 120 else snippet,
+        title_ar=row["matn_ar"][:120],
+        score=score,
+        collection=row.get("collection_name"),
+        grade=normalize_grade(row.get("grade")),
+        topics=canonical_topics_for_tags(row.get("topic_tags")),
+    )
+
+
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
     q: str = Query("", max_length=500, description="Search query"),
@@ -113,22 +145,9 @@ def search(
     if remaining > 0:
         hadith_rows = _fulltext_hadith_search(neo4j, q, remaining)
         for r in hadith_rows:
-            snippet = r.get("matn_en") or r["matn_ar"]
-            results.append(
-                SearchResult(
-                    id=r["id"],
-                    type="hadith",
-                    title=snippet[:120] + "..." if len(snippet) > 120 else snippet,
-                    title_ar=r["matn_ar"][:120],
-                    score=r["score"],
-                    collection=r.get("collection_name"),
-                    grade=normalize_grade(r.get("grade")),
-                    # Map the sparse free-text topic_tags onto the canonical topic
-                    # vocabulary so the facet filters against a stable token set
-                    # rather than fuzzy substrings. Empty = uncategorized/unknown.
-                    topics=canonical_topics_for_tags(r.get("topic_tags")),
-                )
-            )
+            # Pass the raw Lucene score through unchanged; the saturating transform
+            # is applied to the whole result set below (see ig#1070).
+            results.append(_hadith_row_to_search_result(r, r["score"]))
 
     # --- Saturating relevance transform (absolute confidence) ---
     # Neo4j's ``db.index.fulltext.queryNodes`` returns unbounded BM25-style
@@ -323,32 +342,15 @@ def search_semantic(
     # Facet metadata (collection/grade/topics) is now projected alongside the
     # embedding in ``isnad_graph.hadiths`` (see ``src/enrich/embeddings.py``), so
     # semantic hits carry the same filterable attributes as full-text hits and the
-    # search page's facet matcher refines them identically. ``grade`` is the raw
-    # scholar string here; it is normalized to a canonical token API-side, exactly
-    # as the full-text path does. (#1060)
+    # search page's facet matcher refines them identically — the canonicalization
+    # is shared via ``_hadith_row_to_search_result`` so it stays in lock-step with
+    # the full-text path (#1060, #1087).
     results: list[SearchResult] = []
     for r in rows:
-        snippet = r.get("matn_en") or r["matn_ar"]
         # ``1 - cosine_distance`` is theoretically in [-1, 1]; clamp to [0, 1]
         # so a degenerate embedding never produces a negative relevance score.
         raw_score = float(r.get("score") or 0.0)
-        results.append(
-            SearchResult(
-                id=r["id"],
-                type="hadith",
-                title=snippet[:120] + "..." if len(snippet) > 120 else snippet,
-                title_ar=r["matn_ar"][:120],
-                score=max(0.0, min(1.0, raw_score)),
-                collection=r.get("collection_name"),
-                grade=normalize_grade(r.get("grade")),
-                # Map raw free-text topic_tags onto the canonical topic vocabulary,
-                # exactly as the full-text path does — the frontend facet matcher
-                # compares against canonical tokens (#1061), so raw tags here would
-                # never match an active topic facet and would wrongly exclude the
-                # hit (the very no-op #1060 fixes, but for topics).
-                topics=canonical_topics_for_tags(r.get("topic_tags")),
-            )
-        )
+        results.append(_hadith_row_to_search_result(r, max(0.0, min(1.0, raw_score))))
 
     total = count_rows[0]["total"] if count_rows else len(results)
     return SearchResultsResponse(results=results, total=total, query=q)
