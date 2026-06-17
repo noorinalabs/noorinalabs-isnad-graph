@@ -13,9 +13,14 @@ NEO4J_TEST_PASSWORD = "testpassword123"
 
 @pytest.fixture(scope="session")
 def neo4j_container():
-    """Start a real Neo4j container for integration tests."""
-    container = Neo4jContainer("neo4j:5-community")
-    container.with_env("NEO4J_AUTH", f"neo4j/{NEO4J_TEST_PASSWORD}")
+    """Start a real Neo4j container for integration tests.
+
+    The password MUST be passed to the constructor: testcontainers 4.x's
+    ``Neo4jContainer._configure()`` calls ``with_env("NEO4J_AUTH", f"neo4j/{self.password}")``
+    at container-start time, which clobbers any ``with_env("NEO4J_AUTH", ...)`` set on the
+    fixture side (it would otherwise default to ``neo4j/password`` → AuthError). See ig#975.
+    """
+    container = Neo4jContainer("neo4j:5-community", password=NEO4J_TEST_PASSWORD)
     with container as neo4j:
         yield neo4j
 
