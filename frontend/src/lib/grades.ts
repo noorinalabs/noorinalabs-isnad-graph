@@ -2,15 +2,14 @@
 // mapped to display labels and Tailwind colour classes. The raw scholar text is
 // shown verbatim; these helpers drive the badge/bar colour and the filter labels.
 
-export const GRADE_LABELS: Record<string, string> = {
-  sahih: 'Sahih',
-  hasan: 'Hasan',
-  hasan_sahih: 'Hasan Sahih',
-  daif: "Da'if",
-  mawdu: "Mawdu'",
-  munkar: 'Munkar',
-  shadh: 'Shadh',
-}
+// GRADE_LABELS has a single source of truth in the backend
+// (src/utils/grades.py). The JSON below is generated from it by
+// `scripts/emit_grade_vocab.py emit` and kept in sync by the grade-vocab-drift
+// CI step + pre-commit hook (ig#1054) — do NOT hand-edit the generated file.
+// The colour/bar helpers below stay here: they are presentation, not vocabulary.
+import gradeLabels from './grade-vocab.generated.json'
+
+export const GRADE_LABELS: Record<string, string> = gradeLabels
 
 // The full canonical grade vocabulary, in display order. Drives the search
 // page's grade facet so it can never silently drop a valid grade or drift out of

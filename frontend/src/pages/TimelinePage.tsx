@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
 import { fetchTimeline, fetchTimelineRange, fetchCollections } from '../api/client'
 import type { TimelineEntry, Collection } from '../types/api'
@@ -10,6 +11,7 @@ const MARGIN = { top: 30, right: 30, bottom: 40, left: 180 }
 const DEFAULT_RANGE: [number, number] = [0, 300]
 
 function CollectionTimeline({ collections }: { collections: Collection[] }) {
+  const { t } = useTranslation()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const navigate = useNavigate()
 
@@ -95,11 +97,11 @@ function CollectionTimeline({ collections }: { collections: Collection[] }) {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle className="text-lg">Collection Compilation Dates</CardTitle>
+        <CardTitle className="text-lg">{t('timeline.collectionDatesTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground mb-4">
-          When each hadith collection was compiled. Click a collection to view its details.
+          {t('timeline.collectionDatesBody')}
         </p>
         <div style={{ overflowX: 'auto' }}>
           <svg
@@ -107,7 +109,7 @@ function CollectionTimeline({ collections }: { collections: Collection[] }) {
             width="100%"
             height={300}
             role="img"
-            aria-label="Timeline of hadith collection compilation dates"
+            aria-label={t('timeline.collectionChartAria')}
           />
         </div>
       </CardContent>
@@ -118,6 +120,7 @@ function CollectionTimeline({ collections }: { collections: Collection[] }) {
 const EVENT_MARGIN = { top: 30, right: 30, bottom: 40, left: 60 }
 
 export default function TimelinePage() {
+  const { t } = useTranslation()
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<TimelineEntry | null>(null)
   const [yearRange, setYearRange] = useState<[number, number] | null>(null)
@@ -245,22 +248,22 @@ export default function TimelinePage() {
 
   return (
     <div>
-      <h2 className="page-heading">Timeline</h2>
+      <h2 className="page-heading">{t('timeline.heading')}</h2>
       <p className="muted-text" style={{ marginBottom: 'var(--spacing-4)' }}>
-        Historical events, collection compilation dates, and narrator activity periods (Anno Hegirae).
+        {t('timeline.intro')}
       </p>
 
       {hasCollections && <CollectionTimeline collections={collectionsData.items} />}
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">Historical Events &amp; Narrator Activity</CardTitle>
+          <CardTitle className="text-lg">{t('timeline.eventsTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           {hasEvents && (
             <div className="timeline-controls" style={{ marginBottom: 'var(--spacing-4)' }}>
               <label>
-                From (AH):{' '}
+                {t('timeline.fromAh')}{' '}
                 <input
                   type="number"
                   value={effectiveRange[0]}
@@ -269,7 +272,7 @@ export default function TimelinePage() {
                 />
               </label>
               <label>
-                To (AH):{' '}
+                {t('timeline.toAh')}{' '}
                 <input
                   type="number"
                   value={effectiveRange[1]}
@@ -287,7 +290,7 @@ export default function TimelinePage() {
               ))}
             </div>
           )}
-          {error && <p className="error-text">Error: {(error as Error).message}</p>}
+          {error && <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>}
 
           {!isLoading && !error && !hasEvents && (
             <div className="empty-state">
@@ -297,11 +300,9 @@ export default function TimelinePage() {
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
               </div>
-              <h3 className="empty-state-heading">No historical events yet</h3>
+              <h3 className="empty-state-heading">{t('timeline.noEventsHeading')}</h3>
               <p className="empty-state-body">
-                Historical events and narrator activity periods will appear here once the data
-                enrichment pipeline has been run. This includes key dates in Islamic history,
-                narrator lifespans, and scholarly events.
+                {t('timeline.noEventsBody')}
               </p>
             </div>
           )}
@@ -309,7 +310,7 @@ export default function TimelinePage() {
           {hasEvents && (
             <div className="timeline-body">
               <div className="timeline-chart">
-                <svg ref={svgRef} width="100%" height={400} role="img" aria-label={`Timeline chart showing events from ${effectiveRange[0]} to ${effectiveRange[1]} AH`} />
+                <svg ref={svgRef} width="100%" height={400} role="img" aria-label={t('timeline.chartAria', { from: effectiveRange[0], to: effectiveRange[1] })} />
               </div>
 
               {selectedEvent && (
@@ -322,7 +323,7 @@ export default function TimelinePage() {
                   {selectedEvent.description && <p>{selectedEvent.description}</p>}
                   {selectedEvent.narrator_count > 0 && (
                     <p className="small-muted">
-                      {selectedEvent.narrator_count} active narrators
+                      {t('timeline.activeNarrators', { count: selectedEvent.narrator_count })}
                     </p>
                   )}
                 </div>

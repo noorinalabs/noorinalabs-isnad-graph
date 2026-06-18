@@ -111,7 +111,10 @@ warn_uninitialized = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+# No `pythonpath = ["."]`: `isnad-graph` is installed into the venv by `uv sync`
+# (editable in dev/CI, a real wheel in the Docker images — see Dockerfile/#1095),
+# so `import src` resolves from the installed package rather than from the repo
+# root being on sys.path.
 markers = [
     "integration: marks tests requiring Docker containers (Neo4j, PostgreSQL, Redis)",
     "e2e: marks browser automation tests requiring running frontend and backend",

@@ -105,6 +105,19 @@ repos:
       # Integration tests require Docker (Neo4j, PostgreSQL) — run in CI only.
       # To run locally: make infra && ENVIRONMENT=test uv run pytest tests/integration/ -m integration
 
+      # Grade-vocab single-source-of-truth gate (ig#1054). Mirrors the
+      # "Check grade-vocab drift" step in ci.yml's lint-and-typecheck job: fails
+      # if frontend/src/lib/grade-vocab.generated.json has drifted from the
+      # backend GRADE_LABELS. Regenerate with `uv run python
+      # scripts/emit_grade_vocab.py emit` and commit the result.
+      - id: grade-vocab-drift
+        name: grade-vocab-drift
+        entry: uv run python scripts/emit_grade_vocab.py check
+        language: system
+        pass_filenames: false
+        files: ^(src/utils/grades\.py|scripts/emit_grade_vocab\.py|frontend/src/lib/grade-vocab\.generated\.json)$
+        stages: [pre-commit]
+
   # --- Lockfile validation ---
   - repo: local
     hooks:
