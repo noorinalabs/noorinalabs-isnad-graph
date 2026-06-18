@@ -24,6 +24,15 @@ if TYPE_CHECKING:
 # Default maximum request body size: 1 MB.
 DEFAULT_MAX_BODY_SIZE = 1_048_576
 
+# Bounded socket timeouts (seconds) for the rate limiter's Redis client so a slow
+# or unreachable Redis fails open *fast* to the in-memory limiter instead of
+# blocking the request path (ig#1034). Redis is co-located in production, so a
+# healthy connect/command is sub-millisecond; half a second is generous headroom
+# while still bounding the worst-case stall. An explicit timeout in REDIS_URL
+# (e.g. ``?socket_connect_timeout=1``) still wins — redis-py lets URL query
+# options override constructor kwargs.
+REDIS_SOCKET_TIMEOUT_SECONDS = 0.5
+
 log = structlog.get_logger(logger_name=__name__)
 
 
@@ -128,7 +137,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             import redis as redis_lib
 
-            client = redis_lib.Redis.from_url(url, decode_responses=True)
+            client = redis_lib.Redis.from_url(
+                url,
+                decode_responses=True,
+                socket_connect_timeout=REDIS_SOCKET_TIMEOUT_SECONDS,
+                socket_timeout=REDIS_SOCKET_TIMEOUT_SECONDS,
+            )
             client.ping()
             self._redis = client
         except Exception:  # noqa: BLE001
