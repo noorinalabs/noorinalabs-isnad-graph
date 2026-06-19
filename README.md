@@ -361,11 +361,12 @@ pre-commit install --hook-type pre-commit \
 
 The stages mirror `.github/workflows/ci.yml` and `.github/workflows/docs.yml`:
 
-- **Commit stage** (`pre-commit`) runs: `ruff-format`, `ruff` lint, `gitleaks`,
-  `actionlint`, `pip-audit`, `mypy`, the unit test suite
-  (`pytest -m "not integration and not e2e and not ml"`), the frontend
-  `package-lock.json` path check, and the frontend `eslint` +
-  `tsc --noEmit` type-check.
+- **Commit stage** (`pre-commit`) runs: the `branch-ownership` check, `ruff-format`,
+  `ruff` lint, `gitleaks`, `actionlint`, `pip-audit`, `mypy`, the unit test suite
+  (`pytest -m "not integration and not e2e and not ml"`), the `grade-vocab-drift`
+  check (mirrors ci.yml's grade-vocab single-source-of-truth gate), the frontend
+  `package-lock.json` path check, and the frontend `eslint` + `tsc --noEmit`
+  type-check.
 - **Commit-message stage** (`commit-msg`) runs: the `Co-authored-by` trailer check.
 - **Pre-push stage** (`pre-push`) runs: the frontend production build (`npm run build`)
   — the heavier compile, kept off the per-commit loop.
