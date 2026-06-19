@@ -338,6 +338,44 @@ make load        # Phase 3: load into Neo4j
 make enrich      # Phase 4: compute metrics & topics
 ```
 
+### Git hooks (required)
+
+This repo mirrors its CI checks locally via [pre-commit](https://pre-commit.com/) so a
+failing check surfaces on your machine instead of only after a PR is opened (org-wide
+local/CI parity, [noorinalabs-main#684](https://github.com/noorinalabs/noorinalabs-main/issues/684)).
+After cloning, install all hook stages once:
+
+```bash
+make setup-hooks   # branch-name check via .githooks + pre-commit/commit-msg/pre-push
+# or, if you only want the pre-commit framework stages:
+make hooks
+```
+
+Either target is a wrapper around:
+
+```bash
+pre-commit install --hook-type pre-commit \
+                   --hook-type commit-msg \
+                   --hook-type pre-push
+```
+
+The stages mirror `.github/workflows/ci.yml` and `.github/workflows/docs.yml`:
+
+- **Commit stage** (`pre-commit`) runs: `ruff-format`, `ruff` lint, `gitleaks`,
+  `actionlint`, `pip-audit`, `mypy`, the unit test suite
+  (`pytest -m "not integration and not e2e and not ml"`), the frontend
+  `package-lock.json` path check, and the frontend `eslint` +
+  `tsc --noEmit` type-check.
+- **Commit-message stage** (`commit-msg`) runs: the `Co-authored-by` trailer check.
+- **Pre-push stage** (`pre-push`) runs: the frontend production build (`npm run build`)
+  — the heavier compile, kept off the per-commit loop.
+
+The `Pre-commit ⇄ CI sync-drift gate` job (in `docs.yml`) fails the build if the
+hook set ever drifts from the checks CI enforces, so local "clean" stays equal to CI.
+Never bypass a failing hook with `--no-verify`. If `pre-commit install` "cowardly
+refuses" because a stale `core.hooksPath` is set, run `git config --unset core.hooksPath`
+and re-run (or just use `make setup-hooks`, which manages `core.hooksPath` for you).
+
 ## License
 
 This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
