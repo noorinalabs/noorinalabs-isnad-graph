@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
+from typing import NoReturn
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +21,57 @@ from src.models.enums import (
 )
 from src.models.hadith import Hadith
 from src.models.narrator import Narrator
+
+
+@pytest.fixture(autouse=True)
+def _offline_external_clients(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Make Redis/Postgres probes fail fast so the unit tier runs offline (ig#1113).
+
+    Tests that spin up the FastAPI app (``test_api`` / ``test_auth`` /
+    ``test_security``) route requests through code that opens real sockets to
+    backing services when the app isn't fully mocked:
+
+    * ``RateLimitMiddleware._get_redis`` → ``redis.Redis.from_url(...).ping()``
+      on ``redis://localhost:6379`` (per app instance);
+    * the ``/health`` (and ``/status``) routes → ``PgClient()`` →
+      ``psycopg.connect`` on ``localhost:5432`` and ``get_redis_client`` →
+      ``redis.Redis.from_url(...).ping()``.
+
+    With no service running this fast-fails in CI (loopback ``ECONNREFUSED`` →
+    the routes/middleware degrade gracefully), but in a blackhole-connect
+    sandbox each ``connect()`` stalls for the full socket timeout, hanging the
+    offline unit run. Forcing the two client constructors to raise immediately
+    reproduces CI's fast-fail deterministically: the rate limiter falls back to
+    its in-memory window, the health checks report the service ``down`` (503),
+    and no socket is ever opened. This is exactly the degradation those code
+    paths already document and the unit tier already relies on.
+
+    Tests that exercise these clients directly (e.g.
+    ``test_security/test_rate_limiting.py`` or ``test_api/test_health.py``)
+    re-patch ``redis.Redis.from_url`` / ``health.PgClient`` in their own
+    ``with`` block, which transparently overrides this autouse patch for their
+    scope. Integration/e2e tests opt out so they retain real client wiring
+    against their testcontainers / live services.
+    """
+    if request.node.get_closest_marker("integration") or request.node.get_closest_marker("e2e"):
+        yield
+        return
+
+    def _refuse_redis(*_args: object, **_kwargs: object) -> NoReturn:
+        import redis
+
+        raise redis.exceptions.ConnectionError("Redis disabled in offline unit tier (ig#1113)")
+
+    def _refuse_postgres(*_args: object, **_kwargs: object) -> NoReturn:
+        import psycopg
+
+        raise psycopg.OperationalError("Postgres disabled in offline unit tier (ig#1113)")
+
+    with (
+        patch("redis.Redis.from_url", side_effect=_refuse_redis),
+        patch("psycopg.connect", side_effect=_refuse_postgres),
+    ):
+        yield
 
 
 @pytest.fixture
