@@ -54,6 +54,11 @@
     "dist/**",
     "frontend/dist/**",
     ".venv/**",
-    ".claude/worktrees/**"
+    ".claude/worktrees/**",
+    // .claude/memory/** — the in-repo version-controlled project-memory corpus
+    // (org/repo split, #732 enabler / main#740). Dense append-only personal-note
+    // prose (names, SHAs, [[wikilinks]], Arabic), not published docs — linting it
+    // to a style guide adds noise without catching real rendering breakage.
+    ".claude/memory/**"
   ]
 }

@@ -30,6 +30,7 @@
     "dist/**",
     "frontend/dist/**",
     ".venv/**",
-    ".claude/worktrees/**"
+    ".claude/worktrees/**",
+    ".claude/memory/**"
   ]
 }

@@ -37,6 +37,9 @@ exclude_path = [
   "frontend/dist",
   ".venv",
   ".claude/worktrees",
+  # In-repo project-memory corpus (#732 enabler / main#740) — uses [[wikilink]]
+  # shorthand and bare issue/PR refs, not lychee-checkable relative links.
+  ".claude/memory",
 ]
 
 # A relative link with no matching file is the failure we DO want to surface.
