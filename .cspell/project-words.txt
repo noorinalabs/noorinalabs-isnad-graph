@@ -94,6 +94,7 @@ RBAC
 JWKS
 TOTP
 vhost
+wikilinks
 worktree
 worktrees
 subagent

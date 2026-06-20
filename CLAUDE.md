@@ -217,6 +217,18 @@ Copy `.env.example` to `.env`. Key variables:
 - These three (Projects, Issues, Actions) are the **core orchestration layer** — do not introduce alternative tools for these concerns
 - **Branching strategy:** Feature branches named `{FirstInitial}.{LastName}/{IIII}-{issue-name}` (e.g., `F.Okonkwo/0042-setup-docker-compose`) merged to `main` via PR
 
+## Project Memory
+
+Project memory for this repo is **version-controlled in-repo** at `.claude/memory/`, not in the user-space auto-memory directory. This makes the accumulated state **transferable**: a developer who pulls a branch gets the memory with it, with zero per-machine setup. This repo is **self-contained** — it imports only its own `.claude/memory/`, not the org-level corpus in `noorinalabs-main` (org/repo memory split — meta noorinalabs-main#740, driver #732). The index below is auto-loaded into every session via this committed CLAUDE.md import:
+
+@.claude/memory/MEMORY.md
+
+`MEMORY.md` is the always-loaded index (one line per memory); the individual topic files in `.claude/memory/*.md` are read on demand when a line looks relevant.
+
+**Recording a memory:** create or edit `.claude/memory/<kebab-slug>.md` with the standard frontmatter (`name`, `description`, `metadata.type` = `user` | `feedback` | `project` | `reference`), add a one-line pointer to `MEMORY.md` (`- [Title](file.md) — hook`), and **commit it** so it travels with the branch. Link related memories with `[[other-slug]]`; some links may point at org-level memories that remain in `noorinalabs-main` — those are acceptable soft cross-repo pointers. Before adding, check for an existing file covering the same fact and update it instead of duplicating; delete memories that turn out to be wrong.
+
+> `.claude/memory/**` is excluded from the markdown/cspell/lychee linters (dense append-only note prose with names, SHAs, `[[wikilinks]]`, and Arabic) — see `.markdownlint-cli2.jsonc`, `.cspell.json`, and `.lychee.toml`.
+
 ## Key Documentation
 
 - `docs/hadith-analysis-platform-prd.md` — full PRD with schema details, data sources, risk register
