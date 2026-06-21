@@ -23,9 +23,41 @@ from src.models.hadith import Hadith
 from src.models.narrator import Narrator
 
 
+class _OfflineNeo4jDriver:
+    """Stand-in neo4j driver that refuses to open a bolt socket (ig#1118).
+
+    Unlike the redis/psycopg constructors below, ``GraphDatabase.driver()`` is
+    *lazy* — it never connects, so patching it to *raise* would break
+    ``Neo4jClient.__init__`` (the app lifespan guards only the index query, not
+    the constructor). Instead we hand back a driver whose session/connectivity
+    probes raise ``ServiceUnavailable`` immediately — exactly the error a
+    refused/blackholed connect ultimately produces — so the lifespan's
+    best-effort ``ensure_fulltext_indexes`` degrades instantly.
+    """
+
+    def session(self, *_args: object, **_kwargs: object) -> NoReturn:
+        import neo4j
+
+        raise neo4j.exceptions.ServiceUnavailable("Neo4j disabled in offline unit tier (ig#1118)")
+
+    def verify_connectivity(self, *_args: object, **_kwargs: object) -> NoReturn:
+        import neo4j
+
+        raise neo4j.exceptions.ServiceUnavailable("Neo4j disabled in offline unit tier (ig#1118)")
+
+    def close(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+    def __enter__(self) -> _OfflineNeo4jDriver:
+        return self
+
+    def __exit__(self, *_args: object) -> bool:
+        return False
+
+
 @pytest.fixture(autouse=True)
 def _offline_external_clients(request: pytest.FixtureRequest) -> Iterator[None]:
-    """Make Redis/Postgres probes fail fast so the unit tier runs offline (ig#1113).
+    """Make Redis/Postgres/Neo4j probes fail fast so the unit tier runs offline.
 
     Tests that spin up the FastAPI app (``test_api`` / ``test_auth`` /
     ``test_security``) route requests through code that opens real sockets to
@@ -35,16 +67,21 @@ def _offline_external_clients(request: pytest.FixtureRequest) -> Iterator[None]:
       on ``redis://localhost:6379`` (per app instance);
     * the ``/health`` (and ``/status``) routes → ``PgClient()`` →
       ``psycopg.connect`` on ``localhost:5432`` and ``get_redis_client`` →
-      ``redis.Redis.from_url(...).ping()``.
+      ``redis.Redis.from_url(...).ping()``;
+    * the app lifespan → ``Neo4jClient`` → ``GraphDatabase.driver(...)`` →
+      ``ensure_fulltext_indexes`` on ``bolt://localhost:7687`` (per app
+      instance, on any context-managed / unmocked ``TestClient`` startup).
 
     With no service running this fast-fails in CI (loopback ``ECONNREFUSED`` →
-    the routes/middleware degrade gracefully), but in a blackhole-connect
-    sandbox each ``connect()`` stalls for the full socket timeout, hanging the
-    offline unit run. Forcing the two client constructors to raise immediately
-    reproduces CI's fast-fail deterministically: the rate limiter falls back to
-    its in-memory window, the health checks report the service ``down`` (503),
-    and no socket is ever opened. This is exactly the degradation those code
-    paths already document and the unit tier already relies on.
+    the routes/middleware/lifespan degrade gracefully), but in a
+    blackhole-connect sandbox each ``connect()`` stalls for the full socket /
+    connection-acquisition timeout (redis/postgres seconds; neo4j ~60s),
+    hanging the offline unit run. Forcing the three client entrypoints to refuse
+    immediately reproduces CI's fast-fail deterministically: the rate limiter
+    falls back to its in-memory window, the health checks report the service
+    ``down`` (503), the index bootstrap is skipped, and no socket is ever
+    opened. This is exactly the degradation those code paths already document
+    and the unit tier already relies on.
 
     Tests that exercise these clients directly (e.g.
     ``test_security/test_rate_limiting.py`` or ``test_api/test_health.py``)
@@ -67,9 +104,13 @@ def _offline_external_clients(request: pytest.FixtureRequest) -> Iterator[None]:
 
         raise psycopg.OperationalError("Postgres disabled in offline unit tier (ig#1113)")
 
+    def _offline_neo4j_driver(*_args: object, **_kwargs: object) -> _OfflineNeo4jDriver:
+        return _OfflineNeo4jDriver()
+
     with (
         patch("redis.Redis.from_url", side_effect=_refuse_redis),
         patch("psycopg.connect", side_effect=_refuse_postgres),
+        patch("neo4j.GraphDatabase.driver", side_effect=_offline_neo4j_driver),
     ):
         yield
 
