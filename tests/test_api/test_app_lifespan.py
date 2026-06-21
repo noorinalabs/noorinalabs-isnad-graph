@@ -31,6 +31,25 @@ def _patch_neo4j(monkeypatch: pytest.MonkeyPatch, client: MagicMock) -> None:
     monkeypatch.setattr(neo4j_module, "Neo4jClient", lambda **_: client)
 
 
+def test_offline_fixture_neutralizes_neo4j_driver() -> None:
+    """The autouse offline fixture (``tests/conftest.py``) must stub the neo4j
+    driver so a context-managed, unmocked ``TestClient`` — which runs the app
+    lifespan and constructs a *real* ``Neo4jClient`` — cannot stall ~60s opening
+    a bolt socket under network isolation (ig#1118).
+
+    We assert at the driver entrypoint rather than via a live ~60s connect so
+    the guard itself never blocks: with the stub a session probe raises
+    ``ServiceUnavailable`` instantly; without it the real (lazy) driver returns
+    a session without connecting, so this test fails fast (DID NOT RAISE)
+    instead of hanging.
+    """
+    import neo4j
+
+    driver = neo4j.GraphDatabase.driver("bolt://192.0.2.1:7687", auth=("neo4j", "x"))
+    with pytest.raises(neo4j.exceptions.ServiceUnavailable, match="ig#1118"):
+        driver.session()
+
+
 @pytest.mark.asyncio
 async def test_lifespan_ensures_fulltext_indexes(
     monkeypatch: pytest.MonkeyPatch,
