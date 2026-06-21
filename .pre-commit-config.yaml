@@ -7,14 +7,14 @@
 # fast instead of surfacing a lint/type/test/actionlint/build error only after a
 # PR is opened (Phase-3 end-state criterion #6 / #327). The kind-level mirror
 # (ruff, mypy, pytest, eslint, typescript, gitleaks, pip-audit, actionlint,
-# build present on both sides) is enforced in CI by `.claude/lib/
+# build, cspell present on both sides) is enforced in CI by `.claude/lib/
 # pre_commit_ci_sync.py` — if a future edit drops a check from one side, the
 # "Pre-commit <-> CI sync-drift gate" job in docs.yml fails the build.
 #
 # Stage split (fail-fast, cheapest first):
 #   pre-commit (every commit) — ruff-format, ruff-lint, gitleaks, actionlint,
-#     pip-audit, mypy, unit tests, ESLint, frontend type-check. Fast checks that
-#     catch the most common defects before a commit is recorded.
+#     cspell, pip-audit, mypy, unit tests, ESLint, frontend type-check. Fast
+#     checks that catch the most common defects before a commit is recorded.
 #   commit-msg               — co-author trailer enforcement.
 #   pre-push  (every push)   — frontend build. The heavier compile that mirrors
 #     ci.yml's `npm run build`; run before code leaves the machine, not on every
@@ -57,6 +57,29 @@ repos:
     hooks:
       - id: actionlint
         name: actionlint
+        stages: [pre-commit]
+
+  # --- Spellcheck (commit stage) — mirrors docs.yml Spellcheck (cspell) job ---
+  # Closes the spell-check blind spot (noorinalabs-main#684): CI's
+  # `streetsidesoftware/cspell-action@…v8.4.0` enforced cspell with no local
+  # mirror, so new authored-prose typos failed only after push. The
+  # `Pre-commit ⇄ CI sync-drift gate` now classifies the `cspell` kind and
+  # DEMANDS this mirror.
+  #
+  # Pinned to v8.4.0 of cspell-cli to match the exact cspell the
+  # `cspell-action@…v8.4.0` CI step bundles — same engine + dictionaries on both
+  # sides, so a word that passes locally passes in CI and vice-versa.
+  # `language: node`, so pre-commit provisions its own node/cspell env (no system
+  # cspell required). `--config .cspell.json` reuses the same dictionaries +
+  # ignore rules CI loads; `files` is the regex equivalent of the CI action's
+  # authored-prose glob set (CLAUDE.md, README.md, docs, skills, charter).
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v8.4.0
+    hooks:
+      - id: cspell
+        name: cspell
+        args: ["--no-must-find-files", "--no-progress", "--no-summary", "--config", ".cspell.json"]
+        files: ^(CLAUDE\.md|README\.md|docs/.*\.md|\.claude/skills/.*\.md|\.claude/team/charter\.md)$
         stages: [pre-commit]
 
   # --- Branch & commit identity checks ---
