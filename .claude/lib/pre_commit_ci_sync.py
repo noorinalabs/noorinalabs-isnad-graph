@@ -23,11 +23,15 @@ step vs a `ruff` pre-commit `id:`). We normalize both sides to a small set of
 kind tokens so they compare:
 
     ruff-lint, ruff-format, mypy, pytest, eslint, typescript, prettier,
-    terraform-fmt, gitleaks, actionlint, astro-check, pip-audit, build
+    terraform-fmt, gitleaks, actionlint, astro-check, pip-audit, build,
+    cspell
 
 Unknown tools are ignored (neither side gates on a kind we can't classify),
 which keeps the gate conservative — it never fails on something it doesn't
-understand.
+understand. Closing a blind spot here means ADDING the kind to
+`_KIND_PATTERNS` (cf. `cspell`, noorinalabs-main#684) so a CI job that runs it
+starts demanding a pre-commit mirror — an un-classified CI check is silently
+un-mirrored, which is the exact divergence this gate exists to prevent.
 
 Input Language
 ==============
@@ -79,6 +83,13 @@ _KIND_PATTERNS: dict[str, tuple[str, ...]] = {
     "actionlint": ("actionlint",),
     "pip-audit": ("pip-audit", "pip audit"),
     "build": ("build-and-validate", "build-and-test", "npm run build"),
+    # `cspell` closes the spell-check blind spot (noorinalabs-main#684): docs.yml's
+    # Spellcheck job runs the `streetsidesoftware/cspell-action` (or a `cspell`
+    # CLI), but until this kind existed an un-classified spell gate produced ZERO
+    # drift signal, so the repo could enforce cspell in CI with no pre-commit
+    # mirror — new domain vocabulary then failed only after push. Patterns cover
+    # the action ref, the bundled-CLI step name, and the generic job/step word.
+    "cspell": ("cspell", "spellcheck", "streetsidesoftware/cspell"),
 }
 
 # `ruff-lint` is a substring of nothing problematic, but `ruff format` also
