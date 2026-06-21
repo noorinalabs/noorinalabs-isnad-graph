@@ -73,6 +73,10 @@ npm run test        # Run Vitest
 npm run lint        # Run ESLint
 ```
 
+## Shell environment
+
+The development shell is **zsh** (not bash). Write zsh-safe terminal commands and avoid bash-only idioms (`declare -A`, `${!arr[@]}`, unquoted `?`/`*` globs such as `…?ref=main` URLs). Prefer POSIX-portable constructs; use `bash -c '...'` explicitly when bash is genuinely required. Canonical do/don't list: org `docs/TOOLCHAIN.md` "Shell environment" section + `ontology/conventions.md` in noorinalabs-main.
+
 ## Architecture
 
 ### Backend layout (`src/`)
