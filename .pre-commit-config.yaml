@@ -52,11 +52,20 @@ repos:
         name: gitleaks
 
   # --- Workflow lint (commit stage) — mirrors docs.yml actionlint job (#327) ---
+  # `args` MUST match the docs.yml `Run actionlint on workflows` step exactly:
+  # ci.yml's `e2e` job is deliberately `if: false` (kill-switch pending the
+  # mock-auth-refresh, ig#812), which the pinned v1.7.12 flags as
+  # `constant expression "false" in condition`. CI carries this `-ignore`;
+  # without it here `pre-commit run actionlint --all-files` FAILS locally on the
+  # pre-existing `if: false` while CI stays green — a local⇄CI divergence of the
+  # same class as the cspell gap main#684 closed (ig#1123). Keep the `-ignore`
+  # string byte-identical to docs.yml so local and CI agree.
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.12
     hooks:
       - id: actionlint
         name: actionlint
+        args: ['-ignore', 'constant expression "false" in condition']
         stages: [pre-commit]
 
   # --- Spellcheck (commit stage) — mirrors docs.yml Spellcheck (cspell) job ---
@@ -123,6 +132,21 @@ repos:
         entry: bash -c 'ENVIRONMENT=test uv run pytest tests/ -x --tb=short -q -m "not integration and not e2e and not ml"'
         language: system
         pass_filenames: false
+        stages: [pre-commit]
+
+      # `.claude/lib/` unit tests — mirrors the docs.yml `Pytest — .claude/lib`
+      # job (ig#1123). The main `pytest-unit` hook above runs `tests/` only
+      # (pyproject `testpaths = ["tests"]`), so the sync-gate classifier tests
+      # under `.claude/lib/tests/` are otherwise local-pre-push/CI-unguarded; a
+      # regression in `pre_commit_ci_sync.py`'s kind classification would not
+      # fail on commit. Scoped via `files:` so it only runs when `.claude/lib/`
+      # changes, keeping the common commit loop snappy.
+      - id: claude-lib-tests
+        name: claude-lib-tests
+        entry: bash -c 'ENVIRONMENT=test uv run pytest .claude/lib/tests/ -q'
+        language: system
+        pass_filenames: false
+        files: ^\.claude/lib/
         stages: [pre-commit]
 
       # Integration tests require Docker (Neo4j, PostgreSQL) — run in CI only.
