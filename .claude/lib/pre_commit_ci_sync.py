@@ -24,7 +24,7 @@ kind tokens so they compare:
 
     ruff-lint, ruff-format, mypy, pytest, eslint, typescript, prettier,
     terraform-fmt, gitleaks, actionlint, astro-check, pip-audit, build,
-    cspell
+    cspell, dockerfile-base-pin, fixture-realism
 
 Unknown tools are ignored (neither side gates on a kind we can't classify),
 which keeps the gate conservative — it never fails on something it doesn't
@@ -90,6 +90,16 @@ _KIND_PATTERNS: dict[str, tuple[str, ...]] = {
     # mirror — new domain vocabulary then failed only after push. Patterns cover
     # the action ref, the bundled-CLI step name, and the generic job/step word.
     "cspell": ("cspell", "spellcheck", "streetsidesoftware/cspell"),
+    # `dockerfile-base-pin` and `fixture-realism` are the two charter-prose→code
+    # gates built in noorinalabs-main#735 (worklist #4 + #1 of the #734
+    # inventory) and rolled into this repo by #744. Each is a
+    # `.claude/lib/check_*.py` invoked identically by a CI `run:` step and a
+    # pre-commit hook; classifying them here is what makes the sync-drift gate
+    # DEMAND the mirror (the #684 contract: an un-classified CI check is a silent
+    # blind spot). Patterns match the script basename (present on both sides'
+    # invoke line) and the hook id / job-kind token.
+    "dockerfile-base-pin": ("check_dockerfile_base_pin", "dockerfile-base-pin"),
+    "fixture-realism": ("check_fixture_realism", "fixture-realism"),
 }
 
 # `ruff-lint` is a substring of nothing problematic, but `ruff format` also

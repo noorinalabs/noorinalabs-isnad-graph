@@ -39,6 +39,8 @@ from src.config import (
     get_settings,
 )
 
+pytestmark = pytest.mark.integration
+
 # ---------------------------------------------------------------------------
 # RSA key material (generated once per module)
 # ---------------------------------------------------------------------------

@@ -52,11 +52,20 @@ repos:
         name: gitleaks
 
   # --- Workflow lint (commit stage) — mirrors docs.yml actionlint job (#327) ---
+  # `args` MUST match the docs.yml `Run actionlint on workflows` step exactly:
+  # ci.yml's `e2e` job is deliberately `if: false` (kill-switch pending the
+  # mock-auth-refresh, ig#812), which the pinned v1.7.12 flags as
+  # `constant expression "false" in condition`. CI carries this `-ignore`;
+  # without it here `pre-commit run actionlint --all-files` FAILS locally on the
+  # pre-existing `if: false` while CI stays green — a local⇄CI divergence of the
+  # same class as the cspell gap main#684 closed (ig#1123). Keep the `-ignore`
+  # string byte-identical to docs.yml so local and CI agree.
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.12
     hooks:
       - id: actionlint
         name: actionlint
+        args: ['-ignore', 'constant expression "false" in condition']
         stages: [pre-commit]
 
   # --- Spellcheck (commit stage) — mirrors docs.yml Spellcheck (cspell) job ---
@@ -125,6 +134,21 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      # `.claude/lib/` unit tests — mirrors the docs.yml `Pytest — .claude/lib`
+      # job (ig#1123). The main `pytest-unit` hook above runs `tests/` only
+      # (pyproject `testpaths = ["tests"]`), so the sync-gate classifier tests
+      # under `.claude/lib/tests/` are otherwise local-pre-push/CI-unguarded; a
+      # regression in `pre_commit_ci_sync.py`'s kind classification would not
+      # fail on commit. Scoped via `files:` so it only runs when `.claude/lib/`
+      # changes, keeping the common commit loop snappy.
+      - id: claude-lib-tests
+        name: claude-lib-tests
+        entry: bash -c 'ENVIRONMENT=test uv run pytest .claude/lib/tests/ -q'
+        language: system
+        pass_filenames: false
+        files: ^\.claude/lib/
+        stages: [pre-commit]
+
       # Integration tests require Docker (Neo4j, PostgreSQL) — run in CI only.
       # To run locally: make infra && ENVIRONMENT=test uv run pytest tests/integration/ -m integration
 
@@ -139,6 +163,39 @@ repos:
         language: system
         pass_filenames: false
         files: ^(src/utils/grades\.py|scripts/emit_grade_vocab\.py|frontend/src/lib/grade-vocab\.generated\.json)$
+        stages: [pre-commit]
+
+      # Base-image pinning gate (charter tech-decisions.md § Base Image Pinning,
+      # noorinalabs-main#735 / #744). Every Dockerfile FROM must be digest-pinned
+      # (image:tag@sha256:<digest>) AND carry the matching distro upgrade (apk /
+      # apt). Mirrors the `dockerfile-base-pin` job in ci.yml; the sync-drift gate
+      # classifies this kind so the local mirror is mandatory (#684 parity).
+      # Scoped to the two Dockerfiles so it only runs when one changes.
+      - id: dockerfile-base-pin
+        name: dockerfile-base-pin
+        entry: python3 .claude/lib/check_dockerfile_base_pin.py Dockerfile frontend/Dockerfile
+        language: system
+        pass_filenames: false
+        files: ^(Dockerfile|frontend/Dockerfile)$
+        stages: [pre-commit]
+
+      # Fixture-realism gate (charter pull-requests.md § Production-Realistic
+      # Input, noorinalabs-main#735 / #744). Arabic text-processing / NER / graph-
+      # load fixtures must be voweled and carry the transmission particle (the
+      # static toy-fixture lens). Scoped to the curated upstream-sample data under
+      # data/curated/ (the repo's NER/graph-load fixture location); the check
+      # skips any non-Arabic file it is handed. The frontend e2e display mocks
+      # under frontend/tests/e2e/fixtures/ are intentionally OUT of scope — they
+      # are UI API-response stubs, not parser/NER/graph-load inputs, so the
+      # particle/segmentation floor does not apply to them. Mirrors the
+      # `fixture-realism` job in ci.yml. `find` keeps new curated fixtures covered
+      # without editing this entry.
+      - id: fixture-realism
+        name: fixture-realism
+        entry: bash -c 'find data/curated -type f \( -name "*.csv" -o -name "*.yaml" -o -name "*.yml" -o -name "*.json" -o -name "*.jsonl" -o -name "*.txt" \) -print0 | xargs -0 -r python3 .claude/lib/check_fixture_realism.py'
+        language: system
+        pass_filenames: false
+        files: ^data/curated/
         stages: [pre-commit]
 
   # --- Lockfile validation ---
