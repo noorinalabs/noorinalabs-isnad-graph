@@ -167,6 +167,31 @@ jobs:
       - run: uvx ruff@${{ env.RUFF_VERSION }} check scripts/
       - run: uvx ruff@${{ env.RUFF_VERSION }} format --check scripts/
 
+  # Charter-prose→code gates rolled in by #744 (built in noorinalabs-main#735).
+  # Both invoke a stdlib-only `.claude/lib/check_*.py` — no uv/node needed — and
+  # are mirrored by the `dockerfile-base-pin` / `fixture-realism` pre-commit
+  # hooks. The docs.yml sync-drift gate classifies both kinds, so dropping either
+  # the CI step or the local hook is harmful drift. Kept as single-line `run:`
+  # invocations so the line-scanner sync classifier registers the script name.
+  base-pin-and-fixture-realism:
+    name: Base-image pin + fixture realism
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Every Dockerfile FROM must be digest-pinned + carry the matching distro
+      # upgrade (charter § Base Image Pinning).
+      - name: Dockerfile base-image pin + upgrade
+        run: python3 .claude/lib/check_dockerfile_base_pin.py Dockerfile frontend/Dockerfile
+      # Arabic NER / graph-load fixtures under data/curated/ must be production-
+      # realistic (voweled + transmission particle). The check skips non-Arabic
+      # files; `find` keeps new curated fixtures covered. Frontend e2e display
+      # mocks are out of scope (UI response stubs, not parser inputs).
+      - name: Fixture realism (Arabic NER/graph-load fixtures)
+        run: find data/curated -type f \( -name '*.csv' -o -name '*.yaml' -o -name '*.yml' -o -name '*.json' -o -name '*.jsonl' -o -name '*.txt' \) -print0 | xargs -0 -r python3 .claude/lib/check_fixture_realism.py
+
   lockfile-validation:
     runs-on: ubuntu-latest
     steps:

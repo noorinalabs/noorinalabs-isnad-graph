@@ -1,9 +1,21 @@
 # syntax=docker/dockerfile:1
 # Multi-arch build (amd64 + arm64) — see docs/devops/ghcr-publish-design.md
-FROM python:3.14-slim AS base
+#
+# Base pinned to python:3.14-slim by digest for supply-chain reproducibility
+# (charter tech-decisions.md § Base Image Pinning, noorinalabs-main#735). The
+# digest freezes the starting layer; the `apt-get -y upgrade` in the RUN below
+# then pulls the latest Debian patches at build time so we don't ship known-fixed
+# OS CVEs within the slim base (same two failure modes — floating-tag drift and
+# within-tag package drift — the nginx pin in frontend/Dockerfile closes). The
+# digest is the multi-arch OCI index (amd64 + arm64), so it resolves on both
+# build platforms. Re-pin to a newer digest on each python minor bump.
+FROM python:3.14-slim@sha256:44dd04494ee8f3b538294360e7c4b3acb87c8268e4d0a4828a6500b1eff50061 AS base
 
-# Single RUN layer for OS deps + cleanup to minimize image size
+# Single RUN layer for OS deps + cleanup to minimize image size. `apt-get -y
+# upgrade` keeps the pinned base's packages current within the slim lifecycle
+# (the within-tag-drift half of § Base Image Pinning).
 RUN apt-get update && \
+    apt-get -y upgrade && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 

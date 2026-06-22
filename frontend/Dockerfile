@@ -1,5 +1,13 @@
-FROM node:24-alpine AS build
+# Build stage pinned to node:24-alpine by digest for supply-chain reproducibility
+# (charter tech-decisions.md § Base Image Pinning, isnad-graph#1142 / main#735).
+# The digest is the multi-arch OCI index (amd64 + arm64). `apk upgrade --no-cache`
+# pulls the latest alpine patches so the build toolchain isn't itself running
+# known-fixed CVEs; the compiled dist/ is copied into the (separately pinned +
+# upgraded) nginx runtime stage below. Re-pin to a newer digest on each node
+# minor bump.
+FROM node:24-alpine@sha256:156b55f92e98ccd5ef49578a8cea0df4679826564bad1c9d4ef04462b9f0ded6 AS build
 WORKDIR /app
+RUN apk upgrade --no-cache
 # package-lock.json resolves @noorinalabs/design-system from GitHub Packages
 # (npm.pkg.github.com) — see #940. .npmrc points the @noorinalabs scope at that
 # registry and reads the token from ${NODE_AUTH_TOKEN}; the token is supplied to
