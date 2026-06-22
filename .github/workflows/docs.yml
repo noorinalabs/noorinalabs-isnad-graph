@@ -214,6 +214,26 @@ jobs:
           actionlint -color \
             -ignore 'constant expression "false" in condition'
 
+  lib-tests:
+    name: Pytest — .claude/lib unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Mirrors how the parent repo gates its `.claude/lib/` (noorinalabs-main
+      # ci.yml `pytest` job). The repo's main suite is `testpaths = ["tests"]`,
+      # so the sync-gate classifier tests under `.claude/lib/tests/` were
+      # CI-unguarded — a regression in `pre_commit_ci_sync.py`'s kind
+      # classification (the live cspell-parity enforcement, main#684) would not
+      # fail CI, only local pre-commit (ig#1123). This repo's helper imports only
+      # the stdlib (no PyYAML — it is the line-scanner classifier, not the
+      # parent's structural parser), so `pytest` alone is the only dependency.
+      - run: pip install pytest
+      - name: Run .claude/lib tests
+        run: python3 -m pytest .claude/lib/tests/ -q
+
   precommit-ci-sync:
     name: Pre-commit ⇄ CI sync-drift gate
     runs-on: ubuntu-latest
