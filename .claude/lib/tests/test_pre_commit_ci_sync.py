@@ -114,6 +114,94 @@ repos:
         self.assertNotIn("cspell", harmful)
 
 
+class BasePinAndFixtureRealismKindClassification(unittest.TestCase):
+    """#744: the two charter-prose→code gates rolled into this repo must each
+    classify on BOTH sides — a CI `run:` invoking the `.claude/lib/check_*.py`
+    script and a pre-commit hook running the same script — so a CI base-pin /
+    fixture-realism gate with no local mirror is harmful drift, not silence."""
+
+    def test_dockerfile_base_pin_ci_run_classified(self) -> None:
+        wf = """
+jobs:
+  base-pin:
+    steps:
+      - run: python3 .claude/lib/check_dockerfile_base_pin.py Dockerfile frontend/Dockerfile
+"""
+        self.assertIn("dockerfile-base-pin", kinds_from_ci(wf))
+
+    def test_fixture_realism_ci_run_classified(self) -> None:
+        wf = """
+jobs:
+  realism:
+    steps:
+      - run: python3 .claude/lib/check_fixture_realism.py data/curated/ner_name_audit.csv
+"""
+        self.assertIn("fixture-realism", kinds_from_ci(wf))
+
+    def test_precommit_hooks_classified(self) -> None:
+        cfg = """
+repos:
+  - repo: local
+    hooks:
+      - id: dockerfile-base-pin
+        entry: python3 .claude/lib/check_dockerfile_base_pin.py Dockerfile frontend/Dockerfile
+      - id: fixture-realism
+        entry: bash -c 'python3 .claude/lib/check_fixture_realism.py data/curated/*'
+"""
+        kinds = kinds_from_precommit(cfg)
+        self.assertIn("dockerfile-base-pin", kinds)
+        self.assertIn("fixture-realism", kinds)
+
+    def test_ci_base_pin_without_precommit_is_harmful_drift(self) -> None:
+        wf = """
+jobs:
+  base-pin:
+    steps:
+      - run: python3 .claude/lib/check_dockerfile_base_pin.py Dockerfile
+"""
+        cfg = """
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+"""
+        harmful, _ = compute_drift(kinds_from_precommit(cfg), kinds_from_ci(wf))
+        self.assertIn("dockerfile-base-pin", harmful)
+
+
+class RealRepoHasNoBasePinOrRealismDrift(unittest.TestCase):
+    """End-to-end against this repo: ci.yml enforces the base-pin + fixture-
+    realism gates and .pre-commit-config.yaml mirrors both, so the sync gate must
+    see no drift for either kind (the gate as the docs.yml job runs it)."""
+
+    def _ci_kinds(self) -> set[str]:
+        wf_dir = _REPO_ROOT / ".github" / "workflows"
+        ci_kinds: set[str] = set()
+        for p in sorted(wf_dir.glob("*.y*ml")):
+            if p.is_file():
+                ci_kinds |= kinds_from_ci(p.read_text(encoding="utf-8"))
+        return ci_kinds
+
+    def test_repo_ci_enforces_both(self) -> None:
+        ci_kinds = self._ci_kinds()
+        self.assertIn("dockerfile-base-pin", ci_kinds)
+        self.assertIn("fixture-realism", ci_kinds)
+
+    def test_repo_precommit_mirrors_both(self) -> None:
+        precommit = _REPO_ROOT / ".pre-commit-config.yaml"
+        kinds = kinds_from_precommit(precommit.read_text(encoding="utf-8"))
+        self.assertIn("dockerfile-base-pin", kinds)
+        self.assertIn("fixture-realism", kinds)
+
+    def test_repo_has_no_drift_for_either(self) -> None:
+        precommit = _REPO_ROOT / ".pre-commit-config.yaml"
+        wf_dir = _REPO_ROOT / ".github" / "workflows"
+        ci_paths = sorted(wf_dir.glob("*.y*ml"))
+        harmful, _ = check_repo(precommit, ci_paths)
+        self.assertNotIn("dockerfile-base-pin", harmful)
+        self.assertNotIn("fixture-realism", harmful)
+
+
 class RealRepoHasNoCspellDrift(unittest.TestCase):
     """End-to-end against this repo's own files: docs.yml enforces cspell and
     .pre-commit-config.yaml now mirrors it, so the gate must see no cspell drift.
