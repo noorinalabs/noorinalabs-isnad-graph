@@ -1,0 +1,99 @@
+name: structural-ontology
+
+# Staleness gate for this repo's committed structural ontology index
+# (ontology/structural/{code-graph.json, llms.txt}) — the consumer side of the
+# C×T2 distributed structural ontology (noorinalabs-main#820, generator #855;
+# isnad-graph wiring #1128).
+#
+# The generator is OWNED by noorinalabs-main and intentionally NOT vendored here
+# (single source of truth — a vendored copy would fork and silently miss
+# generator fixes). So this job checks out noorinalabs-main as a sibling,
+# resolving the ref to the matching wave branch with a `main` fallback (the
+# established cross-repo pattern, cf. schema-drift.yml /
+# feedback_cross_repo_wave_ref_resolution deploy#159), and runs the same
+# `scripts/structural_ontology.py check` the local pre-commit hook runs — so the
+# committed index can never silently drift from the source tree.
+
+on:
+  pull_request:
+    branches: [main, "deployments/**"]
+    paths:
+      - "**/*.py"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+      - "**/*.mjs"
+      - "**/*.cjs"
+      - "**/*.cypher"
+      - "**/*.cql"
+      - "ontology/structural/**"
+      - "scripts/structural_ontology.py"
+      - ".github/workflows/structural-ontology.yml"
+  push:
+    branches: [main]
+
+concurrency:
+  group: structural-ontology-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  staleness-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isnad-graph
+        uses: actions/checkout@v6
+
+      - name: Resolve noorinalabs-main sibling ref
+        id: sibling-ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Match this PR's base branch when possible (so a wave-branch PR here
+          # checks against the matching wave-branch on noorinalabs-main, where
+          # the generator currently lives pre-merge); fall back to main once the
+          # generator has merged there. Per feedback_cross_repo_wave_ref_resolution
+          # (deploy#159).
+          BASE_REF="${{ github.base_ref || github.ref_name }}"
+          REPO=noorinalabs/noorinalabs-main
+          if gh api "repos/${REPO}/branches/${BASE_REF}" --silent 2>/dev/null; then
+            echo "ref=${BASE_REF}" >> "$GITHUB_OUTPUT"
+            echo "::notice::noorinalabs-main sibling branch matched: ${BASE_REF}"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+            echo "::notice::noorinalabs-main '${BASE_REF}' not found; falling back to main"
+          fi
+
+      - name: Checkout noorinalabs-main generator (sparse)
+        uses: actions/checkout@v6
+        with:
+          repository: noorinalabs/noorinalabs-main
+          ref: ${{ steps.sibling-ref.outputs.ref }}
+          path: _main
+          sparse-checkout: |
+            .claude/lib/ontology_gen
+          sparse-checkout-cone-mode: false
+
+      - name: Verify generator fetched
+        run: |
+          if [ ! -f _main/.claude/lib/ontology_gen/__main__.py ]; then
+            echo "::error::sibling sparse-checkout failed: ontology_gen package not present"
+            ls -la _main/.claude/lib/ || true
+            exit 1
+          fi
+          echo "fetched ontology_gen from noorinalabs-main@${{ steps.sibling-ref.outputs.ref }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Generator + wrapper are stdlib-only (zero runtime dep), so no uv/pip
+      # install is needed. Mirrors the local `structural-ontology-staleness`
+      # pre-commit hook (local⇄CI parity, noorinalabs-main#684).
+      - name: Check structural ontology index is current
+        # --require-generator: a missing/absent generator is a hard error in CI
+        # (never a silent skip — the local hook degrades gracefully, CI does not).
+        run: python3 scripts/structural_ontology.py check --gen-lib _main/.claude/lib --require-generator

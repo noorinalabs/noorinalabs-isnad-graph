@@ -1,1 +1,13 @@
 *   text-auto eol=lf
+
+# Structural ontology index (#1128). code-graph.json is a single committed
+# artifact every branch regenerates — a textual 3-way merge produces spurious
+# conflicts on the sorted node/edge arrays even when the two sides touched
+# different files (feedback_parallel_panels_shared_file). The `ontology-codegraph`
+# driver (noorinalabs-main#855 .claude/lib/ontology_gen/merge_driver.py) instead
+# UNION-merges by node id / edge triple and re-serializes canonically, so a merge
+# result is byte-identical to a fresh regenerate. The driver lives in the sibling
+# noorinalabs-main repo, so it is registered per-clone in git config by
+# `make setup-hooks` (-> scripts/structural_ontology.py register-merge-driver);
+# until registered, git falls back to the normal text merge for this path.
+ontology/structural/code-graph.json merge=ontology-codegraph

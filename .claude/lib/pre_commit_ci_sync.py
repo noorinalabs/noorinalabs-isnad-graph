@@ -100,6 +100,15 @@ _KIND_PATTERNS: dict[str, tuple[str, ...]] = {
     # invoke line) and the hook id / job-kind token.
     "dockerfile-base-pin": ("check_dockerfile_base_pin", "dockerfile-base-pin"),
     "fixture-realism": ("check_fixture_realism", "fixture-realism"),
+    # `structural-ontology` is the staleness gate for the committed structural
+    # ontology index (isnad-graph#1128, C×T2 / noorinalabs-main#820). The
+    # `structural-ontology` CI workflow runs `scripts/structural_ontology.py
+    # check` and the `structural-ontology-staleness` pre-commit hook runs the
+    # same; classifying the kind here makes the sync-drift gate DEMAND the mirror
+    # (the #684 contract: an un-classified CI check is a silent blind spot).
+    # Patterns match the script basename (present on both sides' invoke line) and
+    # the hook id / workflow name token.
+    "structural-ontology": ("structural_ontology", "structural-ontology"),
 }
 
 # `ruff-lint` is a substring of nothing problematic, but `ruff format` also
