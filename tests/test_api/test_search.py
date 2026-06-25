@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -320,6 +320,85 @@ def test_search_route_honours_configured_k(
         assert resp.json()["results"][0]["score"] == pytest.approx(2.5 / (2.5 + 20.0))
     finally:
         app.dependency_overrides.pop(search_route.get_search_settings, None)
+
+
+def test_search_fulltext_hadiths_not_starved_by_narrators(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A flood of narrator hits must not starve Hadith entities to zero (ig#1110).
+
+    Reproduces the prod symptom: full-text returned ``Narrator(N), Hadith(0)``
+    because narrator-table pollution (raw isnad strings typed as ``:Narrator``)
+    filled every result slot and the old ``remaining = limit - len(narrators)``
+    allocation left nothing for hadiths. The fair-share merge must surface Hadith
+    entities even when narrator hits already fill ``limit``.
+    """
+    limit = 10
+    narrator_hits = [
+        {"id": f"nar-{i}", "name_ar": "نص", "name_en": f"n{i}", "score": 5.0} for i in range(limit)
+    ]
+    hadith_hits = [
+        {"id": f"had-{i}", "matn_ar": "م", "matn_en": f"patience hadith {i}", "score": 2.0}
+        for i in range(limit)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrator_hits,  # narrator full-text search (full limit)
+        hadith_hits,  # hadith full-text search (full limit, no longer starved)
+        [{"total": 100}],  # narrator count
+        [{"total": 50}],  # hadith count
+    ]
+    resp = client.get(f"/api/v1/search?q=patience&limit={limit}")
+    assert resp.status_code == 200
+    results = resp.json()["results"]
+    assert len(results) == limit
+    types = {r["type"] for r in results}
+    # The regression: hadiths were absent entirely. Both types must be represented.
+    assert "hadith" in types, "Hadith entities starved out by narrator flood (ig#1110)"
+    assert "narrator" in types
+    # Every hadith result must carry the hadith type (not mis-labelled narrator).
+    hadith_results = [r for r in results if r["type"] == "hadith"]
+    assert hadith_results
+    assert all(r["id"].startswith("had-") for r in hadith_results)
+    # The hadith query was issued with the FULL limit, not the leftover slots.
+    hadith_search_params = mock_neo4j.execute_read.call_args_list[1][0][1]
+    assert hadith_search_params["limit"] == limit
+
+
+def test_semantic_search_degrades_gracefully_when_embedder_unavailable(
+    client: TestClient, app: object
+) -> None:
+    """Embedder/index absent on this environment yields a graceful 503, not 500 (ig#1110).
+
+    On prod the lean API image has no embedding model/index provisioned, so
+    constructing the embedder raises. That raise used to happen *before* the
+    ``try`` block, surfacing as an unhandled 500. It must now degrade to the same
+    typed "not yet available" 503 the missing-pgvector path returns — and before
+    any pg query is attempted.
+    """
+    mock_pg = MagicMock()
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    with patch(
+        "src.api.routes.search.get_embedder",
+        side_effect=RuntimeError("sentence-transformers is not installed"),
+    ):
+        resp = client.get("/api/v1/search/semantic?q=patience in adversity")
+
+    assert resp.status_code == 503
+    body = resp.json()
+    assert "not yet available" in body["detail"].lower()
+    assert body["query"] == "patience in adversity"
+    # Embedder failed first — no pg query should have been attempted.
+    mock_pg.execute.assert_not_called()
+
+    del app.dependency_overrides[get_pg]
 
 
 def test_semantic_search_clamps_negative_score(client: TestClient, app: object) -> None:
