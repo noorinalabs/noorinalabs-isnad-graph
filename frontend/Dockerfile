@@ -30,7 +30,7 @@ RUN npm run build
 # the starting layer; the upgrade step keeps OS packages current within the
 # alpine 3.23 patch lifecycle. Re-pin to a newer digest on each minor nginx
 # bump (or alpine 3.24+ when nginx publishes it).
-FROM nginx:stable-alpine3.23@sha256:5f979dcfed4ce6461873f087e8c980d6e29b084b9e8776d9704a7e989b5f4898
+FROM nginx:stable-alpine3.23@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1
 # gettext provides `envsubst`, used by entrypoint.sh to render runtime-config.js
 # from its template at container start (isnad-graph#932).
 RUN apk upgrade --no-cache && apk add --no-cache gettext
