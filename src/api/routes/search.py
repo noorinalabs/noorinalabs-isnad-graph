@@ -102,6 +102,53 @@ def _hadith_row_to_search_result(row: dict[str, Any], score: float) -> SearchRes
     )
 
 
+def _interleave_fairly(
+    narrators: list[SearchResult], hadiths: list[SearchResult], limit: int
+) -> list[SearchResult]:
+    """Round-robin merge two result lists so neither entity type starves the other.
+
+    Each input list is already ordered by descending relevance (the full-text
+    index returns rows by score). We alternate between the two lists — leading
+    with whichever type's top hit scores higher — and stop once ``limit`` results
+    are collected. When one list is exhausted the other fills the remaining slots.
+
+    This is the in-repo fix for ig#1110: the previous allocation appended every
+    narrator first and only gave hadiths the *leftover* slots, so once narrator
+    hits reached ``limit`` (trivially true on prod, where narrator-table pollution
+    makes the narrator index match ~100 nodes) Hadith entities were squeezed out
+    entirely — the reported ``Hadith(0)`` facet. A fair round-robin guarantees
+    Hadith hits are represented up to availability regardless of narrator volume.
+    The matns that surface *as* narrator hits are a separate, upstream data defect
+    (raw isnad strings typed as ``:Narrator`` nodes — da#202); the index targeting
+    here (``FOR (n:Narrator) ON EACH [name_ar, name_en]``) is already correct, so
+    that mis-typing is fixed by the data cleanup, not by this route.
+    """
+    primary, secondary = narrators, hadiths
+    narrator_top = narrators[0].score if narrators else float("-inf")
+    hadith_top = hadiths[0].score if hadiths else float("-inf")
+    if hadith_top > narrator_top:
+        primary, secondary = hadiths, narrators
+
+    merged: list[SearchResult] = []
+    i = j = 0
+    take_primary = True
+    while len(merged) < limit and (i < len(primary) or j < len(secondary)):
+        if take_primary and i < len(primary):
+            merged.append(primary[i])
+            i += 1
+        elif not take_primary and j < len(secondary):
+            merged.append(secondary[j])
+            j += 1
+        elif i < len(primary):
+            merged.append(primary[i])
+            i += 1
+        else:
+            merged.append(secondary[j])
+            j += 1
+        take_primary = not take_primary
+    return merged
+
+
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
     q: str = Query("", max_length=500, description="Search query"),
@@ -124,30 +171,35 @@ def search(
     if not q.strip():
         return SearchResultsResponse(results=[], total=0, query=q)
 
-    results: list[SearchResult] = []
-
     # --- Narrator search via full-text index ---
     narrator_rows = _fulltext_narrator_search(neo4j, q, limit)
-    for r in narrator_rows:
-        results.append(
-            SearchResult(
-                id=r["id"],
-                type="narrator",
-                title=r.get("name_en") or r["name_ar"],
-                title_ar=r["name_ar"],
-                score=r["score"],
-                century=_death_year_to_century(r.get("death_year_ah")),
-            )
+    narrator_results = [
+        SearchResult(
+            id=r["id"],
+            type="narrator",
+            title=r.get("name_en") or r["name_ar"],
+            title_ar=r["name_ar"],
+            score=r["score"],
+            century=_death_year_to_century(r.get("death_year_ah")),
         )
+        for r in narrator_rows
+    ]
 
     # --- Hadith search via full-text index ---
-    remaining = max(0, limit - len(results))
-    if remaining > 0:
-        hadith_rows = _fulltext_hadith_search(neo4j, q, remaining)
-        for r in hadith_rows:
-            # Pass the raw Lucene score through unchanged; the saturating transform
-            # is applied to the whole result set below (see ig#1070).
-            results.append(_hadith_row_to_search_result(r, r["score"]))
+    # Query hadiths with the FULL ``limit`` — not the slots left over after
+    # narrators — so a flood of narrator hits can no longer starve Hadith entities
+    # out of the result set. On prod, narrator-table pollution (raw isnad strings
+    # stored as ``:Narrator`` nodes whose name matches the query — upstream
+    # da#202) returns up to ``limit`` narrator hits; the old ``remaining = limit -
+    # len(narrators)`` allocation then left ZERO slots for hadiths, which is the
+    # exact "Full-text → Narrator(N), Hadith(0)" symptom in ig#1110. The raw Lucene
+    # score passes through unchanged; the saturating transform runs on the merged
+    # set below (ig#1070).
+    hadith_rows = _fulltext_hadith_search(neo4j, q, limit)
+    hadith_results = [_hadith_row_to_search_result(r, r["score"]) for r in hadith_rows]
+
+    # --- Fair-share merge so neither entity type starves the other (ig#1110) ---
+    results = _interleave_fairly(narrator_results, hadith_results, limit)
 
     # --- Saturating relevance transform (absolute confidence) ---
     # Neo4j's ``db.index.fulltext.queryNodes`` returns unbounded BM25-style
@@ -305,9 +357,18 @@ def search_semantic(
     the previous implementation matched the query string against stored hadith
     text (``WHERE text = %s``), so anything but a verbatim hadith returned
     nothing even when embeddings were loaded (isnad-graph#1049).
+
+    Graceful degradation (ig#1110): the embed step is inside the ``try`` so that
+    when this environment has no semantic backend provisioned — *either* the
+    embedding model/index is absent (prod runs the lean, torch-free API image, so
+    constructing a model-backed embedder raises) *or* the pgvector table/extension
+    is missing — the endpoint returns a typed 503 "not yet available on this
+    environment" instead of an unhandled 500. Provisioning prod embeddings is a
+    separate deploy dependency (deploy#470); this route only owns the API
+    behaviour when they are not present.
     """
-    query_vector = to_pgvector_literal(get_embedder().embed([q])[0])
     try:
+        query_vector = to_pgvector_literal(get_embedder().embed([q])[0])
         rows = pg.execute(
             """
             SELECT h.id, h.matn_ar, h.matn_en,
@@ -330,11 +391,17 @@ def search_semantic(
             """
         )
     except Exception:  # noqa: BLE001
-        log.debug("pgvector semantic search unavailable", exc_info=True)
+        # Covers both failure modes (ig#1110): the embedder/index is absent on this
+        # environment, or the pgvector table/extension is missing. Either way this
+        # is a graceful "unavailable here", not a server error.
+        log.warning("semantic search unavailable on this environment", exc_info=True)
         return JSONResponse(  # type: ignore[return-value]
             status_code=503,
             content={
-                "detail": "Semantic search is not yet available. pgvector backend required.",
+                "detail": (
+                    "Semantic search is not yet available on this environment. "
+                    "The embedding index (pgvector / FAISS) is not provisioned here."
+                ),
                 "query": q,
             },
         )
