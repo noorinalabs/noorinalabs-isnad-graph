@@ -165,6 +165,25 @@ repos:
         files: ^(src/utils/grades\.py|scripts/emit_grade_vocab\.py|frontend/src/lib/grade-vocab\.generated\.json)$
         stages: [pre-commit]
 
+      # Structural ontology staleness gate (#1128). Mirrors the
+      # `structural-ontology` CI workflow's `check` step: regenerates the
+      # committed structural index (ontology/structural/{code-graph.json,
+      # llms.txt}) with the OWNED generator in noorinalabs-main and fails if it
+      # has drifted from the source tree. The generator is consumed from the
+      # sibling noorinalabs-main checkout (auto-discovered via the standard org
+      # layout, or $ONTOLOGY_GEN_LIB) — it is NOT vendored here. Both the
+      # generator and this wrapper are stdlib-only, so `python3` runs it with no
+      # uv/pip install. The `structural-ontology` sync-gate kind DEMANDS this
+      # mirror exist (noorinalabs-main#684 parity contract). Regenerate with
+      # `python3 scripts/structural_ontology.py emit` and commit the result.
+      - id: structural-ontology-staleness
+        name: structural-ontology-staleness
+        entry: python3 scripts/structural_ontology.py check
+        language: system
+        pass_filenames: false
+        files: ^(src/.*\.py|scripts/structural_ontology\.py|frontend/.*\.(ts|tsx|js|jsx|mjs|cjs)|queries/.*\.(cypher|cql)|ontology/structural/.*)$
+        stages: [pre-commit]
+
       # Base-image pinning gate (charter tech-decisions.md § Base Image Pinning,
       # noorinalabs-main#735 / #744). Every Dockerfile FROM must be digest-pinned
       # (image:tag@sha256:<digest>) AND carry the matching distro upgrade (apk /

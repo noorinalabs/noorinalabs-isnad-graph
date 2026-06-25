@@ -1,4 +1,4 @@
-.PHONY: help setup setup-hooks hooks infra infra-down infra-reset test test-integration lint typecheck format clean clean-worktrees test-e2e test-e2e-headed check backup restore setup-frontend frontend-e2e frontend-e2e-headed frontend-e2e-ui frontend-e2e-live
+.PHONY: help setup setup-hooks hooks infra infra-down infra-reset test test-integration lint typecheck format clean clean-worktrees test-e2e test-e2e-headed check backup restore setup-frontend frontend-e2e frontend-e2e-headed frontend-e2e-ui frontend-e2e-live structural-ontology structural-ontology-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -6,10 +6,21 @@ help: ## Show this help
 setup: ## Install dependencies with uv
 	uv sync
 
-setup-hooks: ## Configure git hooks (legacy .githooks + pre-commit)
+setup-hooks: ## Configure git hooks (legacy .githooks + pre-commit + merge driver)
 	git config core.hooksPath .githooks
 	uv run pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
+	@# Register the ontology-codegraph union merge-driver (#1128). The driver
+	@# lives in the sibling noorinalabs-main; if it can't be located this is a
+	@# soft warning (git falls back to a text merge for code-graph.json).
+	@python3 scripts/structural_ontology.py register-merge-driver || \
+		echo "warn: ontology-codegraph merge driver not registered (noorinalabs-main generator not found); see .gitattributes"
 	@echo "Git hooks configured (branch-name via .githooks, pre-commit/commit-msg/pre-push via pre-commit framework)."
+
+structural-ontology: ## Regenerate the committed structural ontology index (ontology/structural/)
+	python3 scripts/structural_ontology.py emit
+
+structural-ontology-check: ## Fail if the committed structural ontology index is stale vs source
+	python3 scripts/structural_ontology.py check
 
 hooks: ## Install pre-commit hooks (one-time setup after clone)
 	uv run pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push

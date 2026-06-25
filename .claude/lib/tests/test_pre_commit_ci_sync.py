@@ -233,5 +233,79 @@ class RealRepoHasNoCspellDrift(unittest.TestCase):
         )
 
 
+class StructuralOntologyKindClassification(unittest.TestCase):
+    """#1128: the structural-ontology staleness gate must classify on BOTH sides
+    — a CI `run:` invoking scripts/structural_ontology.py and a pre-commit hook
+    running the same — so a CI staleness gate with no local mirror is harmful
+    drift, not silence (the #684 contract)."""
+
+    def test_structural_ontology_ci_run_classified(self) -> None:
+        wf = """
+jobs:
+  staleness-check:
+    steps:
+      - run: python3 scripts/structural_ontology.py check --gen-lib _main/.claude/lib
+"""
+        self.assertIn("structural-ontology", kinds_from_ci(wf))
+
+    def test_precommit_hook_classified(self) -> None:
+        cfg = """
+repos:
+  - repo: local
+    hooks:
+      - id: structural-ontology-staleness
+        entry: python3 scripts/structural_ontology.py check
+"""
+        self.assertIn("structural-ontology", kinds_from_precommit(cfg))
+
+    def test_ci_without_precommit_is_harmful_drift(self) -> None:
+        wf = """
+jobs:
+  staleness-check:
+    steps:
+      - run: python3 scripts/structural_ontology.py check
+"""
+        cfg = """
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+"""
+        harmful, _ = compute_drift(kinds_from_precommit(cfg), kinds_from_ci(wf))
+        self.assertIn("structural-ontology", harmful)
+
+
+class RealRepoHasNoStructuralOntologyDrift(unittest.TestCase):
+    """End-to-end against this repo: the structural-ontology workflow enforces
+    the staleness `check` and .pre-commit-config.yaml mirrors it, so the gate
+    (as the docs.yml job runs it, globbing ALL workflows) must see no drift."""
+
+    def test_repo_ci_enforces(self) -> None:
+        wf_dir = _REPO_ROOT / ".github" / "workflows"
+        ci_kinds: set[str] = set()
+        for p in sorted(wf_dir.glob("*.y*ml")):
+            if p.is_file():
+                ci_kinds |= kinds_from_ci(p.read_text(encoding="utf-8"))
+        self.assertIn("structural-ontology", ci_kinds)
+
+    def test_repo_precommit_mirrors(self) -> None:
+        precommit = _REPO_ROOT / ".pre-commit-config.yaml"
+        self.assertIn(
+            "structural-ontology",
+            kinds_from_precommit(precommit.read_text(encoding="utf-8")),
+        )
+
+    def test_repo_has_no_drift(self) -> None:
+        precommit = _REPO_ROOT / ".pre-commit-config.yaml"
+        wf_dir = _REPO_ROOT / ".github" / "workflows"
+        ci_paths = sorted(wf_dir.glob("*.y*ml"))
+        harmful, _ = check_repo(precommit, ci_paths)
+        self.assertNotIn(
+            "structural-ontology",
+            harmful,
+            f"structural-ontology must be mirrored in pre-commit; harmful drift: {sorted(harmful)}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
