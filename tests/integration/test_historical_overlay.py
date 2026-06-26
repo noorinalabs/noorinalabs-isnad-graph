@@ -11,6 +11,8 @@ from __future__ import annotations
 import pytest
 
 from src.enrich.historical import load_events_from_yaml, run_historical_overlay
+from src.models.enums import DatePrecision
+from src.models.narrator import NarratorDates
 from src.utils.neo4j_client import Neo4jClient
 
 pytestmark = pytest.mark.integration
@@ -108,3 +110,97 @@ def test_historical_overlay_is_idempotent(neo4j_client: Neo4jClient, _seed_narra
     assert event_count[0]["n"] == len(curated)
     # Same edge set after a second run — no duplicates.
     assert edge_count[0]["n"] == first.edges_created
+
+
+@pytest.fixture
+def _seed_bounds_narrator(neo4j_client: Neo4jClient) -> None:
+    """Seed a death-only narrator whose point estimate misses the Mihna."""
+    neo4j_client.ensure_constraints()
+    neo4j_client.execute_write_batch(
+        """
+        UNWIND $batch AS row
+        MERGE (n:Narrator {id: row.id})
+        SET n.name_en = row.name_en,
+            n.birth_year_ah = row.birth_year_ah,
+            n.death_year_ah = row.death_year_ah
+        """,
+        # Point death 200, no birth → estimate window [120, 200]; the Mihna
+        # (218-234) is OUT of range until a resolved death_latest widens it.
+        [
+            {
+                "id": "nar:bounds",
+                "name_en": "Bounds Test",
+                "birth_year_ah": None,
+                "death_year_ah": 200,
+            }
+        ],
+    )
+
+
+def test_resolved_dates_loaded_then_widen_window_to_link_mihna(
+    neo4j_client: Neo4jClient, _seed_bounds_narrator: None
+) -> None:
+    """ig#1039: the loader writes resolved bounds; the link uses the real window.
+
+    This is the schema-shaped end-to-end leg — it drives :class:`NarratorDates`
+    fixtures matching the agreed da#161-166 contract, NOT real reconciled data
+    (that e2e is gated below until the da chain lands).
+    """
+    # Baseline: without resolved bounds the point estimate window [120, 200] does
+    # not reach the Mihna (218-234).
+    run_historical_overlay(neo4j_client)
+    before = neo4j_client.execute_read(
+        """
+        MATCH (n:Narrator {id: 'nar:bounds'})-[:ACTIVE_DURING]->(e:HistoricalEvent)
+        WHERE e.id = 'evt:mihna'
+        RETURN count(e) AS n
+        """
+    )
+    assert before[0]["n"] == 0
+
+    # Load resolved dates: death_latest=240 widens the window to [160, 240], which
+    # overlaps the Mihna.
+    records = [
+        NarratorDates(
+            id="nar:bounds",
+            death_year_ah=200,
+            death_year_ah_latest=240,
+            death_date_precision=DatePrecision.AFTER,
+        )
+    ]
+    result = run_historical_overlay(neo4j_client, narrator_dates=records)
+    assert result.narrators_dated == 1
+
+    # The resolved props landed on the node.
+    props = neo4j_client.execute_read(
+        """
+        MATCH (n:Narrator {id: 'nar:bounds'})
+        RETURN n.death_year_ah_latest AS latest, n.death_date_precision AS precision
+        """
+    )
+    assert props[0]["latest"] == 240
+    assert props[0]["precision"] == "after"
+
+    # And the widened window now links the narrator to the Mihna.
+    after = neo4j_client.execute_read(
+        """
+        MATCH (n:Narrator {id: 'nar:bounds'})-[:ACTIVE_DURING]->(e:HistoricalEvent)
+        WHERE e.id = 'evt:mihna'
+        RETURN count(e) AS n
+        """
+    )
+    assert after[0]["n"] == 1
+
+
+@pytest.mark.skip(
+    reason="Real-reconciled-dates e2e depends on the da#161-166 date chain landing "
+    "(DatePrecision model/schema/parse/reconcile/fallback). Until then this leg is "
+    "covered by the schema-shaped NarratorDates fixture test above. See ig#1039."
+)
+def test_real_reconciled_dates_end_to_end(neo4j_client: Neo4jClient) -> None:  # pragma: no cover
+    """Placeholder: load the actual reconciled narrators_canonical date columns.
+
+    Unskip once the data-acquisition reconcile output (da#161-166) is available
+    and exported to the resolved-date JSON the loader consumes.
+    """
+    raise NotImplementedError
