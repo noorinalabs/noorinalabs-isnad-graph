@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.models.enums import Gender, NarratorGeneration, SectAffiliation, TrustworthinessGrade
+from src.models.enums import (
+    DatePrecision,
+    Gender,
+    NarratorGeneration,
+    SectAffiliation,
+    TrustworthinessGrade,
+)
 
-__all__ = ["Narrator"]
+__all__ = ["Narrator", "NarratorDates"]
 
 
 class Narrator(BaseModel):
@@ -33,9 +39,29 @@ class Narrator(BaseModel):
     laqab: str | None = None
     """Honorific or epithet."""
     birth_year_ah: int | None = None
-    """Birth year in Hijri calendar."""
+    """Birth year in Hijri calendar (point estimate / best single value)."""
     death_year_ah: int | None = None
-    """Death year in Hijri calendar."""
+    """Death year in Hijri calendar (point estimate / best single value)."""
+
+    # Resolved date bounds + precision (additive; populated by the resolved-date
+    # loader from the data-acquisition reconcile output, da#161-166). These six
+    # siblings mirror da#161's Narrator date contract exactly; the point estimates
+    # above stay for backward compatibility. They model the pervasive uncertainty
+    # in rijal dates — death is the attested norm, birth the exception. See
+    # _active_window in src/enrich/historical.py.
+    birth_year_ah_earliest: int | None = None
+    """Lower bound (inclusive) of the resolved birth year."""
+    birth_year_ah_latest: int | None = None
+    """Upper bound (inclusive) of the resolved birth year."""
+    birth_date_precision: DatePrecision | None = None
+    """How tightly the source dates the birth year."""
+    death_year_ah_earliest: int | None = None
+    """Lower bound (inclusive) of the resolved death year."""
+    death_year_ah_latest: int | None = None
+    """Upper bound (inclusive) of the resolved death year."""
+    death_date_precision: DatePrecision | None = None
+    """How tightly the source dates the death year."""
+
     birth_location_id: str | None = None
     """FK to Location.id."""
     death_location_id: str | None = None
@@ -65,5 +91,41 @@ class Narrator(BaseModel):
     def _validate_id_prefix(cls, v: str) -> str:
         if not v.startswith("nar:"):
             msg = f"Narrator id must start with 'nar:', got '{v}'"
+            raise ValueError(msg)
+        return v
+
+
+class NarratorDates(BaseModel):
+    """Resolved date record written onto an existing Narrator node.
+
+    This is the focused loader-input contract for the resolved-date overlay
+    (ig#1039): just the canonical id plus the date properties produced
+    data-acquisition-side by the reconcile step (da#161-166). It is deliberately
+    *not* the full :class:`Narrator` model — the loader only updates date
+    properties on narrators that already exist in the graph, so the many
+    required biographical fields would be noise here.
+
+    All date fields are optional: a narrator may have a death year but no birth
+    year (the common case), bounds but no point estimate, or nothing at all.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+    id: str
+    """Canonical Narrator id (must start with 'nar:')."""
+    birth_year_ah: int | None = None
+    birth_year_ah_earliest: int | None = None
+    birth_year_ah_latest: int | None = None
+    birth_date_precision: DatePrecision | None = None
+    death_year_ah: int | None = None
+    death_year_ah_earliest: int | None = None
+    death_year_ah_latest: int | None = None
+    death_date_precision: DatePrecision | None = None
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id_prefix(cls, v: str) -> str:
+        if not v.startswith("nar:"):
+            msg = f"NarratorDates id must start with 'nar:', got '{v}'"
             raise ValueError(msg)
         return v

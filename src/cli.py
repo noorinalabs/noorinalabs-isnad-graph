@@ -75,24 +75,37 @@ def _cmd_info() -> None:
         print("  postgres : unavailable")
 
 
-def _cmd_enrich_historical() -> None:
+def _cmd_enrich_historical(dates_path: str | None = None) -> None:
     """Load HistoricalEvent nodes and link narrators by lifespan (ACTIVE_DURING).
 
     Closes the gap behind #965: without this stage the deployed graph has no
     HistoricalEvent nodes and the Timeline / Narrator Activity panel renders
     empty.
+
+    When ``--dates`` is given, the resolved narrator date bounds + precision in
+    that JSON file (the data-acquisition reconcile output, da#161-166) are written
+    onto the matching Narrator nodes first, so ACTIVE_DURING windows use the real
+    bounds rather than the death-anchored estimate (ig#1039).
     """
     _check_neo4j()
 
-    from src.enrich.historical import run_historical_overlay
+    from pathlib import Path
+
+    from src.enrich.historical import load_narrator_dates_from_json, run_historical_overlay
     from src.utils.neo4j_client import Neo4jClient
+
+    narrator_dates = None
+    if dates_path is not None:
+        narrator_dates = load_narrator_dates_from_json(Path(dates_path))
+        print(f"Loaded {len(narrator_dates)} resolved narrator-date record(s) from {dates_path}")
 
     print("Running historical overlay (HistoricalEvent load + ACTIVE_DURING)...")
     with Neo4jClient() as client:
-        result = run_historical_overlay(client)
+        result = run_historical_overlay(client, narrator_dates=narrator_dates)
 
     print("=== historical overlay complete ===")
     print(f"  events linked          : {result.events_linked}")
+    print(f"  narrators dated        : {result.narrators_dated}")
     print(f"  narrators linked       : {result.narrators_linked}")
     print(f"  ACTIVE_DURING edges    : {result.edges_created}")
     print(f"  skipped (no dates)     : {result.narrators_skipped_no_dates}")
@@ -188,9 +201,18 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("info", help="Show configuration and database status")
-    subparsers.add_parser(
+    historical_parser = subparsers.add_parser(
         "enrich-historical",
         help="Load HistoricalEvent nodes and link narrators (ACTIVE_DURING)",
+    )
+    historical_parser.add_argument(
+        "--dates",
+        type=str,
+        default=None,
+        help=(
+            "Optional path to a JSON array of resolved narrator-date records "
+            "(da#161-166) to write onto Narrator nodes before linking."
+        ),
     )
     embed_parser = subparsers.add_parser(
         "embed-hadiths",
@@ -235,7 +257,7 @@ def main() -> None:
     if args.command == "info":
         _cmd_info()
     elif args.command == "enrich-historical":
-        _cmd_enrich_historical()
+        _cmd_enrich_historical(args.dates)
     elif args.command == "embed-hadiths":
         _cmd_embed_hadiths(args.batch_size, args.limit)
     elif args.command == "reindex-embeddings":

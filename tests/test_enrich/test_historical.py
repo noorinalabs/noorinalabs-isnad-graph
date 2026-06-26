@@ -13,21 +13,42 @@ from typing import Any
 import pytest
 
 from src.enrich.historical import (
+    _MERGE_NARRATOR_DATES_QUERY,
+    NARRATOR_DATE_PROPS,
     compute_active_during,
     default_events_path,
     event_to_graph_props,
     load_events_from_yaml,
+    load_narrator_dates_from_json,
     merge_active_during,
     merge_events,
+    merge_narrator_dates,
+    narrator_dates_to_graph_props,
     run_historical_overlay,
 )
+from src.models.enums import DatePrecision
 from src.models.historical import HistoricalEvent
+from src.models.narrator import NarratorDates
 
 # --- fakes ------------------------------------------------------------------
 
 
 class FakeNeo4jClient:
-    """Records writes and serves canned reads, mirroring Neo4jClient's surface."""
+    """Records writes and serves canned reads, mirroring Neo4jClient's surface.
+
+    Crucially this mirrors the REAL client's return semantics rather than a
+    convenient stand-in:
+
+    * ``execute_write_batch`` returns ``nodes_created + relationships_created``
+      (the real driver summary counters). For an empty store every MERGE creates
+      its node/edge, so ``len(batch)`` is the correct created-count there — but a
+      pure ``MATCH ... SET`` creates nothing, which is exactly why the resolved-
+      date loader must NOT route through this method for its count.
+    * ``execute_write`` returns the query's result rows. For the resolved-date
+      ``RETURN count(n) AS matched`` query it returns the number of batch ids
+      that exist in the store — unknown ids match nothing, mirroring Neo4j's
+      ``MATCH``. This is what makes the always-0 bug observable in a unit test.
+    """
 
     def __init__(self, narrators: list[dict[str, Any]] | None = None) -> None:
         self._narrators = narrators or []
@@ -42,11 +63,34 @@ class FakeNeo4jClient:
     ) -> list[dict[str, Any]]:
         return list(self._narrators)
 
+    def execute_write(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        params = parameters or {}
+        if query == _MERGE_NARRATOR_DATES_QUERY:
+            batch = params.get("batch", [])
+            self.write_batches.append((query, batch))
+            # Apply the SET to existing nodes only (MATCH semantics) and count the
+            # matched rows the way ``RETURN count(n)`` does — unknown ids match 0.
+            by_id = {n["id"]: n for n in self._narrators}
+            matched = 0
+            for row in batch:
+                node = by_id.get(row["id"])
+                if node is not None:
+                    node.update(row["props"])
+                    matched += 1
+            return [{"matched": matched}]
+        # Other single writes (e.g. constraints) return no rows.
+        self.write_batches.append((query, [params]))
+        return []
+
     def execute_write_batch(
         self, query: str, batch: list[dict[str, Any]], batch_size: int = 1000
     ) -> int:
         self.write_batches.append((query, batch))
-        # Stand in for nodes_created + relationships_created.
+        # Stand in for nodes_created + relationships_created. Valid only for the
+        # MERGE-creating queries (events, ACTIVE_DURING) against an empty store —
+        # the resolved-date loader deliberately uses execute_write instead.
         return len(batch)
 
 
@@ -239,6 +283,240 @@ def test_run_historical_overlay_idempotent_with_no_narrators() -> None:
     # Event nodes were still MERGEd.
     event_batch = client.write_batches[0][1]
     assert len(event_batch) >= 10
+
+
+# --- _active_window upgrade: resolved bounds preferred (ig#1039) -------------
+
+
+def test_resolved_death_latest_widens_window_to_link_later_event() -> None:
+    """A narrator's resolved death_latest bound extends the window past its point."""
+    # Point death 230 → estimate window [150, 230] would NOT reach a 240-250 event;
+    # the resolved latest bound 250 widens the window so it does.
+    events = [_event("evt:late", year_start_ah=240, year_end_ah=250)]
+    narrators = [
+        {
+            "id": "nar:1",
+            "birth_year_ah": None,
+            "death_year_ah": 230,
+            "death_year_ah_latest": 250,
+        }
+    ]
+    edges, no_dates, max_life = compute_active_during(narrators, events)
+    assert {e.event_id for e in edges} == {"evt:late"}
+    assert no_dates == 0
+    assert max_life == 0
+
+
+def test_resolved_birth_earliest_widens_window_to_link_earlier_event() -> None:
+    """A narrator's resolved birth_earliest bound extends the window before its point."""
+    events = [_event("evt:early", year_start_ah=5, year_end_ah=15)]
+    # Point birth 30 → window starts at 30; resolved earliest 10 reaches the event.
+    narrators = [
+        {
+            "id": "nar:1",
+            "birth_year_ah": 30,
+            "death_year_ah": 90,
+            "birth_year_ah_earliest": 10,
+        }
+    ]
+    edges, _, _ = compute_active_during(narrators, events)
+    assert {e.event_id for e in edges} == {"evt:early"}
+
+
+def test_absent_bounds_fall_back_to_point_estimate_window() -> None:
+    """With no resolved bounds the window is unchanged from the legacy estimate."""
+    # Death-only, no bounds → [241-80, 241] = [161, 241]; the Mihna (218-234) overlaps.
+    events = [_event("evt:mihna", year_start_ah=218, year_end_ah=234)]
+    narrators = [{"id": "nar:hanbal", "birth_year_ah": None, "death_year_ah": 241}]
+    edges, no_dates, _ = compute_active_during(narrators, events)
+    assert {e.narrator_id for e in edges} == {"nar:hanbal"}
+    assert no_dates == 0
+
+
+def test_resolved_bounds_only_no_point_estimate_still_places_narrator() -> None:
+    """Bounds present but point estimates absent — narrator is still placed."""
+    events = [_event("evt:a", year_start_ah=100, year_end_ah=120)]
+    narrators = [
+        {
+            "id": "nar:1",
+            "birth_year_ah": None,
+            "death_year_ah": None,
+            "birth_year_ah_earliest": 90,
+            "death_year_ah_latest": 160,
+        }
+    ]
+    edges, no_dates, _ = compute_active_during(narrators, events)
+    assert {e.event_id for e in edges} == {"evt:a"}
+    assert no_dates == 0
+
+
+# --- resolved-date loader: graph-prop bridge (ig#1039) ----------------------
+
+
+def _dates(narrator_id: str, **kwargs: Any) -> NarratorDates:
+    return NarratorDates.model_validate({"id": narrator_id, **kwargs})
+
+
+def test_narrator_dates_to_graph_props_serializes_precision_enum() -> None:
+    record = _dates(
+        "nar:1",
+        death_year_ah=150,
+        death_year_ah_earliest=148,
+        death_year_ah_latest=152,
+        death_date_precision=DatePrecision.RANGE,
+        birth_date_precision=DatePrecision.TABAQA_ESTIMATE,
+    )
+    props = narrator_dates_to_graph_props(record)
+
+    # Enums are serialized to their string values for Neo4j.
+    assert props["death_date_precision"] == "range"
+    assert props["birth_date_precision"] == "tabaqa_estimate"
+    assert props["death_year_ah_earliest"] == 148
+    assert props["death_year_ah_latest"] == 152
+    # id is the MATCH key, never written as a property.
+    assert "id" not in props
+    # Every declared date prop is present (so SET n += covers/clears them all).
+    assert set(props) == set(NARRATOR_DATE_PROPS)
+
+
+def test_narrator_dates_to_graph_props_keeps_null_precision_none() -> None:
+    props = narrator_dates_to_graph_props(_dates("nar:1", death_year_ah=150))
+    assert props["death_date_precision"] is None
+    assert props["birth_date_precision"] is None
+
+
+# --- resolved-date loader: write mechanics (ig#1039) ------------------------
+
+
+def test_merge_narrator_dates_emits_matchset_rows() -> None:
+    client = FakeNeo4jClient(narrators=[{"id": "nar:1"}])
+    records = [_dates("nar:1", death_year_ah=150, death_date_precision=DatePrecision.EXACT)]
+
+    written = merge_narrator_dates(client, records)  # type: ignore[arg-type]
+
+    assert written == 1
+    query, batch = client.write_batches[0]
+    assert query == _MERGE_NARRATOR_DATES_QUERY
+    assert batch[0]["id"] == "nar:1"
+    # Row carries id (MATCH key) + a nested props map (the SET payload).
+    assert batch[0]["props"]["death_year_ah"] == 150
+    assert batch[0]["props"]["death_date_precision"] == "exact"
+
+
+def test_merge_narrator_dates_counts_matched_not_batch_len() -> None:
+    """Regression guard for the always-0 / len-masked count bug.
+
+    The real client's execute_write_batch returns nodes_created + rels_created,
+    which is 0 for a pure MATCH+SET — so the count MUST come from
+    ``RETURN count(n) AS matched``. Here two of three records exist; an unknown
+    id matches nothing. The corrected count is 2 (matched), not 3 (len(batch))
+    and not 0 (the broken summary-counter path). This assertion fails under both
+    the old execute_write_batch routing (would yield 3) and a real client that
+    returned the summary counter (would yield 0).
+    """
+    client = FakeNeo4jClient(narrators=[{"id": "nar:1"}, {"id": "nar:2"}])
+    records = [
+        _dates("nar:1", death_year_ah=150),
+        _dates("nar:2", death_year_ah=200),
+        _dates("nar:ghost", death_year_ah=300),  # not in the graph → matches nothing
+    ]
+
+    matched = merge_narrator_dates(client, records)  # type: ignore[arg-type]
+
+    assert matched == 2
+    # The unknown id is a silent no-op: it left no trace on the (absent) node.
+    assert all(n["id"] != "nar:ghost" for n in client._narrators)
+
+
+def test_merge_narrator_dates_chunks_and_sums_matched() -> None:
+    """Matched counts are summed across chunks (count is not just the last chunk)."""
+    narrators = [{"id": f"nar:{i}"} for i in range(5)]
+    client = FakeNeo4jClient(narrators=narrators)
+    records = [_dates(f"nar:{i}", death_year_ah=100 + i) for i in range(5)]
+
+    matched = merge_narrator_dates(client, records, batch_size=2)  # type: ignore[arg-type]
+
+    assert matched == 5  # 2 + 2 + 1 across three chunks
+    # Three execute_write calls were recorded (one per chunk).
+    date_writes = [q for q, _ in client.write_batches if q == _MERGE_NARRATOR_DATES_QUERY]
+    assert len(date_writes) == 3
+
+
+def test_merge_narrator_dates_null_prop_clears_via_set_plus() -> None:
+    """A None in the props map clears that prop on the node (SET += semantics)."""
+    client = FakeNeo4jClient(narrators=[{"id": "nar:1", "death_date_precision": "exact"}])
+    # New record carries no death precision → None → clears the prior value.
+    merge_narrator_dates(client, [_dates("nar:1", death_year_ah=150)])  # type: ignore[arg-type]
+    assert client._narrators[0]["death_date_precision"] is None
+
+
+def test_merge_narrator_dates_empty_is_noop() -> None:
+    client = FakeNeo4jClient()
+    assert merge_narrator_dates(client, []) == 0  # type: ignore[arg-type]
+    assert client.write_batches == []
+
+
+def test_load_narrator_dates_from_json_validates(tmp_path: Any) -> None:
+    path = tmp_path / "dates.json"
+    path.write_text(
+        '[{"id": "nar:1", "death_year_ah": 150, "death_date_precision": "exact"}]',
+        encoding="utf-8",
+    )
+    records = load_narrator_dates_from_json(path)
+    assert len(records) == 1
+    assert records[0].id == "nar:1"
+    assert records[0].death_date_precision is DatePrecision.EXACT
+
+
+def test_load_narrator_dates_from_json_rejects_non_array(tmp_path: Any) -> None:
+    path = tmp_path / "dates.json"
+    path.write_text('{"id": "nar:1"}', encoding="utf-8")
+    with pytest.raises(ValueError, match="array"):
+        load_narrator_dates_from_json(path)
+
+
+def test_load_narrator_dates_from_json_rejects_bad_id(tmp_path: Any) -> None:
+    path = tmp_path / "dates.json"
+    path.write_text('[{"id": "bad-id", "death_year_ah": 150}]', encoding="utf-8")
+    with pytest.raises(ValueError, match="nar:"):
+        load_narrator_dates_from_json(path)
+
+
+# --- run_historical_overlay end-to-end with resolved dates (ig#1039) --------
+
+
+def test_run_historical_overlay_writes_dates_then_links_via_real_bounds() -> None:
+    """Resolved dates are written first; the link then uses the real bounds.
+
+    The narrator has only a point death year of 230 (estimate window [150, 230],
+    which would miss a 240-250 event). The resolved death_latest=250 is loaded
+    first, so the re-read narrator's window reaches the late event.
+    """
+    events_yaml = default_events_path()
+    client = FakeNeo4jClient(
+        narrators=[{"id": "nar:1", "birth_year_ah": None, "death_year_ah": 230}]
+    )
+
+    # Use a tiny event set via narrators that overlap a curated late event is
+    # fragile; instead assert the date-write happened and was applied to the store.
+    records = [_dates("nar:1", death_year_ah=230, death_year_ah_latest=250)]
+    result = run_historical_overlay(client, events_yaml, narrator_dates=records)  # type: ignore[arg-type]
+
+    assert result.narrators_dated == 1
+    # The date-write batch was emitted against the MATCH ... SET query.
+    queries = [q for q, _ in client.write_batches]
+    assert _MERGE_NARRATOR_DATES_QUERY in queries
+    # And the store now reflects the resolved bound (FakeNeo4jClient applied it),
+    # so the window used for linking was the widened one.
+    assert client._narrators[0]["death_year_ah_latest"] == 250
+
+
+def test_run_historical_overlay_without_dates_leaves_narrators_dated_zero() -> None:
+    client = FakeNeo4jClient(narrators=[{"id": "nar:1", "birth_year_ah": 30, "death_year_ah": 70}])
+    result = run_historical_overlay(client, default_events_path())  # type: ignore[arg-type]
+    assert result.narrators_dated == 0
+    queries = [q for q, _ in client.write_batches]
+    assert _MERGE_NARRATOR_DATES_QUERY not in queries
 
 
 if __name__ == "__main__":

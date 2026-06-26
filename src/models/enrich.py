@@ -88,6 +88,8 @@ class HistoricalResult(BaseModel):
     events_linked: int
     narrators_skipped_no_dates: int
     narrators_skipped_max_lifetime: int
+    narrators_dated: int = 0
+    """Narrator nodes that had resolved date props written this run (ig#1039)."""
 
 
 class TopicResult(BaseModel):
