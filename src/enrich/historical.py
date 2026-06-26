@@ -30,10 +30,15 @@ a null property, and lifespan-derived edges have no ``role`` / ``affiliation``.
    ``MATCH``es the narrator by id (never ``MERGE`` — we update existing nodes,
    we do not create date-only orphans) and ``SET n +=`` a props map keyed only
    on non-id keys, so it tolerates new keys and null values without tripping the
-   null-property-in-MERGE bug. When dates are written, the subsequent active
-   window prefers the real resolved bounds (:func:`_active_window`), falling back
-   to the death-anchored 80-year estimate when bounds are absent (no behaviour
-   change for narrators without resolved dates).
+   null-property-in-MERGE bug. The count of narrators dated comes from the
+   query's ``RETURN count(n) AS matched`` — a pure MATCH+SET creates no
+   nodes/edges, so the write counters are always 0. A ``None`` in the props map
+   *clears* that date prop (``SET +=`` semantics), so the source must carry a
+   narrator's full date picture, not a delta; an id absent from the graph is a
+   silent no-op. When dates are written, the subsequent active window prefers
+   the real resolved bounds (:func:`_active_window`), falling back to the
+   death-anchored 80-year estimate when bounds are absent (no behaviour change
+   for narrators without resolved dates).
 """
 
 from __future__ import annotations
@@ -100,29 +105,32 @@ MERGE (n)-[:ACTIVE_DURING]->(e)
 
 # Resolved-date properties written onto a Narrator node. ``id`` is the MATCH key
 # and is intentionally excluded — these are the additive date props that the
-# resolved-date loader SETs and that ``_active_window`` reads back.
+# resolved-date loader SETs and that ``_active_window`` reads back. The six
+# bounds/precision props mirror da#161's Narrator date contract exactly; the two
+# point estimates pre-exist on the node (also written by the ingest loader) and
+# are refreshed here from the reconcile output.
 NARRATOR_DATE_PROPS = (
     "birth_year_ah",
     "birth_year_ah_earliest",
     "birth_year_ah_latest",
-    "birth_year_ce",
     "birth_date_precision",
     "death_year_ah",
     "death_year_ah_earliest",
     "death_year_ah_latest",
-    "death_year_ce",
     "death_date_precision",
-    "floruit_year_ah",
-    "region",
 )
 
 # Update resolved date props on an EXISTING narrator. MATCH (not MERGE) so we
 # never create a date-only orphan; ``SET n += row.props`` tolerates new keys and
-# null values, so the null-property-in-MERGE bug (main#139) cannot occur.
+# null values, so the null-property-in-MERGE bug (main#139) cannot occur. The
+# ``RETURN count(n)`` is load-bearing: a pure MATCH+SET creates zero nodes/edges,
+# so the write-summary counters report 0 — only the matched-row count reflects
+# how many narrators were actually dated.
 _MERGE_NARRATOR_DATES_QUERY = """
 UNWIND $batch AS row
 MATCH (n:Narrator {id: row.id})
 SET n += row.props
+RETURN count(n) AS matched
 """
 
 _FETCH_NARRATORS_QUERY = """
@@ -287,43 +295,55 @@ def narrator_dates_to_graph_props(record: NarratorDates) -> dict[str, Any]:
     enums become their string values for Neo4j. Only the date props in
     :data:`NARRATOR_DATE_PROPS` are emitted — never ``id`` (that is the MATCH key,
     not a property to write).
+
+    Every prop in :data:`NARRATOR_DATE_PROPS` is always present in the returned
+    map, with ``None`` for absent values. Because the loader uses ``SET n +=``,
+    a ``None`` entry **clears** that property on the node — so the resolved-date
+    source must carry a narrator's *full* date picture, not a delta (an absent
+    field overwrites, it does not preserve a prior value). This is bounded to the
+    eight date props and never touches biographical fields.
     """
     return {
         "birth_year_ah": record.birth_year_ah,
         "birth_year_ah_earliest": record.birth_year_ah_earliest,
         "birth_year_ah_latest": record.birth_year_ah_latest,
-        "birth_year_ce": record.birth_year_ce,
         "birth_date_precision": (
             record.birth_date_precision.value if record.birth_date_precision is not None else None
         ),
         "death_year_ah": record.death_year_ah,
         "death_year_ah_earliest": record.death_year_ah_earliest,
         "death_year_ah_latest": record.death_year_ah_latest,
-        "death_year_ce": record.death_year_ce,
         "death_date_precision": (
             record.death_date_precision.value if record.death_date_precision is not None else None
         ),
-        "floruit_year_ah": record.floruit_year_ah,
-        "region": record.region,
     }
 
 
-def merge_narrator_dates(client: Neo4jClient, records: list[NarratorDates]) -> int:
+def merge_narrator_dates(
+    client: Neo4jClient, records: list[NarratorDates], *, batch_size: int = 1000
+) -> int:
     """Write resolved date props onto existing Narrator nodes (ig#1039).
 
     Each record is ``MATCH``ed by id (existing narrators only — no orphan
     creation) and its date props ``SET`` additively. Idempotent: re-running with
-    the same records reconciles state rather than duplicating it. Returns the
-    count reported by the write (properties set / rows affected).
+    the same records reconciles state rather than duplicating it.
+
+    Returns the number of narrators actually **matched and dated** — derived from
+    the query's ``RETURN count(n) AS matched``, NOT from the write-summary
+    node/relationship counters (a pure MATCH+SET creates neither, so those
+    counters are always 0). A record whose id is not in the graph is a silent
+    no-op: it matches nothing and is therefore excluded from the returned count.
     """
     if not records:
         return 0
-    batch = [
-        {"id": record.id, "props": narrator_dates_to_graph_props(record)} for record in records
-    ]
-    written = client.execute_write_batch(_MERGE_NARRATOR_DATES_QUERY, batch)
-    log.info("narrator_dates_loaded", records=len(records), written=written)
-    return written
+    rows = [{"id": record.id, "props": narrator_dates_to_graph_props(record)} for record in records]
+    matched = 0
+    for i in range(0, len(rows), batch_size):
+        chunk = rows[i : i + batch_size]
+        result = client.execute_write(_MERGE_NARRATOR_DATES_QUERY, {"batch": chunk})
+        matched += int(result[0]["matched"]) if result else 0
+    log.info("narrator_dates_loaded", records=len(records), matched=matched)
+    return matched
 
 
 def load_narrator_dates_from_json(path: Path) -> list[NarratorDates]:
@@ -334,7 +354,9 @@ def load_narrator_dates_from_json(path: Path) -> list[NarratorDates]:
     validated through :class:`NarratorDates` so a malformed file fails fast here
     rather than producing partial graph state. In production these props arrive
     on the node via the upstream node loader; this reader backs the CLI backfill
-    and the end-to-end test against a schema-shaped fixture.
+    and the end-to-end test against a schema-shaped fixture. A record whose id is
+    not present in the graph is a documented silent no-op at load time (see
+    :func:`merge_narrator_dates`).
     """
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, list):

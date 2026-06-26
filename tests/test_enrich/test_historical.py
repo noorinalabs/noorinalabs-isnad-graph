@@ -34,7 +34,21 @@ from src.models.narrator import NarratorDates
 
 
 class FakeNeo4jClient:
-    """Records writes and serves canned reads, mirroring Neo4jClient's surface."""
+    """Records writes and serves canned reads, mirroring Neo4jClient's surface.
+
+    Crucially this mirrors the REAL client's return semantics rather than a
+    convenient stand-in:
+
+    * ``execute_write_batch`` returns ``nodes_created + relationships_created``
+      (the real driver summary counters). For an empty store every MERGE creates
+      its node/edge, so ``len(batch)`` is the correct created-count there — but a
+      pure ``MATCH ... SET`` creates nothing, which is exactly why the resolved-
+      date loader must NOT route through this method for its count.
+    * ``execute_write`` returns the query's result rows. For the resolved-date
+      ``RETURN count(n) AS matched`` query it returns the number of batch ids
+      that exist in the store — unknown ids match nothing, mirroring Neo4j's
+      ``MATCH``. This is what makes the always-0 bug observable in a unit test.
+    """
 
     def __init__(self, narrators: list[dict[str, Any]] | None = None) -> None:
         self._narrators = narrators or []
@@ -49,20 +63,34 @@ class FakeNeo4jClient:
     ) -> list[dict[str, Any]]:
         return list(self._narrators)
 
-    def execute_write_batch(
-        self, query: str, batch: list[dict[str, Any]], batch_size: int = 1000
-    ) -> int:
-        self.write_batches.append((query, batch))
-        # Apply resolved-date writes to the canned narrator store so a subsequent
-        # execute_read reflects the freshly-SET bounds — mirrors the real
-        # MATCH ... SET n += row.props against existing nodes.
+    def execute_write(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        params = parameters or {}
         if query == _MERGE_NARRATOR_DATES_QUERY:
+            batch = params.get("batch", [])
+            self.write_batches.append((query, batch))
+            # Apply the SET to existing nodes only (MATCH semantics) and count the
+            # matched rows the way ``RETURN count(n)`` does — unknown ids match 0.
             by_id = {n["id"]: n for n in self._narrators}
+            matched = 0
             for row in batch:
                 node = by_id.get(row["id"])
                 if node is not None:
                     node.update(row["props"])
-        # Stand in for nodes_created + relationships_created.
+                    matched += 1
+            return [{"matched": matched}]
+        # Other single writes (e.g. constraints) return no rows.
+        self.write_batches.append((query, [params]))
+        return []
+
+    def execute_write_batch(
+        self, query: str, batch: list[dict[str, Any]], batch_size: int = 1000
+    ) -> int:
+        self.write_batches.append((query, batch))
+        # Stand in for nodes_created + relationships_created. Valid only for the
+        # MERGE-creating queries (events, ACTIVE_DURING) against an empty store —
+        # the resolved-date loader deliberately uses execute_write instead.
         return len(batch)
 
 
@@ -373,6 +401,53 @@ def test_merge_narrator_dates_emits_matchset_rows() -> None:
     # Row carries id (MATCH key) + a nested props map (the SET payload).
     assert batch[0]["props"]["death_year_ah"] == 150
     assert batch[0]["props"]["death_date_precision"] == "exact"
+
+
+def test_merge_narrator_dates_counts_matched_not_batch_len() -> None:
+    """Regression guard for the always-0 / len-masked count bug.
+
+    The real client's execute_write_batch returns nodes_created + rels_created,
+    which is 0 for a pure MATCH+SET — so the count MUST come from
+    ``RETURN count(n) AS matched``. Here two of three records exist; an unknown
+    id matches nothing. The corrected count is 2 (matched), not 3 (len(batch))
+    and not 0 (the broken summary-counter path). This assertion fails under both
+    the old execute_write_batch routing (would yield 3) and a real client that
+    returned the summary counter (would yield 0).
+    """
+    client = FakeNeo4jClient(narrators=[{"id": "nar:1"}, {"id": "nar:2"}])
+    records = [
+        _dates("nar:1", death_year_ah=150),
+        _dates("nar:2", death_year_ah=200),
+        _dates("nar:ghost", death_year_ah=300),  # not in the graph → matches nothing
+    ]
+
+    matched = merge_narrator_dates(client, records)  # type: ignore[arg-type]
+
+    assert matched == 2
+    # The unknown id is a silent no-op: it left no trace on the (absent) node.
+    assert all(n["id"] != "nar:ghost" for n in client._narrators)
+
+
+def test_merge_narrator_dates_chunks_and_sums_matched() -> None:
+    """Matched counts are summed across chunks (count is not just the last chunk)."""
+    narrators = [{"id": f"nar:{i}"} for i in range(5)]
+    client = FakeNeo4jClient(narrators=narrators)
+    records = [_dates(f"nar:{i}", death_year_ah=100 + i) for i in range(5)]
+
+    matched = merge_narrator_dates(client, records, batch_size=2)  # type: ignore[arg-type]
+
+    assert matched == 5  # 2 + 2 + 1 across three chunks
+    # Three execute_write calls were recorded (one per chunk).
+    date_writes = [q for q, _ in client.write_batches if q == _MERGE_NARRATOR_DATES_QUERY]
+    assert len(date_writes) == 3
+
+
+def test_merge_narrator_dates_null_prop_clears_via_set_plus() -> None:
+    """A None in the props map clears that prop on the node (SET += semantics)."""
+    client = FakeNeo4jClient(narrators=[{"id": "nar:1", "death_date_precision": "exact"}])
+    # New record carries no death precision → None → clears the prior value.
+    merge_narrator_dates(client, [_dates("nar:1", death_year_ah=150)])  # type: ignore[arg-type]
+    assert client._narrators[0]["death_date_precision"] is None
 
 
 def test_merge_narrator_dates_empty_is_noop() -> None:

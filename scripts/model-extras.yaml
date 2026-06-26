@@ -75,43 +75,27 @@ nodes:
     - field: birth_year_ah_earliest
       category: enrichment-only
       issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: resolved birth-year lower bound; written by the post-ingest historical-overlay resolved-date loader (merge_narrator_dates, ig#1039) from the da#161-166 reconcile output, excluded so an unenriched ingest batch doesn't null it
+      note: resolved birth-year lower bound (da#161 contract); written by the post-ingest historical-overlay resolved-date loader (merge_narrator_dates, ig#1039) from the da#161-166 reconcile output, excluded so an unenriched ingest batch doesn't null it
     - field: birth_year_ah_latest
       category: enrichment-only
       issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: resolved birth-year upper bound; written by the post-ingest historical-overlay resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
-    - field: birth_year_ce
-      category: enrichment-only
-      issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: birth year in CE, computed at resolve; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
+      note: resolved birth-year upper bound (da#161 contract); written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
     - field: birth_date_precision
       category: enrichment-only
       issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: DatePrecision for the birth year; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
+      note: DatePrecision for the birth year (da#161 contract); written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
     - field: death_year_ah_earliest
       category: enrichment-only
       issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: resolved death-year lower bound; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
+      note: resolved death-year lower bound (da#161 contract); written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
     - field: death_year_ah_latest
       category: enrichment-only
       issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: resolved death-year upper bound (the bound _active_window prefers); written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
-    - field: death_year_ce
-      category: enrichment-only
-      issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: death year in CE, computed at resolve; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
+      note: resolved death-year upper bound (da#161 contract; the bound _active_window prefers); written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
     - field: death_date_precision
       category: enrichment-only
       issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: DatePrecision for the death year; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
-    - field: floruit_year_ah
-      category: enrichment-only
-      issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: tabaqa-derived active-circa midpoint; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
-    - field: region
-      category: enrichment-only
-      issue: noorinalabs/noorinalabs-isnad-graph#1039
-      note: coarse geographic anchor; written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
+      note: DatePrecision for the death year (da#161 contract); written by the post-ingest resolved-date loader (ig#1039), excluded so an unenriched ingest batch doesn't null it
   Collection:
     - field: id
       category: merge-key

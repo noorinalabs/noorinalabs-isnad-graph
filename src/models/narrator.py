@@ -44,30 +44,23 @@ class Narrator(BaseModel):
     """Death year in Hijri calendar (point estimate / best single value)."""
 
     # Resolved date bounds + precision (additive; populated by the resolved-date
-    # loader from the data-acquisition reconcile output, da#161-166). The point
-    # estimates above stay for backward compatibility; these siblings model the
-    # pervasive uncertainty in rijal dates. Death is the attested norm, birth the
-    # exception — see _active_window in src/enrich/historical.py.
+    # loader from the data-acquisition reconcile output, da#161-166). These six
+    # siblings mirror da#161's Narrator date contract exactly; the point estimates
+    # above stay for backward compatibility. They model the pervasive uncertainty
+    # in rijal dates — death is the attested norm, birth the exception. See
+    # _active_window in src/enrich/historical.py.
     birth_year_ah_earliest: int | None = None
     """Lower bound (inclusive) of the resolved birth year."""
     birth_year_ah_latest: int | None = None
     """Upper bound (inclusive) of the resolved birth year."""
-    birth_year_ce: int | None = None
-    """Birth year in the Common Era (computed once at resolve time)."""
     birth_date_precision: DatePrecision | None = None
     """How tightly the source dates the birth year."""
     death_year_ah_earliest: int | None = None
     """Lower bound (inclusive) of the resolved death year."""
     death_year_ah_latest: int | None = None
     """Upper bound (inclusive) of the resolved death year."""
-    death_year_ce: int | None = None
-    """Death year in the Common Era (computed once at resolve time)."""
     death_date_precision: DatePrecision | None = None
     """How tightly the source dates the death year."""
-    floruit_year_ah: int | None = None
-    """Tabaqa-derived 'active circa' midpoint when no year is attested."""
-    region: str | None = None
-    """Coarse geographic anchor (string; promote to a Location FK later)."""
 
     birth_location_id: str | None = None
     """FK to Location.id."""
@@ -123,15 +116,11 @@ class NarratorDates(BaseModel):
     birth_year_ah: int | None = None
     birth_year_ah_earliest: int | None = None
     birth_year_ah_latest: int | None = None
-    birth_year_ce: int | None = None
     birth_date_precision: DatePrecision | None = None
     death_year_ah: int | None = None
     death_year_ah_earliest: int | None = None
     death_year_ah_latest: int | None = None
-    death_year_ce: int | None = None
     death_date_precision: DatePrecision | None = None
-    floruit_year_ah: int | None = None
-    region: str | None = None
 
     @field_validator("id")
     @classmethod
