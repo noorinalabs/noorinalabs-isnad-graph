@@ -421,6 +421,72 @@ class TimelineRangeResponse(BaseModel):
     max_year_ah: int
 
 
+# --- Chain validation models ---
+
+# Verdict tiers for the chronological-plausibility check. ``impossible`` is
+# reserved for disjoint active windows whose deciding endpoints are *attested*
+# (a real death/birth year on each side); ``implausible`` covers disjointness
+# that only holds once an assumed-lifespan estimate fills a missing endpoint;
+# ``ok`` means the windows overlap or there is too little date data to assert
+# anything. This is a flag-for-review aid (owner decision, ig#1040) — NOT an
+# auto-quarantine and NOT a public authenticity verdict.
+ChainValidationVerdict = Literal["impossible", "implausible", "ok"]
+
+
+class NarratorWindow(BaseModel):
+    """A narrator's resolved [start, end] active window in Hijri years.
+
+    ``estimated`` is True when either endpoint had to be derived from the
+    assumed-lifespan span because the corresponding birth/death year is unknown.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    narrator_id: str
+    name_ar: str | None = None
+    name_en: str | None = None
+    birth_year_ah: int | None = None
+    death_year_ah: int | None = None
+    window_start_ah: int | None = None
+    window_end_ah: int | None = None
+    estimated: bool = True
+
+
+class ChainValidationFlag(BaseModel):
+    """One TRANSMITTED_TO (teacher->student) edge with a chronological verdict."""
+
+    model_config = ConfigDict(frozen=True)
+
+    verdict: ChainValidationVerdict
+    reason: str
+    hadith_id: str | None = None
+    position_in_chain: int | None = None
+    teacher: NarratorWindow
+    student: NarratorWindow
+    # Year gap between the two disjoint windows (None when the windows overlap or
+    # could not be resolved). A larger gap is a stronger signal.
+    gap_years_ah: int | None = None
+
+
+class ChainValidationResponse(BaseModel):
+    """Result of the GET /validate/chains chronological-plausibility scan."""
+
+    model_config = ConfigDict(frozen=True)
+
+    flags: list[ChainValidationFlag]
+    # Per-verdict counts across every edge evaluated in this scan (not just the
+    # returned page), so callers can track the impossible/implausible totals as a
+    # regression signal for the in-flight segmentation fix (da#221).
+    summary: dict[str, int]
+    scanned: int
+    # Edges skipped because neither narrator carried any date — cannot be judged.
+    undated: int
+    assumed_lifespan_ah: int
+    # True when the candidate scan hit its cap, so ``summary``/``flags`` reflect a
+    # partial view of the graph rather than every edge.
+    truncated: bool = False
+
+
 # --- Admin models ---
 
 

@@ -89,6 +89,10 @@ OPENAPI_TAGS = [
         "description": "Historical timeline data for narrator activity and events.",
     },
     {
+        "name": "validate",
+        "description": "Data-quality validation — chronological plausibility of isnad chains.",
+    },
+    {
         "name": "admin",
         "description": "Admin endpoints: user management, health probes, stats, analytics.",
     },
@@ -168,6 +172,7 @@ def create_app() -> FastAPI:
         parallels,
         search,
         timeline,
+        validate,
     )
 
     # Public routes — no auth required
@@ -215,6 +220,12 @@ def create_app() -> FastAPI:
         timeline.router,
         prefix="/api/v1",
         tags=["timeline"],
+        dependencies=[Depends(require_auth)],
+    )
+    app.include_router(
+        validate.router,
+        prefix="/api/v1",
+        tags=["validate"],
         dependencies=[Depends(require_auth)],
     )
 
