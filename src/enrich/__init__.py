@@ -24,6 +24,9 @@ from src.enrich.historical import (
     default_events_path,
     event_to_graph_props,
     load_events_from_yaml,
+    load_narrator_dates_from_json,
+    merge_narrator_dates,
+    narrator_dates_to_graph_props,
     run_historical_overlay,
 )
 
@@ -37,6 +40,9 @@ __all__ = [
     "event_to_graph_props",
     "get_embedder",
     "load_events_from_yaml",
+    "load_narrator_dates_from_json",
+    "merge_narrator_dates",
+    "narrator_dates_to_graph_props",
     "run_embedding_load",
     "run_historical_overlay",
     "to_pgvector_literal",

@@ -8,6 +8,7 @@ from enum import StrEnum
 __all__ = [
     "ChainClassification",
     "ChainPosition",
+    "DatePrecision",
     "Gender",
     "HadithGrade",
     "HistoricalEventType",
@@ -20,6 +21,35 @@ __all__ = [
     "TrustworthinessGrade",
     "VariantType",
 ]
+
+
+class DatePrecision(StrEnum):
+    """How tightly a source dates a narrator's birth/death year.
+
+    Mirrors the ``DatePrecision`` contract produced data-acquisition-side
+    (da#161) so the resolved earliest/latest bounds carried on a Narrator node
+    are never confused with an attested point year. ``precision`` answers "how
+    tightly does the *source* date the event"; it is orthogonal to the
+    disambiguation ``confidence`` (how sure we are the date attaches to this
+    canonical narrator).
+
+    Values:
+        ``EXACT``            -- single attested year (earliest == latest == point)
+        ``RANGE``            -- attested bounds, e.g. "between 130 and 135"
+        ``CIRCA``            -- "~X", a point with a small symmetric window
+        ``AFTER``            -- "died after X" → earliest = X, latest unknown
+        ``BEFORE``           -- "died before X" → latest = X, earliest unknown
+        ``TABAQA_ESTIMATE``  -- no year attested; window derived from the tabaqa
+        ``UNKNOWN``          -- nothing is known
+    """
+
+    EXACT = "exact"
+    RANGE = "range"
+    CIRCA = "circa"
+    AFTER = "after"
+    BEFORE = "before"
+    TABAQA_ESTIMATE = "tabaqa_estimate"
+    UNKNOWN = "unknown"
 
 
 class NarratorGeneration(StrEnum):
