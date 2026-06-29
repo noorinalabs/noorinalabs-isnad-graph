@@ -116,7 +116,7 @@ describe('LoginPage — non-JSON auth response guard (#977)', () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('/auth/providers')) return Promise.resolve(providersResponse())
-      if (url.endsWith('/auth/login/email')) return Promise.resolve(htmlResponse())
+      if (url.endsWith('/auth/login')) return Promise.resolve(htmlResponse())
       return Promise.reject(new Error(`unexpected fetch: ${url}`))
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -145,7 +145,7 @@ describe('LoginPage — non-JSON auth response guard (#977)', () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('/auth/providers')) return Promise.resolve(providersResponse())
-      if (url.endsWith('/auth/login/email'))
+      if (url.endsWith('/auth/login'))
         return Promise.resolve(jsonResponse({ access_token: 'real-token' }))
       return Promise.reject(new Error(`unexpected fetch: ${url}`))
     })

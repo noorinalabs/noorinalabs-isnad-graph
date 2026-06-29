@@ -150,7 +150,7 @@ export default function LoginPage() {
 
     setFormLoading(true)
     try {
-      const res = await fetch(`${AUTH_BASE}/login/email`, {
+      const res = await fetch(`${AUTH_BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
