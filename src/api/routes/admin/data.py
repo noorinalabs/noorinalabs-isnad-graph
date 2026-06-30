@@ -20,12 +20,13 @@ destructive write surfaces as 503 rather than silently reporting success.
 
 from __future__ import annotations
 
+import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from src.api.auth import User
-from src.api.deps import get_neo4j
+from src.api.deps import get_bearer_token, get_neo4j
 from src.api.middleware import require_admin
 from src.api.routes.admin.audit import create_audit_entry
 from src.utils.neo4j_client import Neo4jClient
@@ -319,6 +320,7 @@ def purge_source(
     body: PurgeRequest,
     admin: User = Depends(require_admin),
     neo4j: Neo4jClient = Depends(get_neo4j),
+    token: str = Depends(get_bearer_token),
 ) -> PurgeResult:
     """Purge all graph data for a single source corpus.
 
@@ -376,16 +378,27 @@ def purge_source(
             detail="Graph store unavailable; purge was not completed.",
         ) from exc
 
-    create_audit_entry(
-        neo4j,
-        action="data.purge_source",
-        actor_id=admin.id,
-        actor_name=admin.name,
-        details=(
-            f"Purged source_corpus '{corpus}': "
-            f"{total_nodes} nodes, {total_relationships} relationships removed."
-        ),
-    )
+    # Best-effort audit: the destructive purge has already succeeded, so a
+    # failure to record the audit entry (user-service unreachable / erroring)
+    # must NOT turn a completed action into a 5xx. Log loudly and continue.
+    try:
+        create_audit_entry(
+            token,
+            action="data.purge_source",
+            actor_id=admin.id,
+            actor_name=admin.name,
+            details=(
+                f"Purged source_corpus '{corpus}': "
+                f"{total_nodes} nodes, {total_relationships} relationships removed."
+            ),
+        )
+    except httpx.HTTPError as exc:
+        log.error(
+            "data_purge_audit_failed",
+            source_corpus=corpus,
+            actor_id=admin.id,
+            error=str(exc),
+        )
     log.info(
         "data_purge_executed",
         source_corpus=corpus,
