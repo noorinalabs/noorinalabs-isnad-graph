@@ -1,13 +1,20 @@
-"""Admin audit log endpoints."""
+"""Admin audit log endpoints.
+
+The admin audit trail is owned by user-service's relational ``audit_log`` table
+(ig#1140). isnad-graph no longer stores ``:AUDIT_LOG`` nodes on Neo4j — this
+route is a thin consumer that forwards the admin's own bearer token to the
+user-service audit API and maps the response back into the ``PaginatedResponse``
+shape the admin frontend already consumes (path + shape unchanged).
+"""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
 
-from src.api.deps import get_neo4j
+from src.api import audit_client
+from src.api.deps import get_bearer_token
 from src.api.models import PaginatedResponse
-from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter(prefix="/audit")
 
@@ -26,89 +33,62 @@ class AuditLogEntry(BaseModel):
     created_at: str
 
 
-class AuditLogCreateRequest(BaseModel):
-    """Request to create an audit log entry (internal use)."""
-
-    model_config = ConfigDict(frozen=True)
-
-    action: str
-    target_user_id: str | None = None
-    actor_id: str
-    actor_name: str = ""
-    details: str = ""
-
-
 @router.get("", response_model=PaginatedResponse[AuditLogEntry])
 def list_audit_logs(
-    neo4j: Neo4jClient = Depends(get_neo4j),
+    token: str = Depends(get_bearer_token),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     action: str | None = Query(None),
 ) -> PaginatedResponse[AuditLogEntry]:
-    """List admin audit log entries with optional action filter."""
-    params: dict[str, object] = {"skip": (page - 1) * limit, "limit": limit}
-    where_clauses: list[str] = []
+    """List admin audit log entries from user-service, newest first.
 
-    if action:
-        where_clauses.append("a.action = $action")
-        params["action"] = action
-
-    where = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-
-    count_query = f"MATCH (a:AUDIT_LOG) {where} RETURN count(a) AS total"
-    count_result = neo4j.execute_read(count_query, params)
-    total = count_result[0]["total"] if count_result else 0
-
-    query = f"""
-        MATCH (a:AUDIT_LOG) {where}
-        RETURN a ORDER BY a.created_at DESC
-        SKIP $skip LIMIT $limit
+    Forwards the admin's bearer token and the ``page``/``limit``/``action``
+    filters to user-service, then maps its ``audit_log`` rows into the same
+    paginated shape the admin frontend consumes.
     """
-    records = neo4j.execute_read(query, params)
+    data = audit_client.list_audit_logs(token, page=page, limit=limit, action=action)
 
     items = [
         AuditLogEntry(
-            id=r["a"]["id"],
-            action=r["a"].get("action", ""),
-            target_user_id=r["a"].get("target_user_id"),
-            actor_id=r["a"].get("actor_id", ""),
-            actor_name=r["a"].get("actor_name", ""),
-            details=r["a"].get("details", ""),
-            created_at=str(r["a"].get("created_at", "")),
+            id=str(row["id"]),
+            action=row.get("action", ""),
+            target_user_id=row.get("target_user_id"),
+            actor_id=str(row.get("actor_id", "")),
+            actor_name=row.get("actor_name", ""),
+            details=row.get("details", ""),
+            created_at=str(row.get("created_at", "")),
         )
-        for r in records
+        for row in data.get("items", [])
     ]
 
-    return PaginatedResponse[AuditLogEntry](items=items, total=total, page=page, limit=limit)
+    return PaginatedResponse[AuditLogEntry](
+        items=items,
+        total=data.get("total", len(items)),
+        page=data.get("page", page),
+        limit=data.get("limit", limit),
+    )
 
 
 def create_audit_entry(
-    neo4j: Neo4jClient,
+    token: str,
     action: str,
     actor_id: str,
     actor_name: str = "",
     target_user_id: str | None = None,
     details: str = "",
 ) -> None:
-    """Create an audit log entry in Neo4j."""
-    query = """
-        CREATE (a:AUDIT_LOG {
-            id: randomUUID(),
-            action: $action,
-            actor_id: $actor_id,
-            actor_name: $actor_name,
-            target_user_id: $target_user_id,
-            details: $details,
-            created_at: datetime()
-        })
+    """Record an admin audit entry in user-service's relational ``audit_log``.
+
+    POSTs to the user-service audit API, forwarding the admin's bearer token
+    (``token``) verbatim. Raises ``httpx.HTTPError`` if user-service is
+    unreachable or rejects the request; the caller decides whether that is
+    fatal (the purge route treats it as best-effort — see ``data.purge_source``).
     """
-    neo4j.execute_write(
-        query,
-        {
-            "action": action,
-            "actor_id": actor_id,
-            "actor_name": actor_name,
-            "target_user_id": target_user_id,
-            "details": details,
-        },
+    audit_client.create_audit_log(
+        token,
+        action=action,
+        actor_id=actor_id,
+        actor_name=actor_name,
+        target_user_id=target_user_id,
+        details=details,
     )

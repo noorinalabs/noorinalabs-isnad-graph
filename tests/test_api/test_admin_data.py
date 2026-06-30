@@ -12,13 +12,16 @@ covered by ``test_admin_auth`` for every sub-router, including this one — see
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import HTTPException
 
 from src.api.auth import User
 from src.api.routes.admin.data import PurgeRequest, data_overview, data_sources, purge_source
+
+_ADMIN_TOKEN = "admin-jwt-token"
 
 
 def _loaded_read(query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -162,6 +165,7 @@ class TestPurgeSource:
             body=PurgeRequest(source_corpus="thaqalayn", dry_run=True),
             admin=_admin(),
             neo4j=client,
+            token=_ADMIN_TOKEN,
         )
 
         assert resp.dry_run is True
@@ -182,6 +186,7 @@ class TestPurgeSource:
                 body=PurgeRequest(source_corpus="thaqalayn", dry_run=False, confirmation="wrong"),
                 admin=_admin(),
                 neo4j=client,
+                token=_ADMIN_TOKEN,
             )
         assert exc.value.status_code == 400
         # Aborted before any destructive write.
@@ -194,29 +199,66 @@ class TestPurgeSource:
                 body=PurgeRequest(source_corpus="thaqalayn", dry_run=False),
                 admin=_admin(),
                 neo4j=client,
+                token=_ADMIN_TOKEN,
             )
         assert exc.value.status_code == 400
         client.execute_write.assert_not_called()
 
     def test_real_run_deletes_and_audits(self) -> None:
         client = _purge_client()
-        resp = purge_source(
-            body=PurgeRequest(source_corpus="thaqalayn", dry_run=False, confirmation="thaqalayn"),
-            admin=_admin(),
-            neo4j=client,
-        )
+        with patch("src.api.routes.admin.data.create_audit_entry") as mock_audit:
+            resp = purge_source(
+                body=PurgeRequest(
+                    source_corpus="thaqalayn", dry_run=False, confirmation="thaqalayn"
+                ),
+                admin=_admin(),
+                neo4j=client,
+                token=_ADMIN_TOKEN,
+            )
 
         assert resp.dry_run is False
         assert resp.deleted is True
         assert resp.total_nodes == 8
         assert resp.total_relationships == 19
 
+        # The only graph write is the corpus-scoped DETACH DELETE — the audit
+        # trail is no longer an AUDIT_LOG node write (ig#1140).
         writes = [c.args[0] for c in client.execute_write.call_args_list]
-        # First write is the DETACH DELETE scoped to the corpus...
+        assert len(writes) == 1
         assert "DETACH DELETE" in writes[0]
         assert client.execute_write.call_args_list[0].args[1] == {"corpus": "thaqalayn"}
-        # ...followed by an audit-log CREATE.
-        assert any("AUDIT_LOG" in w for w in writes)
+        assert not any("AUDIT_LOG" in w for w in writes)
+
+        # The audit entry is recorded against user-service, forwarding the
+        # admin's bearer token and the actor identity.
+        mock_audit.assert_called_once()
+        call = mock_audit.call_args
+        assert call.args[0] == _ADMIN_TOKEN
+        assert call.kwargs["action"] == "data.purge_source"
+        assert call.kwargs["actor_id"] == "admin-1"
+        assert call.kwargs["actor_name"] == "Admin One"
+        assert "thaqalayn" in call.kwargs["details"]
+
+    def test_audit_failure_does_not_fail_completed_purge(self) -> None:
+        """If user-service is unreachable, the already-completed purge succeeds."""
+        client = _purge_client()
+        with patch(
+            "src.api.routes.admin.data.create_audit_entry",
+            side_effect=httpx.ConnectError("user-service down"),
+        ):
+            resp = purge_source(
+                body=PurgeRequest(
+                    source_corpus="thaqalayn", dry_run=False, confirmation="thaqalayn"
+                ),
+                admin=_admin(),
+                neo4j=client,
+                token=_ADMIN_TOKEN,
+            )
+
+        # Best-effort: the destructive write already landed, so the response is
+        # still a successful deletion despite the audit POST failing.
+        assert resp.deleted is True
+        assert resp.total_nodes == 8
 
     def test_blank_corpus_is_rejected(self) -> None:
         client = _purge_client()
@@ -225,6 +267,7 @@ class TestPurgeSource:
                 body=PurgeRequest(source_corpus="   ", dry_run=True),
                 admin=_admin(),
                 neo4j=client,
+                token=_ADMIN_TOKEN,
             )
         assert exc.value.status_code == 422
         client.execute_write.assert_not_called()
@@ -239,5 +282,6 @@ class TestPurgeSource:
                 ),
                 admin=_admin(),
                 neo4j=client,
+                token=_ADMIN_TOKEN,
             )
         assert exc.value.status_code == 503

@@ -15,6 +15,18 @@ def get_neo4j(request: Request) -> Neo4jClient:
     return request.app.state.neo4j  # type: ignore[no-any-return]
 
 
+def get_bearer_token(request: Request) -> str:
+    """Extract the raw Bearer token from the incoming ``Authorization`` header.
+
+    Used to forward the admin's own user-service-issued JWT to downstream
+    user-service calls (e.g. the relational audit log). Admin routes are gated
+    by ``require_admin``, which has already validated a Bearer token is present,
+    so this simply strips the scheme prefix.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    return auth_header.removeprefix("Bearer ")
+
+
 def get_pg() -> Generator[PgClient]:
     """Yield a PgClient connection, closing it after the request."""
     client = PgClient()
