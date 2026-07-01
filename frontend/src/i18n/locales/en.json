@@ -210,7 +210,14 @@
     "noEventsBody": "Historical events and narrator activity periods will appear here once the data enrichment pipeline has been run. This includes key dates in Islamic history, narrator lifespans, and scholarly events.",
     "activeNarrators_one": "{{count}} active narrator",
     "activeNarrators_other": "{{count}} active narrators",
-    "chartAria": "Timeline chart showing events from {{from}} to {{to}} AH"
+    "chartAria": "Timeline chart showing events from {{from}} to {{to}} AH",
+    "narratorLanesTitle": "Narrator Lifespans & Ṭabaqāt",
+    "narratorLanesBody": "Narrator active windows (earliest birth to latest death, Anno Hegirae). Estimated windows — derived from an assumed lifespan or ṭabaqa — are shown dashed and marked. Click a lane to open the narrator.",
+    "narratorLanesEmpty": "No dated narrators to place on the timeline yet.",
+    "narratorLanesTruncated": "Showing the first {{count}} narrators for this range. Narrow the year range to see more.",
+    "narratorChartAria": "Timeline chart of narrator lifespans and ṭabaqāt",
+    "estimatedLabel": "estimated",
+    "tabaqaLabel": "Ṭabaqa {{class}}"
   },
   "graph": {
     "searchPlaceholder": "Search narrator...",

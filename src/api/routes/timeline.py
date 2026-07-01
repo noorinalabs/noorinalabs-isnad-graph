@@ -2,13 +2,71 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 
 from src.api.deps import get_neo4j
-from src.api.models import TimelineEntry, TimelineRangeResponse, TimelineResponse
+from src.api.models import (
+    NarratorTimelineEntry,
+    NarratorTimelineResponse,
+    TimelineEntry,
+    TimelineRangeResponse,
+    TimelineResponse,
+)
+from src.enrich.historical import DEFAULT_ASSUMED_LIFESPAN_AH, _active_window
 from src.utils.neo4j_client import Neo4jClient
 
 router = APIRouter()
+
+# Precision value (``DatePrecision.TABAQA_ESTIMATE``) that marks a window whose
+# bounds were derived from the narrator's ṭabaqa rather than an attested year.
+_TABAQA_PRECISION = "tabaqa_estimate"
+
+
+def _narrator_lane(row: dict[str, Any]) -> NarratorTimelineEntry | None:
+    """Build a narrator lifespan/ṭabaqa lane from a Cypher result row.
+
+    Returns ``None`` for an undated narrator (no birth or death signal in any
+    form) — it cannot be placed on a lane, so the endpoint omits it gracefully.
+
+    A lane is flagged ``estimated`` when either endpoint had to be filled from
+    the assumed-lifespan span (only one real bound is known) OR when the
+    governing precision is a ṭabaqa estimate. Per the owner decision (ig#1041),
+    ṭabaqa-estimated windows are still returned — clearly marked — alongside the
+    attested ones.
+    """
+    window = _active_window(row, DEFAULT_ASSUMED_LIFESPAN_AH)
+    if window is None:
+        return None
+    start, end = window
+
+    # Mirror _active_window's endpoint selection: resolved bound else point year.
+    birth_known = (
+        row.get("birth_year_ah_earliest") is not None or row.get("birth_year_ah") is not None
+    )
+    death_known = (
+        row.get("death_year_ah_latest") is not None or row.get("death_year_ah") is not None
+    )
+    tabaqa_estimated = _TABAQA_PRECISION in (
+        row.get("birth_date_precision"),
+        row.get("death_date_precision"),
+    )
+    estimated = not (birth_known and death_known) or tabaqa_estimated
+
+    return NarratorTimelineEntry(
+        narrator_id=row["id"],
+        name_ar=row.get("name_ar"),
+        name_en=row.get("name_en"),
+        birth_year_ah=row.get("birth_year_ah"),
+        death_year_ah=row.get("death_year_ah"),
+        window_start_ah=start,
+        window_end_ah=end,
+        birth_date_precision=row.get("birth_date_precision"),
+        death_date_precision=row.get("death_date_precision"),
+        tabaqat_class=row.get("tabaqat_class"),
+        estimated=estimated,
+    )
 
 
 @router.get("/timeline/range", response_model=TimelineRangeResponse)
@@ -91,3 +149,93 @@ def get_timeline(
         for r in rows
     ]
     return TimelineResponse(entries=entries, total=total)
+
+
+@router.get("/timeline/narrators", response_model=NarratorTimelineResponse)
+def get_timeline_narrators(
+    start_year: int | None = Query(
+        None, description="Only narrators whose active window overlaps at/after this year AH"
+    ),
+    end_year: int | None = Query(
+        None, description="Only narrators whose active window overlaps at/before this year AH"
+    ),
+    limit: int = Query(500, ge=1, le=2000, description="Max narrators to return"),
+    neo4j: Neo4jClient = Depends(get_neo4j),
+) -> NarratorTimelineResponse:
+    """Return narrator lifespan / ṭabaqa lanes for the timeline visualization.
+
+    Serves the resolved narrator date bounds loaded by ig#1039 — earliest birth
+    to latest death, plus precision and ṭabaqat class — as [start, end] windows
+    suitable for timeline lanes. Undated narrators (no birth or death signal in
+    any form) are omitted; ṭabaqa-estimated and lifespan-filled windows are
+    returned with ``estimated=True`` so the UI can mark them (owner decision).
+
+    The ``start_year`` / ``end_year`` viewport predicate is applied **inside
+    Cypher, before the ``LIMIT``** — the active window is derived in-query
+    (mirroring :func:`_active_window`: prefer the resolved earliest-birth /
+    latest-death bounds, else the point years, else an assumed-lifespan span for
+    a one-sided narrator) and its overlap with the requested range is filtered
+    there. This is load-bearing on the real corpus (>cap dated narrators): if the
+    cap were applied before the viewport filter, only the earliest-death ``LIMIT``
+    would ever materialize and a late viewport would silently under-return (same
+    class as the ig#1147 search-cap bug). ``truncated`` is True when the cap
+    clipped the *viewport-filtered* set — probed by fetching one row past the cap.
+    """
+    # Fetch one extra row past the cap so we can tell whether the viewport-filtered
+    # set was actually clipped (truncated) without a second COUNT round-trip.
+    rows = neo4j.execute_read(
+        """
+        MATCH (n:Narrator)
+        WITH n,
+             coalesce(n.birth_year_ah_earliest, n.birth_year_ah) AS eff_birth,
+             coalesce(n.death_year_ah_latest, n.death_year_ah) AS eff_death
+        WHERE eff_birth IS NOT NULL OR eff_death IS NOT NULL
+        WITH n, eff_birth, eff_death,
+             CASE
+                 WHEN eff_death IS NULL THEN eff_birth
+                 WHEN eff_birth IS NULL THEN eff_death - $assumed_lifespan
+                 ELSE eff_birth
+             END AS window_start,
+             CASE
+                 WHEN eff_death IS NULL THEN eff_birth + $assumed_lifespan
+                 WHEN eff_birth IS NULL THEN eff_death
+                 ELSE eff_death
+             END AS window_end
+        WHERE ($start_year IS NULL OR window_end >= $start_year)
+          AND ($end_year IS NULL OR window_start <= $end_year)
+        RETURN n.id AS id, n.name_ar AS name_ar, n.name_en AS name_en,
+               n.birth_year_ah AS birth_year_ah, n.death_year_ah AS death_year_ah,
+               n.birth_year_ah_earliest AS birth_year_ah_earliest,
+               n.birth_year_ah_latest AS birth_year_ah_latest,
+               n.death_year_ah_earliest AS death_year_ah_earliest,
+               n.death_year_ah_latest AS death_year_ah_latest,
+               n.birth_date_precision AS birth_date_precision,
+               n.death_date_precision AS death_date_precision,
+               n.tabaqat_class AS tabaqat_class
+        ORDER BY coalesce(n.death_year_ah_latest, n.death_year_ah,
+                          n.birth_year_ah_latest, n.birth_year_ah)
+        LIMIT $limit
+        """,
+        {
+            "start_year": start_year,
+            "end_year": end_year,
+            "assumed_lifespan": DEFAULT_ASSUMED_LIFESPAN_AH,
+            "limit": limit + 1,
+        },
+    )
+
+    truncated = len(rows) > limit
+    rows = rows[:limit]
+
+    entries: list[NarratorTimelineEntry] = []
+    for row in rows:
+        lane = _narrator_lane(row)
+        # Defensive: the Cypher WHERE already excludes windowless narrators (its
+        # ``eff_birth``/``eff_death`` guard mirrors ``_active_window``'s None
+        # condition), so this is belt-and-suspenders, not the viewport filter —
+        # that now lives in Cypher, before the LIMIT.
+        if lane is None:
+            continue
+        entries.append(lane)
+
+    return NarratorTimelineResponse(entries=entries, total=len(entries), truncated=truncated)
