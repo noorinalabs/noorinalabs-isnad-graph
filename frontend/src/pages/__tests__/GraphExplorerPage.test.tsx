@@ -61,12 +61,24 @@ vi.mock("../../components/ForceGraph", () => ({
     nodes: GraphNode[]
     edges: GraphEdge[]
     selectedNodeId: string | null
+    layoutMode?: string
+    nodeLayerRank?: Map<string, number> | null
+    layerCount?: number
   }) => (
     <div
       data-testid="force-graph-stub"
       data-node-count={props.nodes.length}
       data-edge-count={props.edges.length}
       data-selected={props.selectedNodeId ?? ""}
+      data-layout={props.layoutMode ?? ""}
+      data-layer-count={props.layerCount ?? 0}
+      data-node-ranks={
+        props.nodeLayerRank
+          ? [...props.nodeLayerRank.entries()]
+              .map(([id, rank]) => `${id}:${rank}`)
+              .join(",")
+          : ""
+      }
     >
       ForceGraph stub
     </div>
@@ -541,5 +553,104 @@ describe("GraphExplorerPage — over-limit warning", () => {
     expect(within(warning.parentElement!).getByRole("button", {
       name: "Open Filters",
     })).toBeInTheDocument()
+  })
+})
+
+describe("GraphExplorerPage — ṭabaqa generation layering (ig#1043)", () => {
+  it("offers a Ṭabaqa layout toggle", () => {
+    renderPage()
+    expect(
+      screen.getByRole("button", { name: /abaqa/i }),
+    ).toBeInTheDocument()
+  })
+
+  it("layers loaded nodes into chronological generation bands and passes ranks to the graph", async () => {
+    const user = userEvent.setup()
+    searchItems = [makeNarrator({ id: "root", name_en: "Root Narrator" })]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "root",
+      // Deliberately out of chronological order and mixing an unknown generation.
+      nodes: [
+        makeNode({ id: "later", generation: "later" }),
+        makeNode({ id: "sahabi", generation: "sahabi" }),
+        makeNode({ id: "tabii", generation: "tabii" }),
+        makeNode({ id: "mystery", generation: "not-a-real-tabaqa" }),
+      ],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+    vi.mocked(fetchNarrator).mockResolvedValue(makeNarrator({ id: "root" }))
+    vi.mocked(fetchNarratorChains).mockResolvedValue({
+      narrator_id: "root",
+      chains: [],
+      total: 0,
+    })
+
+    renderPage()
+    await user.type(screen.getByLabelText("Search for a narrator"), "Root")
+    const dropdownItem = await screen.findByText("Root Narrator")
+    await user.click(dropdownItem)
+
+    const stub = await screen.findByTestId("force-graph-stub")
+
+    // Switching to the Ṭabaqa layout wires the mode + band ranks into the graph.
+    await user.click(screen.getByRole("button", { name: /abaqa/i }))
+    await waitFor(() => {
+      expect(stub).toHaveAttribute("data-layout", "tabaqa")
+    })
+
+    // Four bands present: sahabi(0) < tabii(1) < later(2) < unknown(3), earliest
+    // generation first, unmapped generation collected into the trailing band.
+    expect(stub).toHaveAttribute("data-layer-count", "4")
+    const ranks = Object.fromEntries(
+      (stub.getAttribute("data-node-ranks") ?? "")
+        .split(",")
+        .map((pair) => pair.split(":")),
+    )
+    expect(ranks["sahabi"]).toBe("0")
+    expect(ranks["tabii"]).toBe("1")
+    expect(ranks["later"]).toBe("2")
+    // Unknown/unmapped generation is placed last, after every known band.
+    expect(ranks["mystery"]).toBe("3")
+  })
+
+  it("annotates the canvas with the generation bands in chronological order", async () => {
+    const user = userEvent.setup()
+    searchItems = [makeNarrator({ id: "root", name_en: "Root Narrator" })]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "root",
+      nodes: [
+        makeNode({ id: "sahabi", generation: "sahabi" }),
+        makeNode({ id: "tabii", generation: "tabii" }),
+      ],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+    vi.mocked(fetchNarrator).mockResolvedValue(makeNarrator({ id: "root" }))
+    vi.mocked(fetchNarratorChains).mockResolvedValue({
+      narrator_id: "root",
+      chains: [],
+      total: 0,
+    })
+
+    renderPage()
+    await user.type(screen.getByLabelText("Search for a narrator"), "Root")
+    await user.click(await screen.findByText("Root Narrator"))
+    await screen.findByTestId("force-graph-stub")
+
+    // No band overlay until the ṭabaqa layout is active.
+    expect(screen.queryByTestId("tabaqa-bands")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /abaqa/i }))
+    const overlay = await screen.findByTestId("tabaqa-bands")
+    // Earliest generation (Companions) is listed above the next (Successors).
+    const companions = within(overlay).getByText("Companions")
+    const successors = within(overlay).getByText("Successors")
+    expect(
+      companions.compareDocumentPosition(successors) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 })
