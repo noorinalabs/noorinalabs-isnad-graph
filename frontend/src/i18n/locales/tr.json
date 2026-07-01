@@ -214,6 +214,7 @@
     "narratorLanesTitle": "Ravi Yaşam Süreleri ve Tabakalar",
     "narratorLanesBody": "Ravi etkinlik aralıkları (en erken doğumdan en geç ölüme, Hicri). Tahmini aralıklar — varsayılan ömür veya tabakadan türetilen — kesik çizgili ve işaretli gösterilir. Bir raviyi açmak için şeride tıklayın.",
     "narratorLanesEmpty": "Zaman çizelgesine yerleştirilecek tarihli ravi henüz yok.",
+    "narratorLanesTruncated": "Bu aralık için ilk {{count}} ravi gösteriliyor. Daha fazlasını görmek için yıl aralığını daraltın.",
     "narratorChartAria": "Ravi yaşam süreleri ve tabakaların zaman çizelgesi grafiği",
     "estimatedLabel": "tahmini",
     "tabaqaLabel": "Tabaka {{class}}"

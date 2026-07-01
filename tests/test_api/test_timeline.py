@@ -181,3 +181,136 @@ def test_timeline_narrators_empty(client: TestClient, mock_neo4j: MagicMock) -> 
     body = resp.json()
     assert body["entries"] == []
     assert body["total"] == 0
+
+
+def _attested_narrator(narrator_id: str, birth: int, death: int) -> dict[str, object]:
+    """A fully-attested narrator row → window == [birth, death], estimated False."""
+    return {
+        "id": narrator_id,
+        "name_ar": narrator_id,
+        "name_en": narrator_id,
+        "birth_year_ah": birth,
+        "death_year_ah": death,
+        "birth_year_ah_earliest": None,
+        "birth_year_ah_latest": None,
+        "death_year_ah_earliest": None,
+        "death_year_ah_latest": None,
+        "birth_date_precision": "exact",
+        "death_date_precision": "exact",
+        "tabaqat_class": None,
+    }
+
+
+def _fake_neo4j_viewport(corpus: list[dict[str, object]]):
+    """A query-param-aware fake for ``execute_read`` that emulates the endpoint's
+    Cypher: viewport WHERE (window-overlap) → ORDER BY death ASC → LIMIT.
+
+    Because the real DB is mocked, this fake is what makes the pre-filter-LIMIT
+    bug observable in a unit test: the emulated viewport filter runs *before* the
+    LIMIT, keyed off the ``start_year``/``end_year`` params. The buggy route never
+    passed those params into Cypher (it filtered in Python *after* the LIMIT), so
+    against the buggy route this fake sees no viewport params, returns the global
+    earliest-death page, and the late-viewport assertion below fails — exactly the
+    regression this test pins.
+    """
+
+    def _run(_query: str, params: dict[str, object]) -> list[dict[str, object]]:
+        start = params.get("start_year")
+        end = params.get("end_year")
+        rows = list(corpus)
+        # Emulate the in-Cypher window-overlap WHERE (attested seeds: window ==
+        # [birth, death]). None means unbounded, mirroring `$x IS NULL OR ...`.
+        kept = []
+        for r in rows:
+            win_start = r["birth_year_ah"]
+            win_end = r["death_year_ah"]
+            if start is not None and win_end < start:
+                continue
+            if end is not None and win_start > end:
+                continue
+            kept.append(r)
+        kept.sort(key=lambda r: r["death_year_ah"])  # ORDER BY death ASC
+        limit = params.get("limit")
+        if limit is not None:
+            kept = kept[: int(limit)]
+        return kept
+
+    return _run
+
+
+def test_timeline_narrators_viewport_filters_before_limit(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A late viewport must return the late-death narrators, not the global
+    earliest-death page.
+
+    Regression for the pre-filter-LIMIT bug (both reviewers, ig#1041): on the real
+    corpus (>cap dated narrators) the cap was applied to the earliest-death set
+    *before* the viewport filter, so a late viewport silently under-returned. This
+    test FAILS against that code (the viewport filter never reaches Cypher, so the
+    fake returns the early page and the late narrators are absent).
+    """
+    early = [_attested_narrator(f"early-{i}", 40 + i, 110 + i) for i in range(5)]
+    late = [
+        _attested_narrator("late-a", 220, 260),
+        _attested_narrator("late-b", 222, 270),
+        _attested_narrator("late-c", 224, 280),
+    ]
+    mock_neo4j.execute_read.side_effect = _fake_neo4j_viewport(early + late)
+
+    resp = client.get("/api/v1/timeline/narrators?start_year=250&end_year=300&limit=3")
+    assert resp.status_code == 200
+    body = resp.json()
+    ids = {e["narrator_id"] for e in body["entries"]}
+    # The late-death narrators (which overlap the 250-300 viewport) are present ...
+    assert ids == {"late-a", "late-b", "late-c"}
+    # ... and none of the earliest-death narrators leaked through.
+    assert not any(i.startswith("early-") for i in ids)
+
+
+def test_timeline_narrators_truncated_when_viewport_set_exceeds_cap(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """``truncated`` is True when the cap clips the viewport-filtered set."""
+    late = [_attested_narrator(f"late-{i}", 220 + i, 260 + i) for i in range(5)]
+    mock_neo4j.execute_read.side_effect = _fake_neo4j_viewport(late)
+
+    resp = client.get("/api/v1/timeline/narrators?start_year=250&end_year=300&limit=3")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["entries"]) == 3
+    assert body["total"] == 3
+    assert body["truncated"] is True
+
+
+def test_timeline_narrators_not_truncated_when_within_cap(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """``truncated`` is False when the viewport-filtered set fits under the cap."""
+    late = [_attested_narrator(f"late-{i}", 220 + i, 260 + i) for i in range(3)]
+    mock_neo4j.execute_read.side_effect = _fake_neo4j_viewport(late)
+
+    resp = client.get("/api/v1/timeline/narrators?start_year=250&end_year=300&limit=5")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["entries"]) == 3
+    assert body["truncated"] is False
+
+
+def test_timeline_narrators_passes_viewport_into_cypher(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """The viewport bounds are threaded into the Cypher params (so filtering
+    happens in-query, before the LIMIT), and the LIMIT probes one past the cap."""
+    mock_neo4j.execute_read.side_effect = [[]]
+    resp = client.get("/api/v1/timeline/narrators?start_year=250&end_year=300&limit=7")
+    assert resp.status_code == 200
+
+    query, params = mock_neo4j.execute_read.call_args_list[0][0]
+    assert params["start_year"] == 250
+    assert params["end_year"] == 300
+    # limit+1 probe for truncation detection.
+    assert params["limit"] == 8
+    # The window-overlap predicate lives in Cypher now, not Python.
+    assert "window_end >= $start_year" in query
+    assert "window_start <= $end_year" in query

@@ -214,6 +214,7 @@
     "narratorLanesTitle": "Narrator Lifespans & Ṭabaqāt",
     "narratorLanesBody": "Narrator active windows (earliest birth to latest death, Anno Hegirae). Estimated windows — derived from an assumed lifespan or ṭabaqa — are shown dashed and marked. Click a lane to open the narrator.",
     "narratorLanesEmpty": "No dated narrators to place on the timeline yet.",
+    "narratorLanesTruncated": "Showing the first {{count}} narrators for this range. Narrow the year range to see more.",
     "narratorChartAria": "Timeline chart of narrator lifespans and ṭabaqāt",
     "estimatedLabel": "estimated",
     "tabaqaLabel": "Ṭabaqa {{class}}"

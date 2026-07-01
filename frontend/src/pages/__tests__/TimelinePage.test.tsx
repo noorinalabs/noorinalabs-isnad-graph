@@ -112,4 +112,16 @@ describe("TimelinePage narrator lifespan/ṭabaqa lanes", () => {
 
     expect(await screen.findByText(/No dated narrators/i)).toBeInTheDocument()
   })
+
+  it("surfaces a truncation affordance when the endpoint caps the viewport set", async () => {
+    mockNarrators.mockResolvedValue({
+      entries: [makeNarrator({ narrator_id: "n1", name_en: "Narrator One" })],
+      total: 1,
+      truncated: true,
+    })
+
+    renderPage()
+
+    expect(await screen.findByText(/showing the first/i)).toBeInTheDocument()
+  })
 })

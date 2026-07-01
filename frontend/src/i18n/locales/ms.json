@@ -214,6 +214,7 @@
     "narratorLanesTitle": "Jangka Hayat Perawi & Ṭabaqāt",
     "narratorLanesBody": "Julat aktif perawi (kelahiran paling awal hingga kematian paling lewat, Hijrah). Julat anggaran — daripada jangka hayat andaian atau ṭabaqa — dipaparkan putus-putus dan ditanda. Klik lorong untuk membuka perawi.",
     "narratorLanesEmpty": "Belum ada perawi bertarikh untuk diletakkan pada garis masa.",
+    "narratorLanesTruncated": "Memaparkan {{count}} perawi pertama untuk julat ini. Sempitkan julat tahun untuk melihat lebih banyak.",
     "narratorChartAria": "Carta garis masa jangka hayat perawi dan ṭabaqāt",
     "estimatedLabel": "anggaran",
     "tabaqaLabel": "Ṭabaqa {{class}}"

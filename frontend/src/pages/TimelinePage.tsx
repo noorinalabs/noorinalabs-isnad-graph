@@ -134,6 +134,7 @@ function NarratorLanes({ range }: { range: [number, number] }) {
   })
 
   const narrators = data?.entries ?? []
+  const truncated = data?.truncated ?? false
 
   useEffect(() => {
     if (!svgRef.current) return
@@ -229,15 +230,22 @@ function NarratorLanes({ range }: { range: [number, number] }) {
         {narrators.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('timeline.narratorLanesEmpty')}</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <svg
-              ref={svgRef}
-              width="100%"
-              height={200}
-              role="img"
-              aria-label={t('timeline.narratorChartAria')}
-            />
-          </div>
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <svg
+                ref={svgRef}
+                width="100%"
+                height={200}
+                role="img"
+                aria-label={t('timeline.narratorChartAria')}
+              />
+            </div>
+            {truncated && (
+              <p className="text-sm text-muted-foreground mt-2" role="status">
+                {t('timeline.narratorLanesTruncated', { count: narrators.length })}
+              </p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

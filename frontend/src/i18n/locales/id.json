@@ -214,6 +214,7 @@
     "narratorLanesTitle": "Masa Hidup Perawi & Ṭabaqāt",
     "narratorLanesBody": "Rentang aktif perawi (kelahiran paling awal hingga kematian paling akhir, Hijriah). Rentang perkiraan — dari asumsi masa hidup atau ṭabaqa — ditampilkan putus-putus dan ditandai. Klik jalur untuk membuka perawi.",
     "narratorLanesEmpty": "Belum ada perawi bertanggal untuk ditempatkan pada lini masa.",
+    "narratorLanesTruncated": "Menampilkan {{count}} perawi pertama untuk rentang ini. Persempit rentang tahun untuk melihat lebih banyak.",
     "narratorChartAria": "Bagan lini masa masa hidup perawi dan ṭabaqāt",
     "estimatedLabel": "perkiraan",
     "tabaqaLabel": "Ṭabaqa {{class}}"

@@ -169,12 +169,40 @@ def get_timeline_narrators(
     suitable for timeline lanes. Undated narrators (no birth or death signal in
     any form) are omitted; ṭabaqa-estimated and lifespan-filled windows are
     returned with ``estimated=True`` so the UI can mark them (owner decision).
+
+    The ``start_year`` / ``end_year`` viewport predicate is applied **inside
+    Cypher, before the ``LIMIT``** — the active window is derived in-query
+    (mirroring :func:`_active_window`: prefer the resolved earliest-birth /
+    latest-death bounds, else the point years, else an assumed-lifespan span for
+    a one-sided narrator) and its overlap with the requested range is filtered
+    there. This is load-bearing on the real corpus (>cap dated narrators): if the
+    cap were applied before the viewport filter, only the earliest-death ``LIMIT``
+    would ever materialize and a late viewport would silently under-return (same
+    class as the ig#1147 search-cap bug). ``truncated`` is True when the cap
+    clipped the *viewport-filtered* set — probed by fetching one row past the cap.
     """
+    # Fetch one extra row past the cap so we can tell whether the viewport-filtered
+    # set was actually clipped (truncated) without a second COUNT round-trip.
     rows = neo4j.execute_read(
         """
         MATCH (n:Narrator)
-        WHERE n.birth_year_ah IS NOT NULL OR n.death_year_ah IS NOT NULL
-           OR n.birth_year_ah_earliest IS NOT NULL OR n.death_year_ah_latest IS NOT NULL
+        WITH n,
+             coalesce(n.birth_year_ah_earliest, n.birth_year_ah) AS eff_birth,
+             coalesce(n.death_year_ah_latest, n.death_year_ah) AS eff_death
+        WHERE eff_birth IS NOT NULL OR eff_death IS NOT NULL
+        WITH n, eff_birth, eff_death,
+             CASE
+                 WHEN eff_death IS NULL THEN eff_birth
+                 WHEN eff_birth IS NULL THEN eff_death - $assumed_lifespan
+                 ELSE eff_birth
+             END AS window_start,
+             CASE
+                 WHEN eff_death IS NULL THEN eff_birth + $assumed_lifespan
+                 WHEN eff_birth IS NULL THEN eff_death
+                 ELSE eff_death
+             END AS window_end
+        WHERE ($start_year IS NULL OR window_end >= $start_year)
+          AND ($end_year IS NULL OR window_start <= $end_year)
         RETURN n.id AS id, n.name_ar AS name_ar, n.name_en AS name_en,
                n.birth_year_ah AS birth_year_ah, n.death_year_ah AS death_year_ah,
                n.birth_year_ah_earliest AS birth_year_ah_earliest,
@@ -188,20 +216,26 @@ def get_timeline_narrators(
                           n.birth_year_ah_latest, n.birth_year_ah)
         LIMIT $limit
         """,
-        {"limit": limit},
+        {
+            "start_year": start_year,
+            "end_year": end_year,
+            "assumed_lifespan": DEFAULT_ASSUMED_LIFESPAN_AH,
+            "limit": limit + 1,
+        },
     )
+
+    truncated = len(rows) > limit
+    rows = rows[:limit]
 
     entries: list[NarratorTimelineEntry] = []
     for row in rows:
         lane = _narrator_lane(row)
+        # Defensive: the Cypher WHERE already excludes windowless narrators (its
+        # ``eff_birth``/``eff_death`` guard mirrors ``_active_window``'s None
+        # condition), so this is belt-and-suspenders, not the viewport filter —
+        # that now lives in Cypher, before the LIMIT.
         if lane is None:
-            continue
-        # Viewport filter: keep lanes whose [start, end] window overlaps the
-        # requested [start_year, end_year] range.
-        if start_year is not None and lane.window_end_ah < start_year:
-            continue
-        if end_year is not None and lane.window_start_ah > end_year:
             continue
         entries.append(lane)
 
-    return NarratorTimelineResponse(entries=entries, total=len(entries))
+    return NarratorTimelineResponse(entries=entries, total=len(entries), truncated=truncated)

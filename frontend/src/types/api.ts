@@ -154,6 +154,10 @@ export interface NarratorTimelineEntry {
 export interface NarratorTimelineResponse {
   entries: NarratorTimelineEntry[]
   total: number
+  // True when the server cap clipped the viewport-filtered set (more narrators
+  // overlap the requested range than were returned) — drives a "showing first N"
+  // affordance. Optional so responses predating the field still typecheck.
+  truncated?: boolean
 }
 
 export interface ParallelHadith {

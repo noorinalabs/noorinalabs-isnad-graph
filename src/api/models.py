@@ -455,12 +455,20 @@ class NarratorTimelineEntry(BaseModel):
 
 
 class NarratorTimelineResponse(BaseModel):
-    """Narrator lifespan/ṭabaqa lanes response for the timeline."""
+    """Narrator lifespan/ṭabaqa lanes response for the timeline.
+
+    ``total`` is the number of lanes actually returned (the viewport-filtered set,
+    capped at the ``limit``). ``truncated`` is True when that cap clipped the
+    viewport-filtered set — i.e. more narrators overlap the requested window than
+    were returned — so the UI can surface a "showing first N" affordance instead
+    of silently under-rendering (mirrors ``ChainValidationResponse.truncated``).
+    """
 
     model_config = ConfigDict(frozen=True)
 
     entries: list[NarratorTimelineEntry]
     total: int
+    truncated: bool = False
 
 
 # --- Chain validation models ---
