@@ -603,6 +603,31 @@
       "resultConfirmationMethod": "تصدیق کا طریقہ: {{method}}",
       "resultAuditEntry": "آڈٹ اندراج:",
       "summaryNoChanges": "کوئی تبدیلی رپورٹ نہیں ہوئی۔"
+    },
+    "moderation": {
+      "title": "مواد کی نگرانی",
+      "flagContent": "مواد کو نشان زد کریں",
+      "entityTypeLabel": "اینٹیٹی کی قسم",
+      "entityHadith": "حدیث",
+      "entityNarrator": "راوی",
+      "entityIdPlaceholder": "اینٹیٹی آئی ڈی",
+      "entityIdLabel": "اینٹیٹی آئی ڈی",
+      "reasonPlaceholder": "وجہ",
+      "reasonLabel": "نشان زد کرنے کی وجہ",
+      "flag": "نشان زد کریں",
+      "filterByStatus": "حالت کے لحاظ سے فلٹر کریں:",
+      "statusAll": "سب",
+      "statusPending": "زیر التوا",
+      "statusApproved": "منظور شدہ",
+      "statusRejected": "مسترد",
+      "colType": "قسم",
+      "colEntityId": "اینٹیٹی آئی ڈی",
+      "colReason": "وجہ",
+      "colStatus": "حالت",
+      "colFlagged": "نشان زد",
+      "colActions": "اعمال",
+      "approve": "منظور کریں",
+      "reject": "مسترد کریں"
     }
   }
 }

@@ -603,6 +603,31 @@
       "resultConfirmationMethod": "Onay yöntemi: {{method}}",
       "resultAuditEntry": "Denetim kaydı:",
       "summaryNoChanges": "Bildirilen değişiklik yok."
+    },
+    "moderation": {
+      "title": "İçerik Moderasyonu",
+      "flagContent": "İçeriği İşaretle",
+      "entityTypeLabel": "Varlık türü",
+      "entityHadith": "Hadis",
+      "entityNarrator": "Ravi",
+      "entityIdPlaceholder": "Varlık kimliği",
+      "entityIdLabel": "Varlık kimliği",
+      "reasonPlaceholder": "Sebep",
+      "reasonLabel": "İşaretleme sebebi",
+      "flag": "İşaretle",
+      "filterByStatus": "Duruma göre filtrele:",
+      "statusAll": "Tümü",
+      "statusPending": "Beklemede",
+      "statusApproved": "Onaylandı",
+      "statusRejected": "Reddedildi",
+      "colType": "Tür",
+      "colEntityId": "Varlık Kimliği",
+      "colReason": "Sebep",
+      "colStatus": "Durum",
+      "colFlagged": "İşaretlendi",
+      "colActions": "Eylemler",
+      "approve": "Onayla",
+      "reject": "Reddet"
     }
   }
 }

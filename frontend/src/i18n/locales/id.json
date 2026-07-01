@@ -603,6 +603,31 @@
       "resultConfirmationMethod": "Metode konfirmasi: {{method}}",
       "resultAuditEntry": "Entri audit:",
       "summaryNoChanges": "Tidak ada perubahan dilaporkan."
+    },
+    "moderation": {
+      "title": "Moderasi Konten",
+      "flagContent": "Tandai Konten",
+      "entityTypeLabel": "Tipe entitas",
+      "entityHadith": "Hadis",
+      "entityNarrator": "Perawi",
+      "entityIdPlaceholder": "ID entitas",
+      "entityIdLabel": "ID entitas",
+      "reasonPlaceholder": "Alasan",
+      "reasonLabel": "Alasan penandaan",
+      "flag": "Tandai",
+      "filterByStatus": "Filter menurut status:",
+      "statusAll": "Semua",
+      "statusPending": "Tertunda",
+      "statusApproved": "Disetujui",
+      "statusRejected": "Ditolak",
+      "colType": "Tipe",
+      "colEntityId": "ID Entitas",
+      "colReason": "Alasan",
+      "colStatus": "Status",
+      "colFlagged": "Ditandai",
+      "colActions": "Tindakan",
+      "approve": "Setujui",
+      "reject": "Tolak"
     }
   }
 }

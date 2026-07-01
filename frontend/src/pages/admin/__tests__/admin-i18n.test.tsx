@@ -6,16 +6,23 @@ import i18n from '../../../i18n'
 import ar from '../../../i18n/locales/ar.json'
 import en from '../../../i18n/locales/en.json'
 import AuditLogPage from '../AuditLogPage'
+import ModerationPage from '../ModerationPage'
 import SystemHealthPage from '../SystemHealthPage'
 
-// The pages fire admin-client queries on mount; resolve them with empty-but-
-// shaped payloads so the only thing under test is the statically-rendered,
-// translated chrome (and the queries settle inside act(), no test warnings).
+// The pages fire admin-client / client queries on mount; resolve them with
+// empty-but-shaped payloads so the only thing under test is the statically-
+// rendered, translated chrome (and the queries settle inside act(), no
+// test warnings).
 vi.mock('../../../api/admin-client', () => ({
   fetchAuditLogs: vi.fn(() => Promise.resolve({ items: [], total: 0, page: 1, limit: 20 })),
   fetchSystemHealth: vi.fn(() =>
     Promise.resolve({ status: 'ok', neo4j: true, postgres: true, redis: true }),
   ),
+}))
+vi.mock('../../../api/client', () => ({
+  fetchModerationItems: vi.fn(() => Promise.resolve({ items: [], total: 0, page: 1, limit: 20 })),
+  updateModerationItem: vi.fn(() => Promise.resolve({})),
+  flagContent: vi.fn(() => Promise.resolve({})),
 }))
 
 // The admin/* page bodies were routed through i18next in ig#1104. These tests
@@ -54,5 +61,29 @@ describe('admin pages route body copy through i18next (ig#1104)', () => {
     expect(heading).toBeInTheDocument()
     // A resolved key never renders its raw dotted path.
     expect(heading.textContent).not.toMatch(/admin\./)
+  })
+
+  // Regression guard for the shipped defect: ModerationPage renders ~23
+  // admin.moderation.* strings; the section was absent from every bundle, so
+  // the page rendered raw dotted keys. Assert it renders translated copy and
+  // that NO raw admin.moderation.* literal leaks into the DOM, en + ar.
+  it('ModerationPage renders translated body (en) with no raw admin.* leak', async () => {
+    await i18n.changeLanguage('en')
+    const { container } = renderPage(<ModerationPage />)
+    expect(
+      await screen.findByRole('heading', { name: en.admin.moderation.title }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: en.admin.moderation.flag })).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/admin\.moderation\./)
+  })
+
+  it('ModerationPage renders the Arabic bundle with no raw admin.* leak', async () => {
+    await i18n.changeLanguage('ar')
+    const { container } = renderPage(<ModerationPage />)
+    expect(
+      await screen.findByRole('heading', { name: ar.admin.moderation.title }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: en.admin.moderation.title })).toBeNull()
+    expect(container.textContent).not.toMatch(/admin\.moderation\./)
   })
 })

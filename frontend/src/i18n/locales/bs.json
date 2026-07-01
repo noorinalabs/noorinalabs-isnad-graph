@@ -615,6 +615,31 @@
       "resultConfirmationMethod": "Metoda potvrde: {{method}}",
       "resultAuditEntry": "Zapis revizije:",
       "summaryNoChanges": "Nema prijavljenih promjena."
+    },
+    "moderation": {
+      "title": "Moderacija sadržaja",
+      "flagContent": "Označi sadržaj",
+      "entityTypeLabel": "Tip entiteta",
+      "entityHadith": "Hadis",
+      "entityNarrator": "Prenosilac",
+      "entityIdPlaceholder": "ID entiteta",
+      "entityIdLabel": "ID entiteta",
+      "reasonPlaceholder": "Razlog",
+      "reasonLabel": "Razlog označavanja",
+      "flag": "Označi",
+      "filterByStatus": "Filtriraj po statusu:",
+      "statusAll": "Sve",
+      "statusPending": "Na čekanju",
+      "statusApproved": "Odobreno",
+      "statusRejected": "Odbijeno",
+      "colType": "Tip",
+      "colEntityId": "ID entiteta",
+      "colReason": "Razlog",
+      "colStatus": "Status",
+      "colFlagged": "Označeno",
+      "colActions": "Radnje",
+      "approve": "Odobri",
+      "reject": "Odbij"
     }
   }
 }

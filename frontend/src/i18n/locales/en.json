@@ -603,6 +603,31 @@
       "resultConfirmationMethod": "Confirmation method: {{method}}",
       "resultAuditEntry": "Audit entry:",
       "summaryNoChanges": "No changes reported."
+    },
+    "moderation": {
+      "title": "Content Moderation",
+      "flagContent": "Flag Content",
+      "entityTypeLabel": "Entity type",
+      "entityHadith": "Hadith",
+      "entityNarrator": "Narrator",
+      "entityIdPlaceholder": "Entity ID",
+      "entityIdLabel": "Entity ID",
+      "reasonPlaceholder": "Reason",
+      "reasonLabel": "Reason for flagging",
+      "flag": "Flag",
+      "filterByStatus": "Filter by status:",
+      "statusAll": "All",
+      "statusPending": "Pending",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected",
+      "colType": "Type",
+      "colEntityId": "Entity ID",
+      "colReason": "Reason",
+      "colStatus": "Status",
+      "colFlagged": "Flagged",
+      "colActions": "Actions",
+      "approve": "Approve",
+      "reject": "Reject"
     }
   }
 }

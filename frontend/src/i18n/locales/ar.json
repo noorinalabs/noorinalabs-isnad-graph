@@ -621,6 +621,31 @@
       "resultConfirmationMethod": "طريقة التأكيد: {{method}}",
       "resultAuditEntry": "إدخال التدقيق:",
       "summaryNoChanges": "لم يُبلَّغ عن أي تغييرات."
+    },
+    "moderation": {
+      "title": "الإشراف على المحتوى",
+      "flagContent": "الإبلاغ عن المحتوى",
+      "entityTypeLabel": "نوع الكيان",
+      "entityHadith": "حديث",
+      "entityNarrator": "راوٍ",
+      "entityIdPlaceholder": "معرّف الكيان",
+      "entityIdLabel": "معرّف الكيان",
+      "reasonPlaceholder": "السبب",
+      "reasonLabel": "سبب الإبلاغ",
+      "flag": "إبلاغ",
+      "filterByStatus": "التصفية حسب الحالة:",
+      "statusAll": "الكل",
+      "statusPending": "قيد الانتظار",
+      "statusApproved": "مقبول",
+      "statusRejected": "مرفوض",
+      "colType": "النوع",
+      "colEntityId": "معرّف الكيان",
+      "colReason": "السبب",
+      "colStatus": "الحالة",
+      "colFlagged": "تاريخ الإبلاغ",
+      "colActions": "الإجراءات",
+      "approve": "قبول",
+      "reject": "رفض"
     }
   }
 }
