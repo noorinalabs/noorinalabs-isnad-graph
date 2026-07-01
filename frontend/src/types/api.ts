@@ -220,6 +220,37 @@ export interface NarratorNetworkResponse {
   students: number
 }
 
+// A narrator's resolved [start, end] active window in Hijri years. `estimated`
+// is true when either endpoint was derived from an assumed-lifespan span.
+export interface NarratorWindow {
+  narrator_id: string
+  name_ar?: string | null
+  name_en?: string | null
+  birth_year_ah?: number | null
+  death_year_ah?: number | null
+  window_start_ah?: number | null
+  window_end_ah?: number | null
+  estimated: boolean
+}
+
+// Chain-derived dating window for a hadith (ig#1042). Termini are anchored on
+// the earliest/latest narrator death across the isnad chain. When no chain
+// narrator is dated, all three bounds are null and `confidence` is
+// `insufficient_data` (with a human-readable `note`).
+export interface HadithDatingResponse {
+  hadith_id: string
+  terminus_post_quem_ah: number | null
+  terminus_ante_quem_ah: number | null
+  chain_span_ah: number | null
+  confidence: 'high' | 'medium' | 'low' | 'insufficient_data'
+  chain_narrator_count: number
+  dated_narrator_count: number
+  earliest_narrator: NarratorWindow | null
+  latest_narrator: NarratorWindow | null
+  assumed_lifespan_ah: number
+  note: string
+}
+
 // --- Subscription types ---
 
 export type SubscriptionTier = 'trial' | 'individual' | 'team' | 'enterprise'

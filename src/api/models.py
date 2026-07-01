@@ -495,6 +495,46 @@ class ChainValidationResponse(BaseModel):
     truncated: bool = False
 
 
+class HadithDatingResponse(BaseModel):
+    """Chain-derived dating window for a hadith (ig#1042).
+
+    The window is derived from the resolved active windows of the narrators in
+    the hadith's isnad chain (ig#1039 loaded ``*_earliest``/``*_latest`` bounds).
+    Both termini are anchored on narrator *deaths* (each narrator's window end):
+
+    * ``terminus_post_quem_ah`` -- the **earliest** narrator's death (min window
+      end). The hadith's content is attested in transmission from this era; the
+      chain cannot resolve earlier than its earliest link. Lower bound.
+    * ``terminus_ante_quem_ah`` -- the **latest** narrator's death (max window
+      end, the collector-side link). The isnad was fully transmitted by this
+      year, so the compiled hadith is attested no later than it. Upper bound.
+
+    ``chain_span_ah`` is ``terminus_ante_quem_ah - terminus_post_quem_ah``. When
+    no chain narrator carries a resolvable date, all three are ``None`` and
+    ``confidence`` is ``insufficient_data`` (never a 500) -- ``note`` carries the
+    human-readable explanation.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    hadith_id: str
+    terminus_post_quem_ah: int | None = None
+    terminus_ante_quem_ah: int | None = None
+    chain_span_ah: int | None = None
+    # Derivation confidence: high (every chain narrator dated, attested bounds),
+    # medium (bounds resolved but incomplete / estimated), low (single dated
+    # narrator -- span collapses to a point), insufficient_data (nothing dated).
+    confidence: Literal["high", "medium", "low", "insufficient_data"]
+    chain_narrator_count: int
+    dated_narrator_count: int
+    # The narrators fixing each terminus (window end = death anchor). None when
+    # the window could not be derived.
+    earliest_narrator: NarratorWindow | None = None
+    latest_narrator: NarratorWindow | None = None
+    assumed_lifespan_ah: int
+    note: str
+
+
 # --- Admin models ---
 
 

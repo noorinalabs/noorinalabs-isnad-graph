@@ -6,6 +6,7 @@ import type {
   Collection,
   NarratorChainsResponse,
   ChainVisualization,
+  HadithDatingResponse,
   SearchResultsResponse,
   SubscriptionResponse,
   TimelineResponse,
@@ -81,6 +82,11 @@ export async function fetchNarratorChains(id: string): Promise<NarratorChainsRes
 // `position` so the consumer can render in transmission order). #1032.
 export async function fetchHadithChain(hadithId: string): Promise<ChainVisualization> {
   return fetchJson(`${API_BASE}/graph/hadith/${encodeURIComponent(hadithId)}/chain`)
+}
+
+// Chain-derived dating window (terminus ante/post quem) for a hadith. ig#1042.
+export async function fetchHadithDating(hadithId: string): Promise<HadithDatingResponse> {
+  return fetchJson(`${API_BASE}/hadiths/${encodeURIComponent(hadithId)}/dating`)
 }
 
 export async function fetchHadiths(

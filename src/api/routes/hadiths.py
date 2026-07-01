@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.deps import get_neo4j
-from src.api.models import HadithFacetsResponse, HadithResponse, PaginatedResponse, TopicFacet
+from src.api.models import (
+    HadithDatingResponse,
+    HadithFacetsResponse,
+    HadithResponse,
+    NarratorWindow,
+    PaginatedResponse,
+    TopicFacet,
+)
 from src.utils.grades import GRADE_TOKENS, grade_filter_clause, normalize_grade
 from src.utils.neo4j_client import Neo4jClient
 from src.utils.topics import aggregate_topic_facets
@@ -17,6 +24,13 @@ from src.utils.topics import aggregate_topic_facets
 _GRADE_EXPR = "coalesce(g.grade, h.grade_composite, h.grade)"
 
 router = APIRouter()
+
+# Mirror of ``src.enrich.historical.DEFAULT_ASSUMED_LIFESPAN_AH``. Kept as a
+# module constant (rather than importing the enrich layer into the API layer,
+# matching ``validate.py``) so the API has no dependency on the enrichment
+# pipeline; the value is a stable domain assumption, not a tuning knob.
+DEFAULT_ASSUMED_LIFESPAN_AH = 80
+
 
 # Mapping from corpus/collection slug to human-readable name
 _COLLECTION_DISPLAY_NAMES: dict[str, str] = {
@@ -220,3 +234,187 @@ def get_hadith(
     if not rows:
         raise HTTPException(status_code=404, detail=f"Hadith '{hadith_id}' not found")
     return _build_hadith_response(rows[0]["props"], rows[0].get("grade"))
+
+
+def _dating_window(
+    birth_year_ah: int | None,
+    birth_year_ah_earliest: int | None,
+    death_year_ah: int | None,
+    death_year_ah_latest: int | None,
+    assumed_lifespan_ah: int,
+) -> tuple[tuple[int, int] | None, bool, bool]:
+    """Resolve a narrator's ``[start, end]`` active window for hadith dating.
+
+    Mirrors :func:`src.enrich.historical._active_window`: prefers the resolved
+    *outer* bounds (``birth_year_ah_earliest`` / ``death_year_ah_latest``,
+    ig#1039) so the window widens to earliest-plausible-birth .. latest-plausible
+    -death, and falls back to the point estimates with the death-attested /
+    birth-estimated asymmetry (death-only -> ``[death - lifespan, death]``,
+    birth-only -> ``[birth, birth + lifespan]``).
+
+    Returns ``(window, estimated, end_estimated)``. ``estimated`` is True when an
+    assumed-lifespan span filled *either* endpoint (surfaced on the narrator's
+    :class:`NarratorWindow`). ``end_estimated`` is True only when the window *end*
+    (the death anchor that fixes a terminus) was itself estimated -- so a
+    death-attested / birth-estimated narrator, the common case, has an attested
+    terminus anchor even though its window start is a guess. ``window`` is
+    ``None`` when the narrator carries no year in any form.
+    """
+    eff_birth = birth_year_ah_earliest if birth_year_ah_earliest is not None else birth_year_ah
+    eff_death = death_year_ah_latest if death_year_ah_latest is not None else death_year_ah
+    if eff_birth is None and eff_death is None:
+        return None, True, True
+    if eff_death is None:
+        # Birth-only: the END is the assumed-lifespan extrapolation.
+        assert eff_birth is not None
+        return (eff_birth, eff_birth + assumed_lifespan_ah), True, True
+    if eff_birth is None:
+        # Death-only (the norm): the END (death) is attested; only the start guessed.
+        return (eff_death - assumed_lifespan_ah, eff_death), True, False
+    return (eff_birth, eff_death), False, False
+
+
+def _dating_narrator_window(entry: tuple[dict[str, Any], int, int, bool, bool]) -> NarratorWindow:
+    """Build a :class:`NarratorWindow` from a resolved chain-narrator entry."""
+    row, start, end, estimated, _end_estimated = entry
+    return NarratorWindow(
+        narrator_id=row["id"],
+        name_ar=row.get("name_ar"),
+        name_en=row.get("name_en"),
+        birth_year_ah=row.get("birth_year_ah"),
+        death_year_ah=row.get("death_year_ah"),
+        window_start_ah=start,
+        window_end_ah=end,
+        estimated=estimated,
+    )
+
+
+def derive_hadith_dating(
+    hadith_id: str,
+    narrators: list[dict[str, Any]],
+    *,
+    assumed_lifespan_ah: int = DEFAULT_ASSUMED_LIFESPAN_AH,
+) -> HadithDatingResponse:
+    """Derive a hadith's dating window from its chain narrators (pure, DB-free).
+
+    Each narrator's active window is resolved (:func:`_dating_window`) and the two
+    termini are anchored on the window *end* (death): the earliest death fixes the
+    ``terminus_post_quem`` (content attested from this era) and the latest death
+    the ``terminus_ante_quem`` (isnad fully transmitted by then). Undated/partial
+    chains degrade to an ``insufficient_data`` window rather than raising.
+    """
+    windows: list[tuple[dict[str, Any], int, int, bool, bool]] = []
+    for row in narrators:
+        window, estimated, end_estimated = _dating_window(
+            row.get("birth_year_ah"),
+            row.get("birth_year_ah_earliest"),
+            row.get("death_year_ah"),
+            row.get("death_year_ah_latest"),
+            assumed_lifespan_ah,
+        )
+        if window is None:
+            continue
+        windows.append((row, window[0], window[1], estimated, end_estimated))
+
+    chain_count = len(narrators)
+    dated_count = len(windows)
+
+    if dated_count == 0:
+        note = (
+            "Insufficient data: no narrator in this hadith's isnad chain carries a "
+            "resolvable birth or death year, so a dating window cannot be derived."
+            if chain_count
+            else "Insufficient data: this hadith has no reconstructable isnad chain."
+        )
+        return HadithDatingResponse(
+            hadith_id=hadith_id,
+            confidence="insufficient_data",
+            chain_narrator_count=chain_count,
+            dated_narrator_count=0,
+            assumed_lifespan_ah=assumed_lifespan_ah,
+            note=note,
+        )
+
+    earliest = min(windows, key=lambda w: w[2])
+    latest = max(windows, key=lambda w: w[2])
+    tpq = earliest[2]
+    taq = latest[2]
+
+    confidence: Literal["high", "medium", "low"]
+    if dated_count == 1:
+        # Span collapses to a single point -- a weak, single-narrator anchor.
+        confidence = "low"
+    elif earliest[4] or latest[4]:
+        # A terminus anchor (a window END) rests on an assumed-lifespan estimate
+        # rather than an attested death year.
+        confidence = "medium"
+    elif dated_count == chain_count:
+        confidence = "high"
+    else:
+        confidence = "medium"
+
+    note = (
+        f"Chain resolves to AH {tpq}-{taq} ({confidence} confidence) "
+        f"from {dated_count} of {chain_count} dated narrators."
+    )
+
+    return HadithDatingResponse(
+        hadith_id=hadith_id,
+        terminus_post_quem_ah=tpq,
+        terminus_ante_quem_ah=taq,
+        chain_span_ah=taq - tpq,
+        confidence=confidence,
+        chain_narrator_count=chain_count,
+        dated_narrator_count=dated_count,
+        earliest_narrator=_dating_narrator_window(earliest),
+        latest_narrator=_dating_narrator_window(latest),
+        assumed_lifespan_ah=assumed_lifespan_ah,
+        note=note,
+    )
+
+
+@router.get("/hadiths/{hadith_id}/dating", response_model=HadithDatingResponse)
+def get_hadith_dating(
+    hadith_id: str,
+    neo4j: Neo4jClient = Depends(get_neo4j),
+) -> HadithDatingResponse:
+    """Return a chain-derived dating window for a hadith (ig#1042).
+
+    The window is computed from the resolved active windows (ig#1039) of the
+    narrators in the hadith's isnad chain -- the direct ``NARRATED`` narrator plus
+    the endpoints of the hadith's per-chain ``TRANSMITTED_TO`` edges (there are no
+    reified ``Chain`` nodes; #1032). See :class:`HadithDatingResponse` for the
+    terminus semantics. A hadith with an undated or partial chain returns an
+    ``insufficient_data`` window with a clear ``note`` -- never a 500.
+    """
+    exists = neo4j.execute_read(
+        "MATCH (h:Hadith {id: $id}) RETURN h.id AS id",
+        {"id": hadith_id},
+    )
+    if not exists:
+        raise HTTPException(status_code=404, detail=f"Hadith '{hadith_id}' not found")
+
+    # The chain's narrators are those directly NARRATED-linked to the hadith or
+    # sitting on one of its per-hadith TRANSMITTED_TO edges (undirected, so both
+    # endpoints are collected). DISTINCT de-duplicates a narrator reached by both
+    # paths. Only the date props _dating_window reads are projected.
+    rows = neo4j.execute_read(
+        """
+        CALL {
+            MATCH (n:Narrator)-[:NARRATED]->(:Hadith {id: $id})
+            RETURN n
+            UNION
+            MATCH (n:Narrator)-[:TRANSMITTED_TO {hadith_id: $id}]-(:Narrator)
+            RETURN n
+        }
+        WITH DISTINCT n
+        RETURN n.id AS id, n.name_ar AS name_ar, n.name_en AS name_en,
+               n.birth_year_ah AS birth_year_ah,
+               n.birth_year_ah_earliest AS birth_year_ah_earliest,
+               n.death_year_ah AS death_year_ah,
+               n.death_year_ah_latest AS death_year_ah_latest
+        ORDER BY n.id
+        """,
+        {"id": hadith_id},
+    )
+    return derive_hadith_dating(hadith_id, rows)

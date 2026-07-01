@@ -7,23 +7,72 @@ import {
   fetchHadith,
   fetchHadithParallels,
   fetchHadithChain,
+  fetchHadithDating,
 } from "../../api/client"
 import type {
   Hadith,
   ParallelsResponse,
   ChainVisualization,
+  HadithDatingResponse,
 } from "../../types/api"
 
 vi.mock("../../api/client", () => ({
   fetchHadith: vi.fn(),
   fetchHadithParallels: vi.fn(),
   fetchHadithChain: vi.fn(),
+  fetchHadithDating: vi.fn(),
 }))
 
 const EMPTY_CHAIN: ChainVisualization = {
   hadith_id: "bukhari:1",
   nodes: [],
   edges: [],
+}
+
+const INSUFFICIENT_DATING: HadithDatingResponse = {
+  hadith_id: "bukhari:1",
+  terminus_post_quem_ah: null,
+  terminus_ante_quem_ah: null,
+  chain_span_ah: null,
+  confidence: "insufficient_data",
+  chain_narrator_count: 0,
+  dated_narrator_count: 0,
+  earliest_narrator: null,
+  latest_narrator: null,
+  assumed_lifespan_ah: 80,
+  note: "Insufficient data: this hadith has no reconstructable isnad chain.",
+}
+
+const RESOLVED_DATING: HadithDatingResponse = {
+  hadith_id: "bukhari:1",
+  terminus_post_quem_ah: 58,
+  terminus_ante_quem_ah: 179,
+  chain_span_ah: 121,
+  confidence: "high",
+  chain_narrator_count: 3,
+  dated_narrator_count: 3,
+  earliest_narrator: {
+    narrator_id: "nar:abu-hurayra",
+    name_ar: null,
+    name_en: "Abu Hurayra",
+    birth_year_ah: null,
+    death_year_ah: 58,
+    window_start_ah: -22,
+    window_end_ah: 58,
+    estimated: true,
+  },
+  latest_narrator: {
+    narrator_id: "nar:malik",
+    name_ar: null,
+    name_en: "Malik ibn Anas",
+    birth_year_ah: null,
+    death_year_ah: 179,
+    window_start_ah: 99,
+    window_end_ah: 179,
+    estimated: true,
+  },
+  assumed_lifespan_ah: 80,
+  note: "Chain resolves to AH 58-179 (high confidence) from 3 of 3 dated narrators.",
 }
 
 function makeHadith(overrides: Partial<Hadith> = {}): Hadith {
@@ -65,6 +114,8 @@ describe("HadithDetailPage", () => {
     vi.clearAllMocks()
     // Default: no chain edges. Tests that exercise the chain override this.
     vi.mocked(fetchHadithChain).mockResolvedValue(EMPTY_CHAIN)
+    // Default: insufficient dating. Tests that exercise dating override this.
+    vi.mocked(fetchHadithDating).mockResolvedValue(INSUFFICIENT_DATING)
     // Clipboard polyfill — jsdom omits navigator.clipboard.writeText
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -442,4 +493,44 @@ describe("HadithDetailPage", () => {
       })
     })
   })
+  describe("chain-derived dating (ig#1042)", () => {
+    it("renders the derived terminus window and confidence when dated", async () => {
+      vi.mocked(fetchHadith).mockResolvedValue(makeHadith())
+      vi.mocked(fetchHadithParallels).mockResolvedValue({
+        hadith_id: "bukhari:1",
+        parallels: [],
+        total: 0,
+      })
+      vi.mocked(fetchHadithDating).mockResolvedValue(RESOLVED_DATING)
+      renderAt()
+
+      await screen.findByText("Chain-Derived Dating")
+      // The AH range is surfaced (post-quem 58 .. ante-quem 179).
+      expect(screen.getByText("AH 58–179")).toBeInTheDocument()
+      expect(screen.getByText("Terminus post quem (earliest)")).toBeInTheDocument()
+      expect(screen.getByText("Terminus ante quem (latest)")).toBeInTheDocument()
+      // Span + confidence.
+      expect(screen.getByText("121 years")).toBeInTheDocument()
+      expect(screen.getByText("High")).toBeInTheDocument()
+    })
+
+    it("shows the insufficient-data note without a 500 when the chain is undated", async () => {
+      vi.mocked(fetchHadith).mockResolvedValue(makeHadith())
+      vi.mocked(fetchHadithParallels).mockResolvedValue({
+        hadith_id: "bukhari:1",
+        parallels: [],
+        total: 0,
+      })
+      // INSUFFICIENT_DATING is the beforeEach default.
+      renderAt()
+
+      await screen.findByText("Chain-Derived Dating")
+      expect(
+        screen.getByText(/Insufficient data: this hadith has no reconstructable isnad chain/i),
+      ).toBeInTheDocument()
+      // The AH-range line is absent for the insufficient branch.
+      expect(screen.queryByText(/AH \d+–\d+/)).not.toBeInTheDocument()
+    })
+  })
+
 })
