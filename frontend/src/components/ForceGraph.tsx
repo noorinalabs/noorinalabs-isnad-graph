@@ -143,6 +143,13 @@ export default function ForceGraph({
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined)
   const themeColors = useThemeColors()
 
+  // Only the tabaqa layout pins nodes (via `fy`); force/hierarchy/radial are
+  // currently cosmetic-only and leave the node array untouched. Collapse
+  // layoutMode to a two-state pin-mode so the graphData memo below reheats the
+  // sim only when *entering or leaving* tabaqa — toggling among the cosmetic
+  // modes stays the correct no-op it was before ṭabaqa layering (ig#1043, Ravi).
+  const pinMode = layoutMode === 'tabaqa' ? 'tabaqa' : 'free'
+
   const graphData = useMemo(
     () => ({
       nodes: nodes.map((n): InternalNode => {
@@ -161,7 +168,7 @@ export default function ForceGraph({
         // generation so the tree reads chronologically top→bottom. `fy` fixes the
         // y-coordinate while x stays force-driven, spreading narrators within
         // their band. Bands are centered vertically around the origin.
-        if (layoutMode === 'tabaqa' && nodeLayerRank) {
+        if (pinMode === 'tabaqa' && nodeLayerRank) {
           const rank = nodeLayerRank.get(n.id)
           if (rank != null) {
             internal.fy = (rank - (layerCount - 1) / 2) * TABAQA_BAND_SPACING
@@ -178,7 +185,7 @@ export default function ForceGraph({
         }),
       ),
     }),
-    [nodes, edges, layoutMode, nodeLayerRank, layerCount],
+    [nodes, edges, pinMode, nodeLayerRank, layerCount],
   )
 
   // Build adjacency set for selection highlighting
