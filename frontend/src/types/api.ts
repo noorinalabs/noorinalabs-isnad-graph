@@ -137,6 +137,25 @@ export interface TimelineRangeResponse {
   max_year_ah: number
 }
 
+export interface NarratorTimelineEntry {
+  narrator_id: string
+  name_ar: string | null
+  name_en: string | null
+  birth_year_ah: number | null
+  death_year_ah: number | null
+  window_start_ah: number
+  window_end_ah: number
+  birth_date_precision: string | null
+  death_date_precision: string | null
+  tabaqat_class: string | null
+  estimated: boolean
+}
+
+export interface NarratorTimelineResponse {
+  entries: NarratorTimelineEntry[]
+  total: number
+}
+
 export interface ParallelHadith {
   id: string
   matn_ar: string

@@ -429,6 +429,40 @@ class TimelineRangeResponse(BaseModel):
     max_year_ah: int
 
 
+class NarratorTimelineEntry(BaseModel):
+    """A narrator's resolved lifespan/ṭabaqa lane for timeline visualization.
+
+    ``window_start_ah`` / ``window_end_ah`` are the [start, end] active window in
+    Hijri years (earliest plausible birth to latest plausible death). ``estimated``
+    is True when either endpoint was filled from an assumed-lifespan span or the
+    governing precision is a ṭabaqa estimate, so the UI can mark it distinctly
+    from an attested window (owner decision, ig#1041).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    narrator_id: str
+    name_ar: str | None = None
+    name_en: str | None = None
+    birth_year_ah: int | None = None
+    death_year_ah: int | None = None
+    window_start_ah: int
+    window_end_ah: int
+    birth_date_precision: str | None = None
+    death_date_precision: str | None = None
+    tabaqat_class: str | None = None
+    estimated: bool = True
+
+
+class NarratorTimelineResponse(BaseModel):
+    """Narrator lifespan/ṭabaqa lanes response for the timeline."""
+
+    model_config = ConfigDict(frozen=True)
+
+    entries: list[NarratorTimelineEntry]
+    total: int
+
+
 # --- Chain validation models ---
 
 # Verdict tiers for the chronological-plausibility check. ``impossible`` is

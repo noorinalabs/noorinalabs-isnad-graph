@@ -210,7 +210,13 @@
     "noEventsBody": "Peristiwa sejarah dan tempoh aktiviti perawi akan muncul di sini setelah proses pengayaan data dijalankan. Ini termasuk tarikh penting dalam sejarah Islam, tempoh hayat perawi, dan peristiwa keilmuan.",
     "activeNarrators_one": "{{count}} perawi aktif",
     "activeNarrators_other": "{{count}} perawi aktif",
-    "chartAria": "Carta garis masa memaparkan peristiwa dari {{from}} hingga {{to}} H"
+    "chartAria": "Carta garis masa memaparkan peristiwa dari {{from}} hingga {{to}} H",
+    "narratorLanesTitle": "Jangka Hayat Perawi & Ṭabaqāt",
+    "narratorLanesBody": "Julat aktif perawi (kelahiran paling awal hingga kematian paling lewat, Hijrah). Julat anggaran — daripada jangka hayat andaian atau ṭabaqa — dipaparkan putus-putus dan ditanda. Klik lorong untuk membuka perawi.",
+    "narratorLanesEmpty": "Belum ada perawi bertarikh untuk diletakkan pada garis masa.",
+    "narratorChartAria": "Carta garis masa jangka hayat perawi dan ṭabaqāt",
+    "estimatedLabel": "anggaran",
+    "tabaqaLabel": "Ṭabaqa {{class}}"
   },
   "graph": {
     "searchPlaceholder": "Cari perawi...",

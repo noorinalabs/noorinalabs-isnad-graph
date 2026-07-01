@@ -11,6 +11,7 @@ import type {
   SubscriptionResponse,
   TimelineResponse,
   TimelineRangeResponse,
+  NarratorTimelineResponse,
   ParallelsResponse,
   ParallelPairsResponse,
   NarratorNetworkResponse,
@@ -158,6 +159,17 @@ export async function fetchTimeline(
   if (endYear != null) params.set('end_year', String(endYear))
   const qs = params.toString()
   return fetchJson(`${API_BASE}/timeline${qs ? `?${qs}` : ''}`)
+}
+
+export async function fetchNarratorTimeline(
+  startYear?: number,
+  endYear?: number,
+): Promise<NarratorTimelineResponse> {
+  const params = new URLSearchParams()
+  if (startYear != null) params.set('start_year', String(startYear))
+  if (endYear != null) params.set('end_year', String(endYear))
+  const qs = params.toString()
+  return fetchJson(`${API_BASE}/timeline/narrators${qs ? `?${qs}` : ''}`)
 }
 
 export async function fetchGraphNetwork(

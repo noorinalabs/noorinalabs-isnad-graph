@@ -210,7 +210,13 @@
     "noEventsBody": "Tarihî olaylar ve ravi faaliyet dönemleri, veri zenginleştirme süreci çalıştırıldıktan sonra burada görünecektir. Buna İslam tarihindeki önemli tarihler, ravi yaşam süreleri ve ilmî olaylar dâhildir.",
     "activeNarrators_one": "{{count}} aktif ravi",
     "activeNarrators_other": "{{count}} aktif ravi",
-    "chartAria": "{{from}} ile {{to}} H arasındaki olayları gösteren zaman çizelgesi"
+    "chartAria": "{{from}} ile {{to}} H arasındaki olayları gösteren zaman çizelgesi",
+    "narratorLanesTitle": "Ravi Yaşam Süreleri ve Tabakalar",
+    "narratorLanesBody": "Ravi etkinlik aralıkları (en erken doğumdan en geç ölüme, Hicri). Tahmini aralıklar — varsayılan ömür veya tabakadan türetilen — kesik çizgili ve işaretli gösterilir. Bir raviyi açmak için şeride tıklayın.",
+    "narratorLanesEmpty": "Zaman çizelgesine yerleştirilecek tarihli ravi henüz yok.",
+    "narratorChartAria": "Ravi yaşam süreleri ve tabakaların zaman çizelgesi grafiği",
+    "estimatedLabel": "tahmini",
+    "tabaqaLabel": "Tabaka {{class}}"
   },
   "graph": {
     "searchPlaceholder": "Ravi ara...",

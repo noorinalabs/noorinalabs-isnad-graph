@@ -215,7 +215,13 @@
     "activeNarrators_one": "{{count}} aktivan prenosilac",
     "activeNarrators_few": "{{count}} aktivna prenosioca",
     "activeNarrators_other": "{{count}} aktivnih prenosilaca",
-    "chartAria": "Grafikon vremenske linije koji prikazuje događaje od {{from}} do {{to}} H"
+    "chartAria": "Grafikon vremenske linije koji prikazuje događaje od {{from}} do {{to}} H",
+    "narratorLanesTitle": "Životni vijekovi prenosilaca i tabekat",
+    "narratorLanesBody": "Aktivni rasponi prenosilaca (od najranijeg rođenja do najkasnije smrti, po Hidžri). Procijenjeni rasponi — izvedeni iz pretpostavljenog životnog vijeka ili tabeke — prikazani su isprekidano i označeni. Kliknite traku da otvorite prenosioca.",
+    "narratorLanesEmpty": "Još nema datiranih prenosilaca za prikaz na vremenskoj liniji.",
+    "narratorChartAria": "Grafikon vremenske linije životnih vijekova prenosilaca i tabekata",
+    "estimatedLabel": "procijenjeno",
+    "tabaqaLabel": "Tabeka {{class}}"
   },
   "graph": {
     "searchPlaceholder": "Pretraži prenosioca...",

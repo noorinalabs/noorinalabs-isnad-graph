@@ -74,3 +74,110 @@ def test_timeline_range(client: TestClient, mock_neo4j: MagicMock) -> None:
     body = resp.json()
     assert body["min_year_ah"] == 1
     assert body["max_year_ah"] == 300
+
+
+SAMPLE_NARRATOR_ROW = {
+    "id": "malik",
+    "name_ar": "مالك بن أنس",
+    "name_en": "Malik ibn Anas",
+    "birth_year_ah": 93,
+    "death_year_ah": 179,
+    "birth_year_ah_earliest": None,
+    "birth_year_ah_latest": None,
+    "death_year_ah_earliest": None,
+    "death_year_ah_latest": None,
+    "birth_date_precision": "exact",
+    "death_date_precision": "exact",
+    "tabaqat_class": "7",
+}
+
+
+def test_timeline_narrators_returns_dated(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """GET /timeline/narrators returns a lane with the resolved date window."""
+    mock_neo4j.execute_read.side_effect = [[SAMPLE_NARRATOR_ROW]]
+    resp = client.get("/api/v1/timeline/narrators")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    entry = body["entries"][0]
+    assert entry["narrator_id"] == "malik"
+    assert entry["window_start_ah"] == 93
+    assert entry["window_end_ah"] == 179
+    assert entry["tabaqat_class"] == "7"
+    # Both endpoints attested → not an estimated window.
+    assert entry["estimated"] is False
+
+
+def test_timeline_narrators_death_only_is_estimated(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A death-only narrator gets a lifespan-filled, estimated window."""
+    row = {
+        **SAMPLE_NARRATOR_ROW,
+        "birth_year_ah": None,
+        "death_year_ah": 179,
+        "birth_date_precision": None,
+    }
+    mock_neo4j.execute_read.side_effect = [[row]]
+    resp = client.get("/api/v1/timeline/narrators")
+    assert resp.status_code == 200
+    entry = resp.json()["entries"][0]
+    assert entry["estimated"] is True
+    # DEFAULT_ASSUMED_LIFESPAN_AH == 80 → [179 - 80, 179].
+    assert entry["window_start_ah"] == 99
+    assert entry["window_end_ah"] == 179
+
+
+def test_timeline_narrators_tabaqa_estimate_marked(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """Resolved bounds with ṭabaqa-estimate precision are returned but marked."""
+    row = {
+        **SAMPLE_NARRATOR_ROW,
+        "birth_year_ah": None,
+        "death_year_ah": None,
+        "birth_year_ah_earliest": 90,
+        "birth_year_ah_latest": 100,
+        "death_year_ah_earliest": 150,
+        "death_year_ah_latest": 170,
+        "birth_date_precision": "tabaqa_estimate",
+        "death_date_precision": "tabaqa_estimate",
+    }
+    mock_neo4j.execute_read.side_effect = [[row]]
+    resp = client.get("/api/v1/timeline/narrators")
+    assert resp.status_code == 200
+    entry = resp.json()["entries"][0]
+    assert entry["window_start_ah"] == 90
+    assert entry["window_end_ah"] == 170
+    assert entry["estimated"] is True
+
+
+def test_timeline_narrators_skips_undated(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A row with no date signal in any form is omitted gracefully."""
+    undated = {
+        **SAMPLE_NARRATOR_ROW,
+        "birth_year_ah": None,
+        "death_year_ah": None,
+        "birth_year_ah_earliest": None,
+        "birth_year_ah_latest": None,
+        "death_year_ah_earliest": None,
+        "death_year_ah_latest": None,
+        "birth_date_precision": None,
+        "death_date_precision": None,
+    }
+    mock_neo4j.execute_read.side_effect = [[undated]]
+    resp = client.get("/api/v1/timeline/narrators")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["entries"] == []
+    assert body["total"] == 0
+
+
+def test_timeline_narrators_empty(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """No narrators with dates → empty response."""
+    mock_neo4j.execute_read.side_effect = [[]]
+    resp = client.get("/api/v1/timeline/narrators")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["entries"] == []
+    assert body["total"] == 0
