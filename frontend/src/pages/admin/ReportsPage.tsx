@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { fetchSystemReports } from '../../api/client'
 import type { SystemReport } from '../../types/api'
 
@@ -21,27 +22,29 @@ function StatRow({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function ReportsPage() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery<SystemReport>({
     queryKey: ['system-reports'],
     queryFn: fetchSystemReports,
   })
 
-  if (isLoading) return <p>Loading reports...</p>
-  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
-  if (!data) return <p>No report data available.</p>
+  if (isLoading) return <p>{t('admin.reports.loading')}</p>
+  if (error)
+    return <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>
+  if (!data) return <p>{t('admin.reports.noReportData')}</p>
 
   return (
     <div>
-      <h2>System Reports</h2>
+      <h2>{t('admin.reports.title')}</h2>
 
       {data.pipeline && (
-        <MetricCard title="Pipeline Metrics">
-          <StatRow label="Total staging files" value={data.pipeline.total_files} />
-          <StatRow label="Total rows" value={data.pipeline.total_rows} />
+        <MetricCard title={t('admin.reports.cardPipeline')}>
+          <StatRow label={t('admin.reports.rowTotalStagingFiles')} value={data.pipeline.total_files} />
+          <StatRow label={t('admin.reports.rowTotalRows')} value={data.pipeline.total_rows} />
           {data.pipeline.files.length > 0 && (
             <details style={{ marginTop: '0.5rem' }}>
               <summary style={{ cursor: 'pointer' }}>
-                File details ({data.pipeline.files.length})
+                {t('admin.reports.fileDetails', { count: data.pipeline.files.length })}
               </summary>
               <table
                 className="data-table data-table-compact"
@@ -49,9 +52,9 @@ export default function ReportsPage() {
               >
                 <thead>
                   <tr>
-                    <th>File</th>
-                    <th>Rows</th>
-                    <th>Columns</th>
+                    <th>{t('admin.reports.colFile')}</th>
+                    <th>{t('admin.reports.colRows')}</th>
+                    <th>{t('admin.reports.colColumns')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -70,42 +73,42 @@ export default function ReportsPage() {
       )}
 
       {data.disambiguation && (
-        <MetricCard title="Disambiguation Rates">
-          <StatRow label="NER mentions" value={data.disambiguation.ner_mention_count} />
-          <StatRow label="Canonical narrators" value={data.disambiguation.canonical_narrator_count} />
-          <StatRow label="Ambiguous mentions" value={data.disambiguation.ambiguous_count} />
-          <StatRow label="Resolution rate" value={`${data.disambiguation.resolution_rate_pct}%`} />
-          <StatRow label="Ambiguous rate" value={`${data.disambiguation.ambiguous_pct}%`} />
+        <MetricCard title={t('admin.reports.cardDisambiguation')}>
+          <StatRow label={t('admin.reports.rowNerMentions')} value={data.disambiguation.ner_mention_count} />
+          <StatRow label={t('admin.reports.rowCanonicalNarrators')} value={data.disambiguation.canonical_narrator_count} />
+          <StatRow label={t('admin.reports.rowAmbiguousMentions')} value={data.disambiguation.ambiguous_count} />
+          <StatRow label={t('admin.reports.rowResolutionRate')} value={`${data.disambiguation.resolution_rate_pct}%`} />
+          <StatRow label={t('admin.reports.rowAmbiguousRate')} value={`${data.disambiguation.ambiguous_pct}%`} />
         </MetricCard>
       )}
 
       {data.dedup && (
-        <MetricCard title="Dedup Coverage">
-          <StatRow label="Parallel links" value={data.dedup.parallel_links_count} />
-          <StatRow label="Verbatim" value={data.dedup.parallel_verbatim} />
-          <StatRow label="Close paraphrase" value={data.dedup.parallel_close_paraphrase} />
-          <StatRow label="Thematic" value={data.dedup.parallel_thematic} />
-          <StatRow label="Cross-sect" value={data.dedup.parallel_cross_sect} />
+        <MetricCard title={t('admin.reports.cardDedup')}>
+          <StatRow label={t('admin.reports.rowParallelLinks')} value={data.dedup.parallel_links_count} />
+          <StatRow label={t('admin.reports.rowVerbatim')} value={data.dedup.parallel_verbatim} />
+          <StatRow label={t('admin.reports.rowCloseParaphrase')} value={data.dedup.parallel_close_paraphrase} />
+          <StatRow label={t('admin.reports.rowThematic')} value={data.dedup.parallel_thematic} />
+          <StatRow label={t('admin.reports.rowCrossSect')} value={data.dedup.parallel_cross_sect} />
         </MetricCard>
       )}
 
       {data.graph_validation && (
-        <MetricCard title="Graph Validation">
-          <StatRow label="Orphan narrators" value={data.graph_validation.orphan_narrators} />
-          <StatRow label="Orphan hadiths" value={data.graph_validation.orphan_hadiths} />
-          <StatRow label="Chain integrity" value={`${data.graph_validation.chain_integrity_pct}%`} />
+        <MetricCard title={t('admin.reports.cardGraphValidation')}>
+          <StatRow label={t('admin.reports.rowOrphanNarrators')} value={data.graph_validation.orphan_narrators} />
+          <StatRow label={t('admin.reports.rowOrphanHadiths')} value={data.graph_validation.orphan_hadiths} />
+          <StatRow label={t('admin.reports.rowChainIntegrity')} value={`${data.graph_validation.chain_integrity_pct}%`} />
           <StatRow
-            label="Collection coverage"
+            label={t('admin.reports.rowCollectionCoverage')}
             value={`${data.graph_validation.collection_coverage_pct}%`}
           />
         </MetricCard>
       )}
 
       {data.topic_coverage && (
-        <MetricCard title="Topic Classification">
-          <StatRow label="Total hadiths" value={data.topic_coverage.total_hadiths} />
-          <StatRow label="Classified" value={data.topic_coverage.classified_count} />
-          <StatRow label="Coverage" value={`${data.topic_coverage.coverage_pct}%`} />
+        <MetricCard title={t('admin.reports.cardTopicClassification')}>
+          <StatRow label={t('admin.reports.rowTotalHadiths')} value={data.topic_coverage.total_hadiths} />
+          <StatRow label={t('admin.reports.rowClassified')} value={data.topic_coverage.classified_count} />
+          <StatRow label={t('admin.reports.rowCoverage')} value={`${data.topic_coverage.coverage_pct}%`} />
         </MetricCard>
       )}
 
@@ -113,9 +116,7 @@ export default function ReportsPage() {
         !data.disambiguation &&
         !data.dedup &&
         !data.graph_validation &&
-        !data.topic_coverage && (
-          <p>No report data available. Run the pipeline to generate metrics.</p>
-        )}
+        !data.topic_coverage && <p>{t('admin.reports.noReportDataRun')}</p>}
     </div>
   )
 }

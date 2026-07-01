@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fetchUsageAnalytics } from '../../api/admin-client'
 
 export default function UsageAnalyticsPage() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-analytics'],
     queryFn: fetchUsageAnalytics,
@@ -9,33 +11,35 @@ export default function UsageAnalyticsPage() {
 
   return (
     <div>
-      <h2>Usage Analytics</h2>
+      <h2>{t('admin.usageAnalytics.title')}</h2>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>
+      )}
 
       {data && (
         <>
           <div className="flex-row-wrap" style={{ marginBottom: '2rem' }}>
             <div className="stat-card">
-              <div className="stat-card-label">Search Volume</div>
+              <div className="stat-card-label">{t('admin.usageAnalytics.statSearchVolume')}</div>
               <div className="stat-card-value">{data.search_volume.toLocaleString()}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-label">API Calls</div>
+              <div className="stat-card-label">{t('admin.usageAnalytics.statApiCalls')}</div>
               <div className="stat-card-value">{data.api_call_count.toLocaleString()}</div>
             </div>
           </div>
 
-          <h3>Popular Narrators</h3>
+          <h3>{t('admin.usageAnalytics.popularNarrators')}</h3>
           {data.popular_narrators.length === 0 ? (
-            <p className="muted-text">No data available yet.</p>
+            <p className="muted-text">{t('admin.usageAnalytics.noData')}</p>
           ) : (
             <table className="data-table" style={{ maxWidth: 600 }}>
               <thead>
                 <tr>
-                  <th>Narrator</th>
-                  <th>Queries</th>
+                  <th>{t('admin.usageAnalytics.colNarrator')}</th>
+                  <th>{t('admin.usageAnalytics.colQueries')}</th>
                 </tr>
               </thead>
               <tbody>

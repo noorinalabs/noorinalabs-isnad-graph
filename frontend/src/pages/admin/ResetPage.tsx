@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { resetStage, resetSource, resetFull, ResetError } from '../../api/admin-client'
 import { useModalA11y } from '../../hooks/useModalA11y'
 import type {
@@ -55,6 +57,7 @@ function formatValue(value: unknown): string {
 // The dry-run / executed summary. A plain-string blob is shown verbatim; an
 // object blob is laid out as a readable label → value list instead of raw JSON.
 function ResetSummaryView({ summary }: { summary: ResetSummary }) {
+  const { t } = useTranslation()
   if (typeof summary === 'string') {
     return (
       <pre
@@ -74,7 +77,7 @@ function ResetSummaryView({ summary }: { summary: ResetSummary }) {
   if (entries.length === 0) {
     return (
       <p className="small-muted" style={{ marginTop: 8 }}>
-        No changes reported.
+        {t('admin.reset.summaryNoChanges')}
       </p>
     )
   }
@@ -117,6 +120,7 @@ function ResetSummaryView({ summary }: { summary: ResetSummary }) {
 // executed result. The `audit_entry_path` is surfaced here (ig#970 AC: audit
 // entry visible in the admin activity view).
 function ResetResultPanel({ result }: { result: ResetResponse }) {
+  const { t } = useTranslation()
   return (
     <div
       role="status"
@@ -128,13 +132,17 @@ function ResetResultPanel({ result }: { result: ResetResponse }) {
       }}
     >
       <p>
-        <strong>{result.dry_run ? 'Dry-run preview' : 'Reset executed'}</strong>
-        {' — level: '}
-        {result.level}
+        <strong>
+          {result.dry_run ? t('admin.reset.dryRunPreview') : t('admin.reset.resetExecuted')}
+        </strong>
+        {' — '}
+        {t('admin.reset.resultLevel')} {result.level}
       </p>
-      <p className="small-muted">Confirmation method: {result.confirmation_method}</p>
       <p className="small-muted">
-        Audit entry: <code>{result.audit_entry_path}</code>
+        {t('admin.reset.resultConfirmationMethod', { method: result.confirmation_method })}
+      </p>
+      <p className="small-muted">
+        {t('admin.reset.resultAuditEntry')} <code>{result.audit_entry_path}</code>
       </p>
       <ResetSummaryView summary={result.summary} />
     </div>
@@ -153,6 +161,7 @@ function ResetConfirmModal({
   pending: PendingReset
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [preview, setPreview] = useState<ResetResponse | null>(null)
   const [executed, setExecuted] = useState<ResetResponse | null>(null)
   const [obliterate, setObliterate] = useState('')
@@ -241,10 +250,7 @@ function ResetConfirmModal({
             {preview ? (
               <ResetResultPanel result={preview} />
             ) : (
-              <p className="small-muted">
-                Start with a dry run — it validates the request and writes an audit
-                entry but touches no infrastructure.
-              </p>
+              <p className="small-muted">{t('admin.reset.dryRunHint')}</p>
             )}
 
             {error && (
@@ -256,10 +262,10 @@ function ResetConfirmModal({
             <div className="flex-row" style={{ gap: 8, marginTop: 12 }}>
               <button className="btn" onClick={runDryRun} disabled={busy !== 'idle'}>
                 {busy === 'preview'
-                  ? 'Running dry run…'
+                  ? t('admin.reset.runningDryRun')
                   : preview
-                    ? 'Re-run dry run'
-                    : 'Run dry-run preview'}
+                    ? t('admin.reset.reRunDryRun')
+                    : t('admin.reset.runDryRun')}
               </button>
             </div>
 
@@ -268,12 +274,14 @@ function ResetConfirmModal({
               <div style={{ marginTop: 16 }}>
                 {pending.requireObliterate && (
                   <label style={{ display: 'block', marginBottom: 8 }}>
-                    Type <code>{OBLITERATE}</code> to enable the real reset:
+                    {t('admin.reset.obliterateLabelPre')}
+                    <code>{OBLITERATE}</code>
+                    {t('admin.reset.obliterateLabelPost')}
                     <input
                       className="form-input-block"
                       value={obliterate}
                       onChange={(e) => setObliterate(e.target.value)}
-                      aria-label="Type OBLITERATE to confirm"
+                      aria-label={t('admin.reset.obliterateInputAria', { token: OBLITERATE })}
                       autoComplete="off"
                       spellCheck={false}
                     />
@@ -285,10 +293,10 @@ function ResetConfirmModal({
                   disabled={confirmDisabled}
                 >
                   {busy === 'confirm'
-                    ? 'Resetting…'
+                    ? t('admin.reset.resetting')
                     : pending.requireObliterate
-                      ? 'Obliterate everything'
-                      : 'Run reset for real'}
+                      ? t('admin.reset.obliterateBtn')
+                      : t('admin.reset.runResetReal')}
                 </button>
               </div>
             )}
@@ -299,7 +307,7 @@ function ResetConfirmModal({
 
         <div style={{ marginTop: 16 }}>
           <button className="btn" onClick={onClose}>
-            {executed ? 'Close' : 'Cancel'}
+            {executed ? t('admin.reset.close') : t('admin.reset.cancel')}
           </button>
         </div>
       </div>
@@ -307,68 +315,76 @@ function ResetConfirmModal({
   )
 }
 
+// Builds the PendingReset descriptor for a stage reset. Split out so the copy
+// pulls from i18next while the destructive call sites stay centralized.
+function makeStageReset(stage: ResetStage, t: TFunction): PendingReset {
+  return {
+    level: 'stage',
+    title: t('admin.reset.stageTitle', { stage }),
+    warning: t('admin.reset.stageWarning', { stage }),
+    requireObliterate: false,
+    dryRun: () => resetStage(stage, true),
+    confirm: () => resetStage(stage, false),
+  }
+}
+
+function makeSourceReset(source: string, t: TFunction): PendingReset {
+  return {
+    level: 'source',
+    title: t('admin.reset.sourceTitle', { source }),
+    warning: t('admin.reset.sourceWarning', { source }),
+    requireObliterate: false,
+    dryRun: () => resetSource(source, true),
+    confirm: () => resetSource(source, false),
+  }
+}
+
+function makeFullReset(t: TFunction): PendingReset {
+  return {
+    level: 'full',
+    title: t('admin.reset.fullTitle'),
+    warning: t('admin.reset.fullWarning'),
+    requireObliterate: true,
+    // The token rides the dry-run too: ingest#73's FullResetRequest makes
+    // `confirmation` a REQUIRED field under extra="forbid", so a token-less
+    // {dry_run:true} is rejected 422 by Pydantic before the handler runs —
+    // the preview would never render and the OBLITERATE gate would be
+    // unreachable. This is safe: a dry-run is server-side-inert (it routes
+    // through write_dry_run_audit and never constructs the resetter — the
+    // lazy-factory guarantee), so the token causes no wipe. The UI-side
+    // OBLITERATE gate still governs the REAL run below.
+    dryRun: () => resetFull(OBLITERATE, true),
+    confirm: () => resetFull(OBLITERATE, false),
+  }
+}
+
 export default function ResetPage() {
+  const { t } = useTranslation()
   const [stage, setStage] = useState<ResetStage>('raw')
   const [source, setSource] = useState('')
   const [pending, setPending] = useState<PendingReset | null>(null)
 
-  const openStageReset = () =>
-    setPending({
-      level: 'stage',
-      title: `Reset stage: ${stage}`,
-      warning: `This clears all pipeline artifacts at the "${stage}" stage. Downstream stages may need to be re-run.`,
-      requireObliterate: false,
-      dryRun: () => resetStage(stage, true),
-      confirm: () => resetStage(stage, false),
-    })
+  const openStageReset = () => setPending(makeStageReset(stage, t))
 
   const trimmedSource = source.trim()
-  const openSourceReset = () =>
-    setPending({
-      level: 'source',
-      title: `Reset source: ${trimmedSource}`,
-      warning: `This removes all data ingested from source "${trimmedSource}" across every pipeline stage.`,
-      requireObliterate: false,
-      dryRun: () => resetSource(trimmedSource, true),
-      confirm: () => resetSource(trimmedSource, false),
-    })
+  const openSourceReset = () => setPending(makeSourceReset(trimmedSource, t))
 
-  const openFullReset = () =>
-    setPending({
-      level: 'full',
-      title: 'Full reset — obliterate the entire pipeline',
-      warning:
-        'This permanently wipes MinIO, Backblaze B2, Kafka topics, the Neo4j graph, and PostgreSQL. Every ingested hadith, narrator, and chain is destroyed. There is no undo.',
-      requireObliterate: true,
-      // The token rides the dry-run too: ingest#73's FullResetRequest makes
-      // `confirmation` a REQUIRED field under extra="forbid", so a token-less
-      // {dry_run:true} is rejected 422 by Pydantic before the handler runs —
-      // the preview would never render and the OBLITERATE gate would be
-      // unreachable. This is safe: a dry-run is server-side-inert (it routes
-      // through write_dry_run_audit and never constructs the resetter — the
-      // lazy-factory guarantee), so the token causes no wipe. The UI-side
-      // OBLITERATE gate still governs the REAL run below.
-      dryRun: () => resetFull(OBLITERATE, true),
-      confirm: () => resetFull(OBLITERATE, false),
-    })
+  const openFullReset = () => setPending(makeFullReset(t))
 
   return (
     <div className="admin-page">
-      <h1>Pipeline Reset</h1>
-      <p className="small-muted">
-        Trigger ingest-platform pipeline resets. Every action previews as a dry
-        run first; nothing is destroyed until you explicitly confirm.
-      </p>
+      <h1>{t('admin.reset.title')}</h1>
+      <p className="small-muted">{t('admin.reset.intro')}</p>
 
       <section className="section-mb">
-        <h2>Reset a stage</h2>
-        <p className="small-muted">Clear artifacts at a single pipeline stage.</p>
+        <h2>{t('admin.reset.sectionResetStage')}</h2>
+        <p className="small-muted">{t('admin.reset.resetStageDesc')}</p>
         <div className="flex-row" style={{ gap: 8 }}>
           <select
             className="form-input"
             value={stage}
             onChange={(e) => setStage(e.target.value as ResetStage)}
-            aria-label="Stage to reset"
+            aria-label={t('admin.reset.stageAriaLabel')}
           >
             {STAGES.map((s) => (
               <option key={s} value={s}>
@@ -377,25 +393,25 @@ export default function ResetPage() {
             ))}
           </select>
           <button className="btn" onClick={openStageReset}>
-            Reset stage…
+            {t('admin.reset.btnResetStage')}
           </button>
         </div>
       </section>
 
       <section className="section-mb">
-        <h2>Reset a source</h2>
-        <p className="small-muted">Remove everything ingested from one source.</p>
+        <h2>{t('admin.reset.sectionResetSource')}</h2>
+        <p className="small-muted">{t('admin.reset.resetSourceDesc')}</p>
         <div className="flex-row" style={{ gap: 8 }}>
           <input
             className="form-input"
             style={{ flex: 1 }}
-            placeholder="source id (e.g. sunnah)"
+            placeholder={t('admin.reset.sourcePlaceholder')}
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            aria-label="Source to reset"
+            aria-label={t('admin.reset.sourceAriaLabel')}
           />
           <button className="btn" onClick={openSourceReset} disabled={trimmedSource === ''}>
-            Reset source…
+            {t('admin.reset.btnResetSource')}
           </button>
         </div>
       </section>
@@ -408,13 +424,10 @@ export default function ResetPage() {
           padding: 'var(--spacing-4)',
         }}
       >
-        <h2 className="text-danger">Danger zone — full reset</h2>
-        <p className="error-text">
-          Obliterates the entire pipeline: MinIO, Backblaze B2, Kafka, Neo4j, and
-          PostgreSQL. Irreversible.
-        </p>
+        <h2 className="text-danger">{t('admin.reset.dangerZoneTitle')}</h2>
+        <p className="error-text">{t('admin.reset.dangerZoneDesc')}</p>
         <button className="btn-danger" onClick={openFullReset}>
-          Full reset / OBLITERATE…
+          {t('admin.reset.btnFullReset')}
         </button>
       </section>
 
