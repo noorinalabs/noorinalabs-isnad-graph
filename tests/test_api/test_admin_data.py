@@ -19,7 +19,14 @@ import pytest
 from fastapi import HTTPException
 
 from src.api.auth import User
-from src.api.routes.admin.data import PurgeRequest, data_overview, data_sources, purge_source
+from src.api.routes.admin.data import (
+    _PURGE_BATCH_SIZE,
+    PurgeRequest,
+    _purge_delete_batched,
+    data_overview,
+    data_sources,
+    purge_source,
+)
 
 _ADMIN_TOKEN = "admin-jwt-token"
 
@@ -154,7 +161,30 @@ def _purge_read(query: str, params: dict[str, Any] | None = None) -> list[dict[s
 def _purge_client() -> MagicMock:
     client = MagicMock()
     client.execute_read.side_effect = _purge_read
-    client.execute_write.return_value = []
+    # The batched delete reads a per-batch ``deleted`` count off each write; a
+    # sub-batch-size corpus (8 < _PURGE_BATCH_SIZE) drains in a single batch.
+    client.execute_write.return_value = [{"deleted": 8}]
+    return client
+
+
+def _draining_write_client(total: int, batch_size: int = _PURGE_BATCH_SIZE) -> MagicMock:
+    """A client whose ``execute_write`` drains a corpus of ``total`` nodes.
+
+    Each DETACH DELETE call removes up to ``batch_size`` nodes and reports the
+    count, mimicking Neo4j's ``WITH n LIMIT $batch_size DETACH DELETE n`` so the
+    handler's batching loop terminates naturally.
+    """
+    client = MagicMock()
+    client.execute_read.side_effect = _purge_read
+    remaining = {"n": total}
+
+    def _write(query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        size = (params or {}).get("batch_size", batch_size)
+        take = min(size, remaining["n"])
+        remaining["n"] -= take
+        return [{"deleted": take}]
+
+    client.execute_write.side_effect = _write
     return client
 
 
@@ -222,11 +252,16 @@ class TestPurgeSource:
         assert resp.total_relationships == 19
 
         # The only graph write is the corpus-scoped DETACH DELETE — the audit
-        # trail is no longer an AUDIT_LOG node write (ig#1140).
+        # trail is no longer an AUDIT_LOG node write (ig#1140).  The delete is
+        # now batched (ig#1139): a sub-batch-size corpus finishes in one
+        # LIMIT-capped transaction.
         writes = [c.args[0] for c in client.execute_write.call_args_list]
         assert len(writes) == 1
         assert "DETACH DELETE" in writes[0]
-        assert client.execute_write.call_args_list[0].args[1] == {"corpus": "thaqalayn"}
+        assert "LIMIT $batch_size" in " ".join(writes[0].split())
+        params = client.execute_write.call_args_list[0].args[1]
+        assert params["corpus"] == "thaqalayn"
+        assert params["batch_size"] == _PURGE_BATCH_SIZE
         assert not any("AUDIT_LOG" in w for w in writes)
 
         # The audit entry is recorded against user-service, forwarding the
@@ -285,3 +320,66 @@ class TestPurgeSource:
                 token=_ADMIN_TOKEN,
             )
         assert exc.value.status_code == 503
+
+    def test_real_run_deletes_large_corpus_in_multiple_transactions(self) -> None:
+        """A corpus larger than one batch is purged across several transactions.
+
+        Regression guard for ig#1139: the pre-fix single unbounded DETACH DELETE
+        issued exactly one write and OOM'd / timed out on a ~650k-node corpus.
+        The batched delete drains it in _PURGE_BATCH_SIZE-capped chunks, so a
+        25k-node corpus takes three bounded transactions (10k + 10k + 5k).
+        """
+        client = _draining_write_client(total=25_000)
+        with patch("src.api.routes.admin.data.create_audit_entry"):
+            resp = purge_source(
+                body=PurgeRequest(
+                    source_corpus="thaqalayn", dry_run=False, confirmation="thaqalayn"
+                ),
+                admin=_admin(),
+                neo4j=client,
+                token=_ADMIN_TOKEN,
+            )
+
+        assert resp.deleted is True
+        writes = client.execute_write.call_args_list
+        # More than one transaction — the whole point of the fix.
+        assert len(writes) == 3
+        # Every write is a LIMIT-bounded DETACH DELETE, never one giant delete.
+        for call in writes:
+            query = " ".join(call.args[0].split())
+            assert "DETACH DELETE" in query
+            assert "LIMIT $batch_size" in query
+            assert call.args[1] == {"corpus": "thaqalayn", "batch_size": _PURGE_BATCH_SIZE}
+
+
+def test_purge_delete_batched_drains_in_bounded_chunks() -> None:
+    """``_purge_delete_batched`` commits one transaction per batch until empty."""
+    client = _draining_write_client(total=5, batch_size=2)
+    total = _purge_delete_batched(client, "sanadset", batch_size=2)
+
+    assert total == 5
+    calls = client.execute_write.call_args_list
+    # 5 nodes / batch 2 → 2 + 2 + 1 = three bounded transactions.
+    assert len(calls) == 3
+    assert all(c.args[1] == {"corpus": "sanadset", "batch_size": 2} for c in calls)
+    for c in calls:
+        assert "LIMIT $batch_size" in " ".join(c.args[0].split())
+
+
+def test_purge_delete_batched_handles_exact_multiple() -> None:
+    """An exact-multiple corpus needs one extra empty batch to confirm drain."""
+    client = _draining_write_client(total=4, batch_size=2)
+    total = _purge_delete_batched(client, "sanadset", batch_size=2)
+
+    assert total == 4
+    # Batches of 2, 2, then a final 0-row batch proves the corpus is exhausted.
+    assert len(client.execute_write.call_args_list) == 3
+
+
+def test_purge_delete_batched_empty_corpus_single_probe() -> None:
+    """Nothing to delete → a single probing transaction returning zero."""
+    client = _draining_write_client(total=0, batch_size=2)
+    total = _purge_delete_batched(client, "sanadset", batch_size=2)
+
+    assert total == 0
+    assert len(client.execute_write.call_args_list) == 1
