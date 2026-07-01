@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fetchDashboardStats } from '../../api/admin-client'
 import { useAuth } from '../../hooks/useAuth'
@@ -38,25 +39,25 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 interface ObsLink {
-  label: string
-  description: string
+  labelKey: string
+  descKey: string
   href: string
 }
 
 const OBS_LINKS: ObsLink[] = [
   {
-    label: 'Grafana',
-    description: 'Dashboards and metrics',
+    labelKey: 'admin.dashboard.obsGrafanaLabel',
+    descKey: 'admin.dashboard.obsGrafanaDesc',
     href: '/grafana/',
   },
   {
-    label: 'Logs (Loki)',
-    description: 'Explore log streams via Grafana',
+    labelKey: 'admin.dashboard.obsLogsLabel',
+    descKey: 'admin.dashboard.obsLogsDesc',
     href: '/grafana/explore',
   },
   {
-    label: 'Alerts',
-    description: 'Active and silenced alert rules',
+    labelKey: 'admin.dashboard.obsAlertsLabel',
+    descKey: 'admin.dashboard.obsAlertsDesc',
     href: '/grafana/alerting/list',
   },
 ]
@@ -70,6 +71,7 @@ const OBS_LINKS: ObsLink[] = [
 // once user-service#171 is deployed on the target env. Admin-gated by the caller
 // (DashboardPage renders this only when `isAdmin`).
 export function ObservabilitySection() {
+  const { t } = useTranslation()
   // Which link is currently minting (drives the disabled/busy affordance); null
   // when idle. `error` holds the inline failure copy for the most recent attempt.
   const [pendingHref, setPendingHref] = useState<string | null>(null)
@@ -95,11 +97,7 @@ export function ObservabilitySection() {
     } catch (err) {
       // 401/403/network: do NOT navigate (would dead-end at Grafana's login).
       // ApiError carries a friendly, localized message; fall back for anything else.
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not start an observability session. Please try again.',
-      )
+      setError(err instanceof Error ? err.message : t('admin.dashboard.obsError'))
       setPendingHref(null)
     }
   }
@@ -113,7 +111,7 @@ export function ObservabilitySection() {
           marginBottom: 'var(--spacing-3)',
         }}
       >
-        Observability
+        {t('admin.dashboard.observability')}
       </h3>
       {error && (
         <p className="error-text" role="alert" style={{ marginBottom: 'var(--spacing-3)' }}>
@@ -127,7 +125,9 @@ export function ObservabilitySection() {
           gap: 'var(--spacing-4)',
         }}
       >
-        {OBS_LINKS.map(({ label, description, href }) => {
+        {OBS_LINKS.map(({ labelKey, descKey, href }) => {
+          const label = t(labelKey)
+          const description = t(descKey)
           const busy = pendingHref === href
           return (
             <a
@@ -175,19 +175,21 @@ export function ObservabilitySection() {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation()
   const { isAdmin } = useAuth()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-dashboard-stats'],
     queryFn: fetchDashboardStats,
   })
 
-  if (isLoading) return <p>Loading dashboard...</p>
-  if (error) return <p className="error-text">Error: {(error as Error).message}</p>
+  if (isLoading) return <p>{t('admin.dashboard.loading')}</p>
+  if (error)
+    return <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>
   if (!data) return null
 
   return (
     <div>
-      <h2>Admin Dashboard</h2>
+      <h2>{t('admin.dashboard.title')}</h2>
 
       <div
         style={{
@@ -198,11 +200,11 @@ export default function DashboardPage() {
           marginTop: 'var(--spacing-4)',
         }}
       >
-        <StatCard label="Total Users" value={data.total_users.toLocaleString()} />
-        <StatCard label="Active Users" value={data.active_users.toLocaleString()} />
-        <StatCard label="Deactivated Users" value={data.deactivated_users.toLocaleString()} />
-        <StatCard label="New (7d)" value={data.new_registrations_7d.toLocaleString()} />
-        <StatCard label="Active Sessions" value={data.active_sessions.toLocaleString()} />
+        <StatCard label={t('admin.dashboard.statTotalUsers')} value={data.total_users.toLocaleString()} />
+        <StatCard label={t('admin.dashboard.statActiveUsers')} value={data.active_users.toLocaleString()} />
+        <StatCard label={t('admin.dashboard.statDeactivatedUsers')} value={data.deactivated_users.toLocaleString()} />
+        <StatCard label={t('admin.dashboard.statNew7d')} value={data.new_registrations_7d.toLocaleString()} />
+        <StatCard label={t('admin.dashboard.statActiveSessions')} value={data.active_sessions.toLocaleString()} />
       </div>
 
       {data.users_by_role.length > 0 && (
@@ -214,13 +216,13 @@ export default function DashboardPage() {
               marginBottom: 'var(--spacing-3)',
             }}
           >
-            Users by Role
+            {t('admin.dashboard.usersByRole')}
           </h3>
           <table className="data-table" style={{ maxWidth: 400 }}>
             <thead>
               <tr>
-                <th>Role</th>
-                <th>Count</th>
+                <th>{t('admin.dashboard.colRole')}</th>
+                <th>{t('admin.dashboard.colCount')}</th>
               </tr>
             </thead>
             <tbody>

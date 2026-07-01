@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchDataOverview, fetchDataSources, purgeSource } from '../../api/admin-client'
 import type { PurgeResult } from '../../types/admin'
@@ -14,6 +15,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 function OverviewSection() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-data-overview'],
     queryFn: fetchDataOverview,
@@ -21,27 +23,31 @@ function OverviewSection() {
 
   return (
     <section className={styles.section}>
-      <h3 className={styles.sectionTitle}>Graph Inventory</h3>
+      <h3 className={styles.sectionTitle}>{t('admin.dataManagement.sectionGraphInventory')}</h3>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className={styles.errorText}>Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          {t('common.error', { message: (error as Error).message })}
+        </p>
+      )}
 
       {data && (
         <>
           <div className={styles.cardGrid}>
-            <StatCard label="Total Nodes" value={data.total_nodes.toLocaleString()} />
-            <StatCard label="Total Relationships" value={data.total_relationships.toLocaleString()} />
+            <StatCard label={t('admin.dataManagement.statTotalNodes')} value={data.total_nodes.toLocaleString()} />
+            <StatCard label={t('admin.dataManagement.statTotalRelationships')} value={data.total_relationships.toLocaleString()} />
           </div>
 
-          <h4 className={styles.sectionTitle}>Nodes by Label</h4>
+          <h4 className={styles.sectionTitle}>{t('admin.dataManagement.nodesByLabel')}</h4>
           {data.node_counts.length === 0 ? (
-            <p className={styles.emptyText}>No nodes loaded.</p>
+            <p className={styles.emptyText}>{t('admin.dataManagement.noNodes')}</p>
           ) : (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Label</th>
-                  <th>Count</th>
+                  <th>{t('admin.dataManagement.colLabel')}</th>
+                  <th>{t('admin.common.colCount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -55,15 +61,15 @@ function OverviewSection() {
             </table>
           )}
 
-          <h4 className={styles.sectionTitle}>Relationships by Type</h4>
+          <h4 className={styles.sectionTitle}>{t('admin.dataManagement.relationshipsByType')}</h4>
           {data.relationship_counts.length === 0 ? (
-            <p className={styles.emptyText}>No relationships loaded.</p>
+            <p className={styles.emptyText}>{t('admin.dataManagement.noRelationships')}</p>
           ) : (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Type</th>
-                  <th>Count</th>
+                  <th>{t('admin.dataManagement.colType')}</th>
+                  <th>{t('admin.common.colCount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,6 +89,7 @@ function OverviewSection() {
 }
 
 function SourcesSection() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-data-sources'],
     queryFn: fetchDataSources,
@@ -90,28 +97,32 @@ function SourcesSection() {
 
   return (
     <section className={styles.section}>
-      <h3 className={styles.sectionTitle}>Provenance by Source Corpus</h3>
+      <h3 className={styles.sectionTitle}>{t('admin.dataManagement.sectionProvenance')}</h3>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className={styles.errorText}>Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          {t('common.error', { message: (error as Error).message })}
+        </p>
+      )}
 
       {data && (
         <>
           <div className={styles.cardGrid}>
-            <StatCard label="Distinct Sources" value={data.distinct_sources.toLocaleString()} />
-            <StatCard label="Hadiths" value={data.total_hadiths.toLocaleString()} />
-            <StatCard label="Collections" value={data.total_collections.toLocaleString()} />
+            <StatCard label={t('admin.dataManagement.statDistinctSources')} value={data.distinct_sources.toLocaleString()} />
+            <StatCard label={t('admin.dataManagement.statHadiths')} value={data.total_hadiths.toLocaleString()} />
+            <StatCard label={t('admin.dataManagement.statCollections')} value={data.total_collections.toLocaleString()} />
           </div>
 
           {data.sources.length === 0 ? (
-            <p className={styles.emptyText}>No source-attributed content loaded.</p>
+            <p className={styles.emptyText}>{t('admin.dataManagement.noSourceContent')}</p>
           ) : (
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Source Corpus</th>
-                  <th>Hadiths</th>
-                  <th>Collections</th>
+                  <th>{t('admin.dataManagement.colSourceCorpus')}</th>
+                  <th>{t('admin.dataManagement.colHadiths')}</th>
+                  <th>{t('admin.dataManagement.colCollections')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,17 +143,25 @@ function SourcesSection() {
 }
 
 function PurgeResultPanel({ result }: { result: PurgeResult }) {
-  const heading = result.deleted ? 'Purge complete' : 'Dry-run preview'
+  const { t } = useTranslation()
+  const heading = result.deleted
+    ? t('admin.dataManagement.purgeComplete')
+    : t('admin.dataManagement.purgeDryRun')
+  const nodes = t('admin.dataManagement.purgeNodes', { count: result.total_nodes })
+  const relationships = t('admin.dataManagement.purgeRelationships', {
+    count: result.total_relationships,
+  })
   return (
     <div role="status" className={styles.purgeResult}>
       <p>
-        <strong>{heading}</strong> — source corpus <code>{result.source_corpus}</code>
+        <strong>{heading}</strong>
+        {' — '}
+        {t('admin.dataManagement.purgeSourceCorpus')} <code>{result.source_corpus}</code>
       </p>
       <p>
-        {result.deleted ? 'Removed' : 'Would remove'} {result.total_nodes.toLocaleString()} node
-        {result.total_nodes === 1 ? '' : 's'} and{' '}
-        {result.total_relationships.toLocaleString()} relationship
-        {result.total_relationships === 1 ? '' : 's'}.
+        {result.deleted
+          ? t('admin.dataManagement.purgeRemoved', { nodes, relationships })
+          : t('admin.dataManagement.purgeWouldRemove', { nodes, relationships })}
       </p>
       {result.node_counts.length > 0 && (
         <ul className={styles.purgeBreakdown}>
@@ -163,6 +182,7 @@ function PurgeResultPanel({ result }: { result: PurgeResult }) {
 // is distinct from the ingest-platform pipeline reset (that wipes the staging
 // store; this DETACH DELETEs loaded Neo4j nodes/edges).
 function PurgeSection() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: sources } = useQuery({
     queryKey: ['admin-data-sources'],
@@ -204,20 +224,17 @@ function PurgeSection() {
 
   return (
     <section className={`${styles.section} ${styles.dangerZone}`}>
-      <h3 className={styles.sectionTitle}>Danger Zone — Per-source Purge</h3>
-      <p className={styles.emptyText}>
-        Permanently delete all graph nodes and relationships attributed to a single source
-        corpus. This is irreversible. Preview first, then type the corpus name to confirm.
-      </p>
+      <h3 className={styles.sectionTitle}>{t('admin.dataManagement.dangerZoneTitle')}</h3>
+      <p className={styles.emptyText}>{t('admin.dataManagement.dangerZoneDesc')}</p>
 
       <div className={styles.purgeControls}>
-        <label htmlFor="purge-source-select">Source corpus</label>
+        <label htmlFor="purge-source-select">{t('admin.dataManagement.labelSourceCorpus')}</label>
         <select
           id="purge-source-select"
           value={selected}
           onChange={(e) => onSelect(e.target.value)}
         >
-          <option value="">Select a source…</option>
+          <option value="">{t('admin.dataManagement.selectSourcePlaceholder')}</option>
           {options.map((s) => (
             <option key={s.source_corpus} value={s.source_corpus}>
               {s.source_corpus}
@@ -230,13 +247,15 @@ function PurgeSection() {
           disabled={selected === '' || previewMutation.isPending}
           onClick={() => previewMutation.mutate()}
         >
-          {previewMutation.isPending ? 'Previewing…' : 'Preview removal'}
+          {previewMutation.isPending
+            ? t('admin.dataManagement.previewing')
+            : t('admin.dataManagement.previewRemoval')}
         </button>
       </div>
 
       {error && (
         <p role="alert" className={styles.errorText}>
-          Error: {(error as Error).message}
+          {t('common.error', { message: (error as Error).message })}
         </p>
       )}
 
@@ -245,7 +264,9 @@ function PurgeSection() {
       {preview && !preview.deleted && (
         <div className={styles.purgeControls}>
           <label htmlFor="purge-confirm-input">
-            Type <code>{selected}</code> to confirm
+            {t('admin.dataManagement.confirmTypePre')}
+            <code>{selected}</code>
+            {t('admin.dataManagement.confirmTypePost')}
           </label>
           <input
             id="purge-confirm-input"
@@ -260,7 +281,9 @@ function PurgeSection() {
             disabled={!canPurge}
             onClick={() => purgeMutation.mutate()}
           >
-            {purgeMutation.isPending ? 'Purging…' : 'Purge graph data'}
+            {purgeMutation.isPending
+              ? t('admin.dataManagement.purging')
+              : t('admin.dataManagement.purgeButton')}
           </button>
         </div>
       )}
@@ -271,12 +294,11 @@ function PurgeSection() {
 }
 
 export default function DataManagementPage() {
+  const { t } = useTranslation()
   return (
     <div>
-      <h2>Data Management</h2>
-      <p className={styles.emptyText}>
-        Read-only overview of loaded graph data and its provenance.
-      </p>
+      <h2>{t('admin.dataManagement.title')}</h2>
+      <p className={styles.emptyText}>{t('admin.dataManagement.subtitle')}</p>
       <OverviewSection />
       <SourcesSection />
       <PurgeSection />

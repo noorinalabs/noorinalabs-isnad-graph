@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchModerationItems,
@@ -14,6 +15,7 @@ function statusBadgeClass(status: string): string {
 }
 
 export default function ModerationPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const queryClient = useQueryClient()
@@ -45,24 +47,24 @@ export default function ModerationPage() {
 
   return (
     <div>
-      <h2>Content Moderation</h2>
+      <h2>{t('admin.moderation.title')}</h2>
 
       <div className="flag-box">
-        <h3>Flag Content</h3>
+        <h3>{t('admin.moderation.flagContent')}</h3>
         <div className="flex-row" style={{ flexWrap: 'wrap' }}>
           <select
             value={flagForm.entity_type}
             onChange={(e) => setFlagForm({ ...flagForm, entity_type: e.target.value })}
             className="form-input"
-            aria-label="Entity type"
+            aria-label={t('admin.moderation.entityTypeLabel')}
           >
-            <option value="hadith">Hadith</option>
-            <option value="narrator">Narrator</option>
+            <option value="hadith">{t('admin.moderation.entityHadith')}</option>
+            <option value="narrator">{t('admin.moderation.entityNarrator')}</option>
           </select>
           <input
             type="text"
-            placeholder="Entity ID"
-            aria-label="Entity ID"
+            placeholder={t('admin.moderation.entityIdPlaceholder')}
+            aria-label={t('admin.moderation.entityIdLabel')}
             value={flagForm.entity_id}
             onChange={(e) => setFlagForm({ ...flagForm, entity_id: e.target.value })}
             className="form-input"
@@ -70,8 +72,8 @@ export default function ModerationPage() {
           />
           <input
             type="text"
-            placeholder="Reason"
-            aria-label="Reason for flagging"
+            placeholder={t('admin.moderation.reasonPlaceholder')}
+            aria-label={t('admin.moderation.reasonLabel')}
             value={flagForm.reason}
             onChange={(e) => setFlagForm({ ...flagForm, reason: e.target.value })}
             className="form-input"
@@ -87,13 +89,13 @@ export default function ModerationPage() {
             disabled={flagMutation.isPending}
             className="btn"
           >
-            Flag
+            {t('admin.moderation.flag')}
           </button>
         </div>
       </div>
 
       <div className="flex-row" style={{ marginBottom: '1rem' }}>
-        <label>Filter by status:</label>
+        <label>{t('admin.moderation.filterByStatus')}</label>
         <select
           value={statusFilter ?? ''}
           onChange={(e) => {
@@ -102,27 +104,29 @@ export default function ModerationPage() {
           }}
           className="form-input"
         >
-          <option value="">All</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
+          <option value="">{t('admin.moderation.statusAll')}</option>
+          <option value="pending">{t('admin.moderation.statusPending')}</option>
+          <option value="approved">{t('admin.moderation.statusApproved')}</option>
+          <option value="rejected">{t('admin.moderation.statusRejected')}</option>
         </select>
       </div>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>
+      )}
 
       {data && (
         <>
           <table className="data-table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Entity ID</th>
-                <th>Reason</th>
-                <th>Status</th>
-                <th>Flagged</th>
-                <th>Actions</th>
+                <th>{t('admin.moderation.colType')}</th>
+                <th>{t('admin.moderation.colEntityId')}</th>
+                <th>{t('admin.moderation.colReason')}</th>
+                <th>{t('admin.moderation.colStatus')}</th>
+                <th>{t('admin.moderation.colFlagged')}</th>
+                <th>{t('admin.moderation.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -149,7 +153,7 @@ export default function ModerationPage() {
                           disabled={updateMutation.isPending}
                           className="btn-sm"
                         >
-                          Approve
+                          {t('admin.moderation.approve')}
                         </button>
                         <button
                           onClick={() =>
@@ -158,7 +162,7 @@ export default function ModerationPage() {
                           disabled={updateMutation.isPending}
                           className="btn-sm"
                         >
-                          Reject
+                          {t('admin.moderation.reject')}
                         </button>
                       </div>
                     )}
@@ -171,16 +175,14 @@ export default function ModerationPage() {
           {totalPages > 1 && (
             <div className="pagination">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-                Previous
+                {t('common.previous')}
               </button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
+              <span>{t('common.pageOf', { current: page, total: totalPages })}</span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
               >
-                Next
+                {t('common.next')}
               </button>
             </div>
           )}

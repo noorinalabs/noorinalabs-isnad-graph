@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAuditLogs } from '../../api/admin-client'
 
 export default function AuditLogPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [actionFilter, setActionFilter] = useState('')
 
@@ -15,7 +17,7 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      <h2>Audit Log</h2>
+      <h2>{t('admin.auditLog.title')}</h2>
 
       <div className="flex-row" style={{ marginBottom: '1rem', gap: '0.5rem' }}>
         <select
@@ -27,27 +29,29 @@ export default function AuditLogPage() {
           }}
           style={{ width: 200 }}
         >
-          <option value="">All Actions</option>
-          <option value="role_change">Role Change</option>
-          <option value="bulk_suspend">Bulk Suspend</option>
-          <option value="bulk_unsuspend">Bulk Unsuspend</option>
-          <option value="bulk_role_change">Bulk Role Change</option>
+          <option value="">{t('admin.auditLog.filterAllActions')}</option>
+          <option value="role_change">{t('admin.auditLog.actionRoleChange')}</option>
+          <option value="bulk_suspend">{t('admin.auditLog.actionBulkSuspend')}</option>
+          <option value="bulk_unsuspend">{t('admin.auditLog.actionBulkUnsuspend')}</option>
+          <option value="bulk_role_change">{t('admin.auditLog.actionBulkRoleChange')}</option>
         </select>
       </div>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>
+      )}
 
       {data && (
         <>
           <table className="data-table">
             <thead>
               <tr>
-                <th>Time</th>
-                <th>Action</th>
-                <th>Actor</th>
-                <th>Target</th>
-                <th>Details</th>
+                <th>{t('admin.auditLog.colTime')}</th>
+                <th>{t('admin.auditLog.colAction')}</th>
+                <th>{t('admin.auditLog.colActor')}</th>
+                <th>{t('admin.auditLog.colTarget')}</th>
+                <th>{t('admin.auditLog.colDetails')}</th>
               </tr>
             </thead>
             <tbody>
@@ -75,7 +79,7 @@ export default function AuditLogPage() {
               {data.items.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', color: 'var(--color-muted-foreground)' }}>
-                    No audit entries found.
+                    {t('admin.auditLog.empty')}
                   </td>
                 </tr>
               )}
@@ -84,13 +88,11 @@ export default function AuditLogPage() {
 
           <div className="pagination">
             <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
+              {t('common.previous')}
             </button>
-            <span>
-              Page {data.page} of {totalPages || 1}
-            </span>
+            <span>{t('common.pageOf', { current: data.page, total: totalPages || 1 })}</span>
             <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next
+              {t('common.next')}
             </button>
           </div>
         </>
