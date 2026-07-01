@@ -11,9 +11,13 @@
  * project depends on this `setup` project), so each spec starts already logged
  * in without re-hitting the auth endpoint.
  *
- * Credential-less contexts (e.g. a manual run without secrets exported): we
+ * Credential-less LOCAL contexts (a manual public-only run without secrets): we
  * write an EMPTY storage-state so the dependent project still loads, and the
  * authenticated specs self-skip via `requireAuth()`.
+ *
+ * Loud-fail (ig#1146): when STG_REQUIRE_AUTH=1 — which the `e2e-stg-smoke`
+ * workflow sets — a missing-creds (or blanked-URL) state is NOT a silent skip;
+ * `evaluateAuthPreflight` throws so an unwired/misconfigured harness reads RED.
  */
 import { test as setup, expect, request } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -23,20 +27,32 @@ import {
   USER_SERVICE_URL,
   TEST_EMAIL,
   TEST_PASSWORD,
-  hasAuthCreds,
+  REQUIRE_AUTH,
   STORAGE_STATE,
 } from './env'
+import { evaluateAuthPreflight } from './preflight'
 
 const EMPTY_STATE = JSON.stringify({ cookies: [], origins: [] })
 
 setup('authenticate', async () => {
   mkdirSync(dirname(STORAGE_STATE), { recursive: true })
 
-  if (!hasAuthCreds) {
-    // No creds in this environment — write an empty state so the dependent
+  // Loud-fail pre-flight (ig#1146): THROWS (→ RED) when this context is supposed
+  // to carry creds (STG_REQUIRE_AUTH=1) but doesn't, or when a URL was blanked;
+  // only returns `skip` for a genuine local public-only run.
+  const decision = evaluateAuthPreflight({
+    baseUrl: BASE_URL,
+    userServiceUrl: USER_SERVICE_URL,
+    email: TEST_EMAIL,
+    password: TEST_PASSWORD,
+    requireAuth: REQUIRE_AUTH,
+  })
+
+  if (decision.action === 'skip') {
+    // No creds and not required — write an empty state so the dependent
     // project can still load; `*.auth.spec.ts` self-skip via requireAuth().
     writeFileSync(STORAGE_STATE, EMPTY_STATE)
-    setup.skip(true, 'stg creds not configured (STG_TEST_EMAIL / STG_TEST_PASSWORD) — auth leg skipped')
+    setup.skip(true, decision.reason)
     return
   }
 

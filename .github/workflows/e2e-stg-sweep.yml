@@ -65,6 +65,11 @@ jobs:
           PROD_USER_SERVICE_URL: ${{ vars.PROD_USER_SERVICE_URL }}
           STG_TEST_EMAIL: ${{ secrets.STG_TEST_EMAIL }}
           STG_TEST_PASSWORD: ${{ secrets.STG_TEST_PASSWORD }}
+          # The sweep is intentionally SOFT: it does NOT set STG_REQUIRE_AUTH, so
+          # a credential-less run still catalogs the public surface (the auth +
+          # admin legs self-skip). STG_SMOKE_ADMIN=1 activates the admin sweep
+          # once the smoke account is admin-capable (see README.md § Admin smoke).
+          STG_SMOKE_ADMIN: ${{ vars.STG_SMOKE_ADMIN }}
           # Known-good detail-route ids for the target env (optional; fall back
           # to fixture ids in routes.ts when unset).
           SWEEP_NARRATOR_ID: ${{ vars.SWEEP_NARRATOR_ID }}

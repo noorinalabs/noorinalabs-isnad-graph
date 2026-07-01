@@ -51,5 +51,24 @@ export const TEST_PASSWORD = process.env.STG_TEST_PASSWORD ?? ''
  */
 export const hasAuthCreds = Boolean(TEST_EMAIL && TEST_PASSWORD)
 
+/**
+ * When true, the auth-setup FAILS LOUD (RED) if creds are missing instead of
+ * soft-skipping the authenticated leg (ig#1146). Set STG_REQUIRE_AUTH=1 in any
+ * context that is supposed to carry secrets — the `e2e-stg-smoke` workflow does
+ * — so an unwired/misconfigured harness can never read green. Left unset (local
+ * dev, and the intentionally-soft `e2e-stg-sweep`) preserves the public-only
+ * self-skip.
+ */
+export const REQUIRE_AUTH = /^(1|true|yes)$/i.test(process.env.STG_REQUIRE_AUTH ?? '')
+
+/**
+ * True when the provisioned smoke account is admin-capable — the owner sets
+ * STG_SMOKE_ADMIN=1 once the smoke email has been granted the `admin` role (see
+ * README.md § Admin smoke account). Gates the admin specs so they self-skip
+ * (rather than 403-fail) until that cross-repo seed is provisioned. Distinct
+ * from `hasAuthCreds`: a run can be authenticated as a non-admin reader.
+ */
+export const SMOKE_ADMIN = /^(1|true|yes)$/i.test(process.env.STG_SMOKE_ADMIN ?? '')
+
 /** Persisted storage-state (seeded localStorage JWT) reused across auth specs. */
 export const STORAGE_STATE = join(here, '.auth', 'storage-state.json')
