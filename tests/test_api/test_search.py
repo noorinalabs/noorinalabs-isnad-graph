@@ -629,7 +629,10 @@ def test_semantic_search_embeds_query_at_runtime(client: TestClient, app: object
     assert "prayer in congregation" not in str(data_params)
     # The cast `%s::vector` keeps the literal a bound parameter, never inline SQL.
     assert "%s::vector" in data_sql
-    assert data_params[-1] == 5  # limit threaded through
+    # Params are (vector, vector, limit, offset) — server-side pagination added
+    # the trailing OFFSET (ig#1147); default page=1 => offset 0.
+    assert data_params[-2] == 5  # limit threaded through
+    assert data_params[-1] == 0  # offset for page 1
 
     del app.dependency_overrides[get_pg]
 
@@ -700,8 +703,12 @@ def test_semantic_search_different_queries_rank_differently(
 
 
 def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) -> None:
-    """semantic limit above its cap (50) is rejected with 422 — the frontend
-    results page must stay within this cap (#1025).
+    """semantic per-page limit above its cap (100) is rejected with 422 — the
+    frontend results page must stay within this cap (#1025, ig#1147).
+
+    The per-page ``limit`` cap was raised from 50 to 100 when real server-side
+    pagination (``page``) replaced the single-capped-batch fetch (ig#1147); depth
+    is now bounded by ``page``/``MAX_SEARCH_PAGE``, not by a small ``limit`` cap.
 
     The pg dependency is overridden with a mock so the assertion isolates the
     request-validation behaviour and never touches a real database (FastAPI
@@ -716,7 +723,7 @@ def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) 
     assert isinstance(app, FastAPI)
     app.dependency_overrides[get_pg] = lambda: mock_pg
 
-    resp = client.get("/api/v1/search/semantic?q=test&limit=51")
+    resp = client.get("/api/v1/search/semantic?q=test&limit=101")
     assert resp.status_code == 422
     # Validation rejects the request before the handler queries pgvector.
     mock_pg.execute.assert_not_called()
@@ -725,7 +732,7 @@ def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) 
 
 
 def test_semantic_search_limit_at_cap_is_accepted(client: TestClient, app: object) -> None:
-    """semantic limit at its cap (50) is accepted (#1025)."""
+    """semantic per-page limit at its cap (100) is accepted (#1025, ig#1147)."""
     mock_pg = MagicMock()
     mock_pg.execute.side_effect = [[], [{"total": 0}]]
     mock_pg.close.return_value = None
@@ -737,7 +744,89 @@ def test_semantic_search_limit_at_cap_is_accepted(client: TestClient, app: objec
     assert isinstance(app, FastAPI)
     app.dependency_overrides[get_pg] = lambda: mock_pg
 
-    resp = client.get("/api/v1/search/semantic?q=test&limit=50")
+    resp = client.get("/api/v1/search/semantic?q=test&limit=100")
     assert resp.status_code == 200
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_search_fulltext_pages_past_the_first_batch(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A >50-match full-text query can page past result 50 (ig#1147 regression).
+
+    Pre-fix, ``/search`` had no ``page`` param and no offset — it returned a single
+    ``limit``-capped batch, so results 51+ were unreachable (the reported flat
+    50-result ceiling). This asks for ``page=6`` at ``limit=10`` (results 51–60)
+    and asserts the window is the *sixth* page of narrators, that the index was
+    queried for the full ``page * limit`` prefix, and that the response echoes the
+    page. On pre-fix code the extra ``page`` param is ignored, the window is
+    results 1–10, and ``page`` is absent from the body — so this test fails.
+    """
+    narrators = [
+        {"id": f"nar-{i:03d}", "name_ar": f"راو {i}", "name_en": f"narrator {i}", "score": 100 - i}
+        for i in range(60)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrators,  # narrator full-text search (fetched for the whole prefix)
+        [],  # hadith full-text search (empty — isolates the narrator ordering)
+        [{"total": 137}],  # narrator count (full match set, >> 50)
+        [{"total": 0}],  # hadith count
+    ]
+
+    resp = client.get("/api/v1/search?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # The response echoes the requested page and reports the full match count.
+    assert body["page"] == 6
+    assert body["total"] == 137
+
+    # The window is results 51–60 (page 6 of 10-per-page), NOT the first 10.
+    ids = [r["id"] for r in body["results"]]
+    assert ids == [f"nar-{i:03d}" for i in range(50, 60)]
+
+    # The index was queried for the full ``page * limit`` prefix (60), so the
+    # requested page is actually retrievable rather than clamped to ``limit``.
+    narrator_params = mock_neo4j.execute_read.call_args_list[0][0][1]
+    assert narrator_params["limit"] == 60
+
+
+def test_semantic_search_pages_past_the_first_batch(client: TestClient, app: object) -> None:
+    """A >50-match semantic query pages past result 50 via SQL OFFSET (ig#1147).
+
+    Pre-fix, ``/search/semantic`` had no ``page`` param and its SQL had ``LIMIT``
+    but no ``OFFSET`` — results beyond the first ``limit`` were unreachable. This
+    asks for ``page=6`` at ``limit=10`` and asserts the query offsets by 50, and
+    that the response echoes the page. Pre-fix code has no ``OFFSET`` in the SQL,
+    a 3-tuple of params, and no ``page`` in the body — so this test fails.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-051", "matn_ar": "نص", "matn_en": "row 51", "score": 0.5}],
+        [{"total": 200}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["page"] == 6
+    assert body["total"] == 200
+
+    # The data query pages via LIMIT/OFFSET; offset = (page - 1) * limit = 50.
+    data_sql = mock_pg.execute.call_args_list[0].args[0]
+    assert "OFFSET" in data_sql
+    data_params = mock_pg.execute.call_args_list[0].args[1]
+    assert data_params[-2] == 10  # limit
+    assert data_params[-1] == 50  # offset
 
     del app.dependency_overrides[get_pg]

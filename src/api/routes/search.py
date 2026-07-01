@@ -21,6 +21,14 @@ router = APIRouter()
 
 log = logging.getLogger(__name__)
 
+# Upper bound on page depth accepted by the search endpoints. Real server-side
+# pagination (SKIP/OFFSET) replaced the old single-capped-batch behaviour that
+# hard-capped result sets at the first ``limit`` rows (ig#1147). ``limit`` is now
+# a per-page size and ``page`` selects the window, so a query with >50 matches is
+# reachable past result 50. This ceiling only guards against unbounded-depth
+# abuse (each deeper page fetches ``page * limit`` rows from the index).
+MAX_SEARCH_PAGE = 1000
+
 
 def _death_year_to_century(death_year_ah: object) -> int | None:
     """Map a Hijri death year to its 1-based century (124 AH -> 2nd century).
@@ -152,7 +160,8 @@ def _interleave_fairly(
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
     q: str = Query("", max_length=500, description="Search query"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100, description="Results per page"),
+    page: int = Query(1, ge=1, le=MAX_SEARCH_PAGE, description="1-based page number"),
     neo4j: Neo4jClient = Depends(get_neo4j),
     settings: Settings = Depends(get_search_settings),
 ) -> SearchResultsResponse:
@@ -169,10 +178,18 @@ def search(
     # Short-circuit blank queries before touching Neo4j — nothing to match, and
     # a full-text query on empty input is meaningless.
     if not q.strip():
-        return SearchResultsResponse(results=[], total=0, query=q)
+        return SearchResultsResponse(results=[], total=0, query=q, page=page)
+
+    # Window covering every result up to and including the requested page. The two
+    # entity sub-queries are merged/interleaved *before* the page is sliced out, so
+    # the fair-share ordering (ig#1110) stays stable across pages; fetching the
+    # first ``end`` of each list is enough to reconstruct the merged prefix that
+    # contains this page. (ig#1147)
+    end = page * limit
+    start = (page - 1) * limit
 
     # --- Narrator search via full-text index ---
-    narrator_rows = _fulltext_narrator_search(neo4j, q, limit)
+    narrator_rows = _fulltext_narrator_search(neo4j, q, end)
     narrator_results = [
         SearchResult(
             id=r["id"],
@@ -186,8 +203,8 @@ def search(
     ]
 
     # --- Hadith search via full-text index ---
-    # Query hadiths with the FULL ``limit`` — not the slots left over after
-    # narrators — so a flood of narrator hits can no longer starve Hadith entities
+    # Query hadiths with the FULL page window (``end``) — not the slots left over
+    # after narrators — so a flood of narrator hits can no longer starve Hadith entities
     # out of the result set. On prod, narrator-table pollution (raw isnad strings
     # stored as ``:Narrator`` nodes whose name matches the query — upstream
     # da#202) returns up to ``limit`` narrator hits; the old ``remaining = limit -
@@ -195,11 +212,14 @@ def search(
     # exact "Full-text → Narrator(N), Hadith(0)" symptom in ig#1110. The raw Lucene
     # score passes through unchanged; the saturating transform runs on the merged
     # set below (ig#1070).
-    hadith_rows = _fulltext_hadith_search(neo4j, q, limit)
+    hadith_rows = _fulltext_hadith_search(neo4j, q, end)
     hadith_results = [_hadith_row_to_search_result(r, r["score"]) for r in hadith_rows]
 
     # --- Fair-share merge so neither entity type starves the other (ig#1110) ---
-    results = _interleave_fairly(narrator_results, hadith_results, limit)
+    # Merge the full prefix (up to ``end``), then slice out just this page's window
+    # so pagination is consistent with the interleave order (ig#1147).
+    merged = _interleave_fairly(narrator_results, hadith_results, end)
+    results = merged[start:end]
 
     # --- Saturating relevance transform (absolute confidence) ---
     # Neo4j's ``db.index.fulltext.queryNodes`` returns unbounded BM25-style
@@ -224,7 +244,7 @@ def search(
     # full count of matching narrators + hadiths so clients can paginate.
     total = _fulltext_narrator_count(neo4j, q) + _fulltext_hadith_count(neo4j, q)
 
-    return SearchResultsResponse(results=results, total=total, query=q)
+    return SearchResultsResponse(results=results, total=total, query=q, page=page)
 
 
 def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> list[dict[str, Any]]:
@@ -344,7 +364,8 @@ def _fulltext_hadith_count(neo4j: Neo4jClient, query: str) -> int:
 @router.get("/search/semantic", response_model=SearchResultsResponse)
 def search_semantic(
     q: str = Query(..., min_length=1, max_length=500, description="Semantic search query"),
-    limit: int = Query(10, ge=1, le=50),
+    limit: int = Query(10, ge=1, le=100, description="Results per page"),
+    page: int = Query(1, ge=1, le=MAX_SEARCH_PAGE, description="1-based page number"),
     pg: PgClient = Depends(get_pg),
 ) -> SearchResultsResponse:
     """Semantic similarity search using pgvector.
@@ -367,6 +388,11 @@ def search_semantic(
     separate deploy dependency (deploy#470); this route only owns the API
     behaviour when they are not present.
     """
+    # Page window: ``limit`` is the per-page size and ``OFFSET`` skips the earlier
+    # pages so a query with >50 matches is reachable past result 50 (ig#1147). A
+    # single ordered candidate set makes offset paging exact here (unlike the
+    # interleaved full-text path, which pages over the merged prefix).
+    offset = (page - 1) * limit
     try:
         query_vector = to_pgvector_literal(get_embedder().embed([q])[0])
         rows = pg.execute(
@@ -377,9 +403,9 @@ def search_semantic(
             FROM isnad_graph.hadith_embeddings e
             JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
             ORDER BY e.embedding <=> %s::vector
-            LIMIT %s
+            LIMIT %s OFFSET %s
             """,
-            (query_vector, query_vector, limit),
+            (query_vector, query_vector, limit, offset),
         )
         # Total count of candidate hadiths (the LIMIT above caps ``rows`` at
         # ``limit``; ``total`` must reflect the full searchable set).
@@ -420,4 +446,4 @@ def search_semantic(
         results.append(_hadith_row_to_search_result(r, max(0.0, min(1.0, raw_score))))
 
     total = count_rows[0]["total"] if count_rows else len(results)
-    return SearchResultsResponse(results=results, total=total, query=q)
+    return SearchResultsResponse(results=results, total=total, query=q, page=page)

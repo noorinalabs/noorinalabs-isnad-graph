@@ -76,6 +76,9 @@ const DEFAULT_FILTERS: SearchFilters = {
 }
 
 const RESULTS_PER_PAGE = 10
+// Hard cap on how many pages the pager will offer, so deep next-clicks never
+// request a server page beyond the backend's MAX_SEARCH_PAGE bound (ig#1147).
+const MAX_DISPLAY_PAGES = 1000
 
 function hasActiveFilters(filters: SearchFilters): boolean {
   return (
@@ -129,13 +132,24 @@ export default function SearchPage() {
     enabled: inputValue.length >= 2 && showTypeahead,
   })
 
+  // --- Server-side pagination (ig#1147) --------------------------------------
+  // The results page shows RESULTS_PER_PAGE (10) hits at a time but fetches a
+  // larger batch so the client-side facet/sort still operate over a meaningful
+  // window. Pages beyond the first batch fetch the NEXT server-side page rather
+  // than hard-capping at the batch — that batch cap (50 for semantic, 100 for
+  // full-text) was the reported "5 pages of 10" ceiling. Facet toggles reset
+  // ``page`` to 1, so a filtered view is always evaluated against batch 1.
+  const batchSize = mode === 'semantic' ? SEMANTIC_SEARCH_MAX_LIMIT : SEARCH_MAX_LIMIT
+  const pagesPerBatch = Math.max(1, Math.floor(batchSize / RESULTS_PER_PAGE))
+  const serverPage = Math.floor((page - 1) / pagesPerBatch) + 1
+
   // Full search query
   const { data: searchData, isLoading, isError, error: searchError } = useQuery({
-    queryKey: ['search', query, mode],
+    queryKey: ['search', query, mode, serverPage],
     queryFn: () =>
       mode === 'semantic'
-        ? searchSemantic(query, SEMANTIC_SEARCH_MAX_LIMIT)
-        : searchAll(query, SEARCH_MAX_LIMIT),
+        ? searchSemantic(query, SEMANTIC_SEARCH_MAX_LIMIT, serverPage)
+        : searchAll(query, SEARCH_MAX_LIMIT, serverPage),
     enabled: query.length >= 2,
     retry: 1,
   })
@@ -275,10 +289,12 @@ export default function SearchPage() {
     return 0
   })
 
-  const totalPages = Math.ceil(sortedResults.length / RESULTS_PER_PAGE)
+  // Page within the fetched batch: the batch holds ``pagesPerBatch`` display pages,
+  // so map the global ``page`` onto its offset inside the current server batch.
+  const localPage = ((page - 1) % pagesPerBatch) + 1
   const paginatedResults = sortedResults.slice(
-    (page - 1) * RESULTS_PER_PAGE,
-    page * RESULTS_PER_PAGE,
+    (localPage - 1) * RESULTS_PER_PAGE,
+    localPage * RESULTS_PER_PAGE,
   )
 
   const activeFilterCount =
@@ -287,6 +303,19 @@ export default function SearchPage() {
     (filters.gradings.length > 0 ? 1 : 0) +
     (filters.centuries.length > 0 ? 1 : 0) +
     (filters.topics.length > 0 ? 1 : 0)
+
+  // Page count. With no active filters the server ``total`` is authoritative and
+  // lets the user page across batches — the ig#1147 fix that lifts the flat
+  // 50-result ceiling. With client-side facets active, ``page`` is pinned to
+  // batch 1 (every filter toggle calls setPage(1)), so the filtered batch length
+  // governs the available pages.
+  const filtersActive = activeFilterCount > 0
+  const totalPages = filtersActive
+    ? Math.ceil(sortedResults.length / RESULTS_PER_PAGE)
+    : Math.min(
+        MAX_DISPLAY_PAGES,
+        Math.ceil((searchData?.total ?? sortedResults.length) / RESULTS_PER_PAGE),
+      )
 
   // Group typeahead by type
   const typeaheadGroups = typeaheadData
@@ -701,7 +730,9 @@ export default function SearchPage() {
             {/* Results header */}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="text-sm text-muted-foreground" aria-live="polite">
-                {t('search.resultsCount', { count: sortedResults.length })}{' '}
+                {t('search.resultsCount', {
+                  count: filtersActive ? sortedResults.length : (searchData?.total ?? sortedResults.length),
+                })}{' '}
                 <bdi dir="auto" className="font-medium text-foreground">
                   &quot;{query}&quot;
                 </bdi>

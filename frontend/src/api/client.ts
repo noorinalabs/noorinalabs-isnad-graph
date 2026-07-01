@@ -166,21 +166,24 @@ export async function fetchGraphNetwork(
   )
 }
 
-// Maximum result counts the backend will accept for each search endpoint.
-// These MUST stay in sync with the ``limit`` ``le=`` bounds in
-// ``src/api/routes/search.py`` — requesting more triggers a 422 request
-// validation failure (#1025). The full results page requests the cap so it
-// shows as many matches as the endpoint allows in a single page.
+// Per-request batch size the search page fetches for each endpoint. These are the
+// server-side page sizes threaded to ``searchAll``/``searchSemantic`` as ``limit``
+// and MUST stay within the ``limit`` ``le=`` bounds in ``src/api/routes/search.py``
+// (both le=100) — requesting more triggers a 422 (#1025). Server-side pagination
+// (``page``) lets the results page fetch subsequent batches, so these are a batch
+// window, no longer a hard result ceiling (ig#1147).
 export const SEARCH_MAX_LIMIT = 100
 export const SEMANTIC_SEARCH_MAX_LIMIT = 50
 
 export async function searchAll(
   query: string,
   limit = 20,
+  page = 1,
 ): Promise<SearchResultsResponse> {
   const params = new URLSearchParams({
     q: query,
     limit: String(limit),
+    page: String(page),
   })
   return fetchJson(`${API_BASE}/search?${params}`)
 }
@@ -188,10 +191,12 @@ export async function searchAll(
 export async function searchSemantic(
   query: string,
   limit = 10,
+  page = 1,
 ): Promise<SearchResultsResponse> {
   const params = new URLSearchParams({
     q: query,
     limit: String(limit),
+    page: String(page),
   })
   return fetchJson(`${API_BASE}/search/semantic?${params}`)
 }
