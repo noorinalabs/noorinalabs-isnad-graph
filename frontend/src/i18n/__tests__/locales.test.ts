@@ -27,6 +27,36 @@ function baseKeySet(bundle: unknown): Set<string> {
   return new Set(flattenKeys(bundle).map((k) => k.replace(PLURAL_SUFFIX, '')))
 }
 
+// Maps each count-pluralized base key in a bundle to the CLDR plural categories
+// it ships (e.g. 'hadithDetail.datingYears' -> {one, two, few, many, other}).
+function pluralCategoriesByBaseKey(bundle: unknown): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>()
+  for (const key of flattenKeys(bundle)) {
+    const category = PLURAL_SUFFIX.exec(key)?.[1]
+    if (!category) continue
+    const base = key.replace(PLURAL_SUFFIX, '')
+    const cats = map.get(base) ?? new Set<string>()
+    cats.add(category)
+    map.set(base, cats)
+  }
+  return map
+}
+
+// Pre-existing plural-coverage gaps that predate the CLDR-parity gate below.
+// These `ar` count keys ship only _one/_other and are owned by other features
+// (search/timeline/graph/hadithDetail) — out of scope for ig#1042, tracked for
+// a separate follow-up. They are grandfathered here so the gate enforces full
+// parity on every OTHER count key (and blocks regressions) without forcing an
+// out-of-scope fix. Format: `${locale}:${baseKey}` -> sorted missing categories.
+const KNOWN_PLURAL_GAPS: Record<string, string[]> = {
+  'ar:search.resultsCount': ['few', 'many', 'two'],
+  'ar:search.tipBroaden': ['few', 'many', 'two'],
+  'ar:timeline.activeNarrators': ['few', 'many', 'two'],
+  'ar:graph.connections': ['few', 'many', 'two'],
+  'ar:graph.statusCommunities': ['few', 'many', 'two'],
+  'ar:hadithDetail.parallelAria': ['few', 'many', 'two'],
+}
+
 describe('locale bundles', () => {
   const enKeys = baseKeySet(en)
 
@@ -52,6 +82,32 @@ describe('locale bundles', () => {
     })
     expect(empties).toEqual([])
   })
+
+  // Base-key parity (above) strips plural suffixes, so it is blind to a count
+  // key MISSING a CLDR plural category its locale requires — the value then
+  // silently falls back to English (parity-gate-invisible, surfaced in the
+  // ig#1042 review). Enforce that every count key exposes its locale's full
+  // plural-category set (the union of categories across that locale's count
+  // keys), except for the documented KNOWN_PLURAL_GAPS baseline.
+  it.each(LOCALES.map((l) => l.code))(
+    'locale %s ships every required CLDR plural category on each count key',
+    (code) => {
+      const byBase = pluralCategoriesByBaseKey(BUNDLES[code])
+      const required = new Set<string>()
+      for (const cats of byBase.values()) for (const cat of cats) required.add(cat)
+      const gaps = [...byBase.entries()]
+        .map(([base, cats]) => ({
+          base,
+          missing: [...required].filter((cat) => !cats.has(cat)).sort(),
+        }))
+        .filter(({ base, missing }) => {
+          if (missing.length === 0) return false
+          const allowed = KNOWN_PLURAL_GAPS[`${code}:${base}`]
+          return !(allowed && allowed.join(',') === missing.join(','))
+        })
+      expect({ code, gaps }).toEqual({ code, gaps: [] })
+    },
+  )
 })
 
 describe('locale config', () => {

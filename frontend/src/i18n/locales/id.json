@@ -308,7 +308,20 @@
     "copyTranslation": "Salin terjemahan",
     "copyLink": "Salin tautan",
     "linkCopied": "Tautan disalin!",
-    "share": "Bagikan"
+    "share": "Bagikan",
+    "dating": "Chain-Derived Dating",
+    "datingRange": "AH {{post}}–{{ante}}",
+    "datingPostQuem": "Terminus post quem (earliest)",
+    "datingAnteQuem": "Terminus ante quem (latest)",
+    "datingSpan": "Chain span",
+    "datingYearAh": "AH {{year}}",
+    "datingYears_one": "{{count}} year",
+    "datingYears_other": "{{count}} years",
+    "datingConfidence": "Confidence",
+    "datingConfidence_high": "High",
+    "datingConfidence_medium": "Medium",
+    "datingConfidence_low": "Low",
+    "datingInsufficient": "Insufficient chain data to derive a dating window."
   },
   "narratorDetail": {
     "notFound": "Perawi tidak ditemukan.",
