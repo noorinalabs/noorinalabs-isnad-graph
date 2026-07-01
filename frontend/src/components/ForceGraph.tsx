@@ -89,6 +89,12 @@ export interface ForceGraphProps {
   onNodeHover?: (node: GraphNode | null) => void
   width?: number
   height?: number
+  /** Active layout mode; 'tabaqa' pins nodes into generation bands (ig#1043). */
+  layoutMode?: string
+  /** node id → ṭabaqa band rank (0 = earliest generation). Only used in 'tabaqa' mode. */
+  nodeLayerRank?: Map<string, number> | null
+  /** Total number of ṭabaqa bands, for vertical centering. */
+  layerCount?: number
 }
 
 interface InternalNode {
@@ -103,6 +109,7 @@ interface InternalNode {
   type: string
   x?: number
   y?: number
+  fy?: number
   [key: string]: unknown
 }
 
@@ -116,6 +123,10 @@ interface InternalLink {
 const REDUCED_MOTION =
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+// Vertical distance (in force-sim units) between adjacent ṭabaqa generation
+// bands when the explorer is in 'tabaqa' layout mode (ig#1043).
+const TABAQA_BAND_SPACING = 90
+
 export default function ForceGraph({
   nodes,
   edges,
@@ -125,14 +136,17 @@ export default function ForceGraph({
   onNodeHover,
   width,
   height,
+  layoutMode,
+  nodeLayerRank,
+  layerCount = 0,
 }: ForceGraphProps) {
   const fgRef = useRef<ForceGraphMethods | undefined>(undefined)
   const themeColors = useThemeColors()
 
   const graphData = useMemo(
     () => ({
-      nodes: nodes.map(
-        (n): InternalNode => ({
+      nodes: nodes.map((n): InternalNode => {
+        const internal: InternalNode = {
           id: n.id,
           label: n.label,
           name_ar: n.name_ar,
@@ -142,8 +156,19 @@ export default function ForceGraph({
           out_degree: n.out_degree,
           generation: n.generation,
           type: n.type,
-        }),
-      ),
+        }
+        // Ṭabaqa layout (ig#1043): pin each node to the vertical band of its
+        // generation so the tree reads chronologically top→bottom. `fy` fixes the
+        // y-coordinate while x stays force-driven, spreading narrators within
+        // their band. Bands are centered vertically around the origin.
+        if (layoutMode === 'tabaqa' && nodeLayerRank) {
+          const rank = nodeLayerRank.get(n.id)
+          if (rank != null) {
+            internal.fy = (rank - (layerCount - 1) / 2) * TABAQA_BAND_SPACING
+          }
+        }
+        return internal
+      }),
       links: edges.map(
         (e): InternalLink => ({
           source: e.source,
@@ -153,7 +178,7 @@ export default function ForceGraph({
         }),
       ),
     }),
-    [nodes, edges],
+    [nodes, edges, layoutMode, nodeLayerRank, layerCount],
   )
 
   // Build adjacency set for selection highlighting
