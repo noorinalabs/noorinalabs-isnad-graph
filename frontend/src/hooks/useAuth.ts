@@ -166,9 +166,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadUser() {
       let token = localStorage.getItem('access_token')
+
+      // Cold load / deep-link / hard refresh: the short-lived access token may
+      // be absent from localStorage (already expired, cleared, or only ever
+      // minted in another tab) while the long-lived httpOnly refresh cookie is
+      // still valid. Attempt a cookie-based refresh BEFORE concluding the user
+      // is unauthenticated — otherwise a valid session is bounced to /login on a
+      // hard deep-link/refresh to a protected route, and the forced re-login
+      // mints a brand-new session each time (session accumulation) (#1111).
+      // `loading` stays true across this await, so ProtectedRoute holds the
+      // spinner and does NOT redirect until auth hydration resolves.
       if (!token) {
-        setLoading(false)
-        return
+        token = await refreshAccessToken()
+        if (!token) {
+          // No access token AND no valid refresh cookie — genuinely
+          // unauthenticated (first-time visitor / expired-or-revoked session).
+          clearAuth()
+          setLoading(false)
+          return
+        }
       }
 
       let res = await fetch(`${USER_BASE}/me`, {
