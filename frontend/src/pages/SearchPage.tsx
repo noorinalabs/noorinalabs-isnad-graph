@@ -274,6 +274,15 @@ export default function SearchPage() {
     setPage(1)
   }
 
+  // Switching search mode must reset to page 1 (ig#1151): the two modes have
+  // independent result sets and page counts, so carrying a deep page across a
+  // fulltext↔semantic switch can land on an out-of-range/empty page. Mirrors the
+  // page-reset every filter/query change already performs.
+  const changeMode = (next: SearchMode) => {
+    setMode(next)
+    setPage(1)
+  }
+
   // Client-side filtering of results: entity type first, then the
   // collection/grading/century/topic facets (see matchesFacets). (#1036)
   const filteredResults = (searchData?.results ?? []).filter((r) => {
@@ -531,7 +540,7 @@ export default function SearchPage() {
                 type="radio"
                 name="searchMode"
                 checked={mode === 'fulltext'}
-                onChange={() => setMode('fulltext')}
+                onChange={() => changeMode('fulltext')}
                 className="accent-primary"
               />
               {t('search.modeFulltext')}
@@ -541,7 +550,7 @@ export default function SearchPage() {
                 type="radio"
                 name="searchMode"
                 checked={mode === 'semantic'}
-                onChange={() => setMode('semantic')}
+                onChange={() => changeMode('semantic')}
                 className="accent-primary"
               />
               {t('search.modeSemantic')}
