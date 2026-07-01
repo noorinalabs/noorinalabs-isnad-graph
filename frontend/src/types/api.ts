@@ -111,6 +111,9 @@ export interface SearchResultsResponse {
   results: SearchResult[]
   total: number
   query: string
+  // 1-based page this response corresponds to. Defaulted to 1 for older backends
+  // that omit it, so pagination math stays safe pre-deploy. (ig#1147)
+  page?: number
 }
 
 export interface TimelineEntry {

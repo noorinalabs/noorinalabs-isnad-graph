@@ -317,13 +317,21 @@ class SearchResult(BaseModel):
 
 
 class SearchResultsResponse(BaseModel):
-    """Search results response."""
+    """Search results response.
+
+    ``total`` is the full count of matching documents across the searchable set
+    (not the length of ``results``, which is a single server-side page); ``page``
+    is the 1-based page number this response corresponds to. Together they let the
+    client page past the first batch — the fix for the flat 50-result ceiling in
+    ig#1147, where the endpoints returned a single capped batch with no offset.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     results: list[SearchResult]
     total: int
     query: str
+    page: int = 1
 
 
 # --- Parallels models ---
