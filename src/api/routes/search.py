@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from src.api.deps import get_neo4j, get_pg
@@ -28,6 +28,66 @@ log = logging.getLogger(__name__)
 # reachable past result 50. This ceiling only guards against unbounded-depth
 # abuse (each deeper page fetches ``page * limit`` rows from the index).
 MAX_SEARCH_PAGE = 1000
+
+# ---------------------------------------------------------------------------
+# Deep-page fetch-cost bound (ig#1150 — ig#1147 follow-up)
+# ---------------------------------------------------------------------------
+# ``page * limit`` (the "result window") is the depth *both* search paths pay per
+# request, and it is what makes a deep page expensive:
+#
+#   * ``/search`` (full-text) reconstructs the merged narrator+hadith prefix in
+#     the application. Because the interleave order (ig#1110) is derived from two
+#     independently-scored Neo4j lists, ``SKIP``/``OFFSET`` cannot be pushed into
+#     Cypher — so the route fetches the first ``page * limit`` rows of *each*
+#     index and materialises ~``2 * page * limit`` ``SearchResult`` objects just
+#     to slice out one ``limit``-sized window. Memory + transfer are O(page*limit).
+#   * ``/search/semantic`` (pgvector) pages with ``LIMIT n OFFSET (page-1)*n``;
+#     Postgres still scans and discards every one of the ``OFFSET`` ordered rows
+#     before the window, so cost grows with ``page * limit`` there too.
+#
+# ``MAX_SEARCH_PAGE`` alone does not bound this: at ``limit=100`` a page-1000
+# request forces a ``100 * 1000 = 100_000``-row window per index. We therefore cap
+# the *window* (not just the page), modelled on Elasticsearch's
+# ``index.max_result_window`` (default 10 000): a request whose ``page * limit``
+# exceeds this ceiling is rejected with a clear ``400`` rather than served at
+# unbounded cost. This caps the worst-case fetch to ``MAX_SEARCH_RESULT_WINDOW``
+# rows per index (10 000, was 100 000) with predictable, documented semantics.
+#
+# ``total`` semantics are unchanged: it remains the TRUE match count, so an
+# in-window page still reports the full corpus size (ig#1147). The window bound
+# governs only which pages are *retrievable* — pages inside the window behave
+# exactly as ig#1147 defined; a page past it is explicitly unretrievable (400),
+# never silently clamped to the wrong page's data.
+#
+# Kept in sync with the frontend pager: ``SearchPage`` caps display navigation at
+# ``MAX_DISPLAY_PAGES=1000``, which maps to a maximum server window of exactly
+# 10 000 for both modes (full-text: server page 100 × limit 100; semantic: server
+# page 200 × limit 50). So normal UI paging never trips this bound — it guards
+# direct-API deep-page abuse (e.g. ``?page=100000``). Changing either side means
+# revisiting the other.
+MAX_SEARCH_RESULT_WINDOW = 10_000
+
+
+def _enforce_result_window(page: int, limit: int) -> None:
+    """Reject a request whose result window (``page * limit``) exceeds the bound.
+
+    Raised as a ``400`` *before* any database query runs, so an abusive deep-page
+    request costs nothing. We error rather than silently clamp so ``page``/``total``
+    semantics stay honest — a page past the window is explicitly unretrievable, not
+    quietly served as some other page's data (see ``MAX_SEARCH_RESULT_WINDOW``
+    rationale above). (ig#1150)
+    """
+    if page * limit > MAX_SEARCH_RESULT_WINDOW:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Requested result window (page {page} × limit {limit} = "
+                f"{page * limit}) exceeds the maximum retrievable window of "
+                f"{MAX_SEARCH_RESULT_WINDOW}. Deep pagination is intentionally "
+                "bounded to cap fetch cost; narrow the query or use a smaller "
+                "page/limit to stay within the window."
+            ),
+        )
 
 
 def _death_year_to_century(death_year_ah: object) -> int | None:
@@ -176,9 +236,14 @@ def search(
     an API error.
     """
     # Short-circuit blank queries before touching Neo4j — nothing to match, and
-    # a full-text query on empty input is meaningless.
+    # a full-text query on empty input is meaningless. (A blank query is a
+    # zero-cost no-op regardless of page, so it precedes the window guard.)
     if not q.strip():
         return SearchResultsResponse(results=[], total=0, query=q, page=page)
+
+    # Bound the deep-page fetch cost: reject a ``page * limit`` window beyond
+    # ``MAX_SEARCH_RESULT_WINDOW`` with a 400 before fetching anything (ig#1150).
+    _enforce_result_window(page, limit)
 
     # Window covering every result up to and including the requested page. The two
     # entity sub-queries are merged/interleaved *before* the page is sliced out, so
@@ -388,6 +453,12 @@ def search_semantic(
     separate deploy dependency (deploy#470); this route only owns the API
     behaviour when they are not present.
     """
+    # Bound the deep-page fetch cost: reject a ``page * limit`` window beyond
+    # ``MAX_SEARCH_RESULT_WINDOW`` with a 400 before embedding/querying anything.
+    # A deep ``OFFSET`` still makes Postgres scan every skipped ordered row, so the
+    # same window bound as the full-text path applies here (ig#1150).
+    _enforce_result_window(page, limit)
+
     # Page window: ``limit`` is the per-page size and ``OFFSET`` skips the earlier
     # pages so a query with >50 matches is reachable past result 50 (ig#1147). A
     # single ordered candidate set makes offset paging exact here (unlike the

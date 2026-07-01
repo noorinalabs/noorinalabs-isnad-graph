@@ -154,6 +154,39 @@ Response:
 
 When `q` is omitted the endpoint returns all narrators ordered by ID.
 
+## Search
+
+```
+GET /api/v1/search?q=bukhari&page=1&limit=20
+GET /api/v1/search/semantic?q=patience%20in%20adversity&page=1&limit=10
+```
+
+`GET /api/v1/search` runs a full-text search across narrators and hadiths (fair-share
+interleaved by relevance); `GET /api/v1/search/semantic` runs a pgvector similarity
+search over hadith embeddings (returns `503` on environments where the embedding index
+is not provisioned).
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | — | Search query (blank `q` on `/search` is a `200` no-op with an empty result set) |
+| `page` | int | `1` | 1-based page number (1–1000) |
+| `limit` | int | `20` (`/search`), `10` (`/search/semantic`) | Results per page (1–100) |
+
+**Total-count semantics:** `total` is the *true* count of matching documents (the full
+corpus match set), independent of `page`/`limit` — use it to compute the page count. It is
+**not** clamped to the retrievable window (see below), so `total` may legitimately exceed
+`10000`.
+
+**Deep-page window bound:** deep pages are expensive — the full-text path reconstructs the
+whole `page × limit` merged prefix in the application, and the semantic path makes Postgres
+scan every skipped `OFFSET` row. To cap this cost, the **result window** `page × limit` is
+bounded at **10 000** (modelled on Elasticsearch's `index.max_result_window`). A request
+whose `page × limit` exceeds `10000` returns `400 Bad Request` with a message naming the
+limit — narrow the query or use a smaller `page`/`limit`. Pages *inside* the window behave
+normally; the bound only makes ultra-deep pages explicitly unretrievable rather than served
+at unbounded cost. The web UI's pager stays within this window, so this bound is primarily a
+guard against direct-API deep-page requests.
+
 ## Rate Limiting
 
 - **120 requests/minute** per client IP (sliding window).

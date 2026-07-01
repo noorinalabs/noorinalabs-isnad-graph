@@ -973,3 +973,86 @@ def test_semantic_search_page_out_of_bounds_is_422(client: TestClient, app: obje
     mock_pg.execute.assert_not_called()
 
     del app.dependency_overrides[get_pg]
+
+
+# --- Deep-page fetch-cost bound (ig#1150, ig#1147 follow-up) ------------------
+
+
+def test_search_result_window_over_cap_is_400(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A ``page * limit`` window past MAX_SEARCH_RESULT_WINDOW is rejected 400 (ig#1150).
+
+    ``page=200 & limit=100`` is a 20 000-row window — each of page/limit is within
+    its own validation cap (page ≤ 1000, limit ≤ 100), so FastAPI accepts the
+    request and the handler's window guard is what must reject it. The 400 fires
+    *before* any Neo4j query, so an abusive deep-page request costs nothing. On
+    pre-fix code this window would be served, fetching ~20 000 rows per index to
+    return one page — the unbounded cost ig#1150 bounds.
+    """
+    from src.api.routes.search import MAX_SEARCH_RESULT_WINDOW
+
+    assert 200 * 100 > MAX_SEARCH_RESULT_WINDOW  # the window this request asks for
+    resp = client.get("/api/v1/search?q=test&limit=100&page=200")
+    assert resp.status_code == 400
+    assert str(MAX_SEARCH_RESULT_WINDOW) in resp.json()["detail"]
+    # The bound is enforced before any fetch — no index query is issued.
+    mock_neo4j.execute_read.assert_not_called()
+
+
+def test_search_result_window_at_cap_is_accepted(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """The boundary window (``page * limit == MAX_SEARCH_RESULT_WINDOW``) is retrievable.
+
+    ``page=100 & limit=100`` is exactly a 10 000-row window — the deepest request
+    the bound permits — so it must succeed, confirming the guard rejects only
+    *beyond* the ceiling (``>``), never at it. It also pins the documented
+    total-count semantics: ``total`` is the TRUE match count and is NOT clamped to
+    the window, so it may legitimately exceed MAX_SEARCH_RESULT_WINDOW (here
+    8000 + 5000 = 13 000). The window bounds which pages are *retrievable*, not the
+    reported corpus size (ig#1147 semantics preserved).
+    """
+    from src.api.routes.search import MAX_SEARCH_RESULT_WINDOW
+
+    assert 100 * 100 == MAX_SEARCH_RESULT_WINDOW  # exactly at the boundary
+    mock_neo4j.execute_read.side_effect = [
+        [],  # narrator full-text search (no rows this deep)
+        [],  # hadith full-text search
+        [{"total": 8000}],  # narrator count
+        [{"total": 5000}],  # hadith count
+    ]
+    resp = client.get("/api/v1/search?q=test&limit=100&page=100")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 100
+    # total is the true match count, NOT clamped to the retrievable window.
+    assert body["total"] == 13000
+    assert body["total"] > MAX_SEARCH_RESULT_WINDOW
+    assert body["results"] == []
+
+
+def test_semantic_search_result_window_over_cap_is_400(client: TestClient, app: object) -> None:
+    """Semantic path enforces the same deep-page window bound with a 400 (ig#1150).
+
+    A deep ``OFFSET`` makes Postgres scan and discard every skipped ordered row, so
+    ``/search/semantic`` pays the same ``page * limit`` cost as the full-text path
+    and shares the ceiling. ``page=200 & limit=100`` (20 000) must be rejected
+    before the embed/query runs — no pg query is attempted.
+    """
+    from src.api.routes.search import MAX_SEARCH_RESULT_WINDOW
+
+    mock_pg = MagicMock()
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    assert 200 * 100 > MAX_SEARCH_RESULT_WINDOW
+    resp = client.get("/api/v1/search/semantic?q=test&limit=100&page=200")
+    assert resp.status_code == 400
+    assert str(MAX_SEARCH_RESULT_WINDOW) in resp.json()["detail"]
+    # Guard runs before the embed step and the pg query — nothing is executed.
+    mock_pg.execute.assert_not_called()
+
+    del app.dependency_overrides[get_pg]
