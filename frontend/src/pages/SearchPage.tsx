@@ -30,6 +30,7 @@ import {
 } from '../components/ui/Dialog'
 import { matchesFacets } from '../lib/searchFacets'
 import { GRADE_TOKENS, gradeLabel } from '../lib/grades'
+import { serverPageFor, localPageFor, pageCountFromTotal } from '../lib/searchPagination'
 
 type SearchMode = 'fulltext' | 'semantic'
 type SortOption = 'relevance' | 'date-asc' | 'date-desc' | 'name-en' | 'name-ar'
@@ -140,8 +141,7 @@ export default function SearchPage() {
   // full-text) was the reported "5 pages of 10" ceiling. Facet toggles reset
   // ``page`` to 1, so a filtered view is always evaluated against batch 1.
   const batchSize = mode === 'semantic' ? SEMANTIC_SEARCH_MAX_LIMIT : SEARCH_MAX_LIMIT
-  const pagesPerBatch = Math.max(1, Math.floor(batchSize / RESULTS_PER_PAGE))
-  const serverPage = Math.floor((page - 1) / pagesPerBatch) + 1
+  const serverPage = serverPageFor(page, batchSize, RESULTS_PER_PAGE)
 
   // Full search query
   const { data: searchData, isLoading, isError, error: searchError } = useQuery({
@@ -291,7 +291,7 @@ export default function SearchPage() {
 
   // Page within the fetched batch: the batch holds ``pagesPerBatch`` display pages,
   // so map the global ``page`` onto its offset inside the current server batch.
-  const localPage = ((page - 1) % pagesPerBatch) + 1
+  const localPage = localPageFor(page, batchSize, RESULTS_PER_PAGE)
   const paginatedResults = sortedResults.slice(
     (localPage - 1) * RESULTS_PER_PAGE,
     localPage * RESULTS_PER_PAGE,
@@ -312,9 +312,10 @@ export default function SearchPage() {
   const filtersActive = activeFilterCount > 0
   const totalPages = filtersActive
     ? Math.ceil(sortedResults.length / RESULTS_PER_PAGE)
-    : Math.min(
+    : pageCountFromTotal(
+        searchData?.total ?? sortedResults.length,
+        RESULTS_PER_PAGE,
         MAX_DISPLAY_PAGES,
-        Math.ceil((searchData?.total ?? sortedResults.length) / RESULTS_PER_PAGE),
       )
 
   // Group typeahead by type

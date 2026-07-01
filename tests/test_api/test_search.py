@@ -830,3 +830,146 @@ def test_semantic_search_pages_past_the_first_batch(client: TestClient, app: obj
     assert data_params[-1] == 50  # offset
 
     del app.dependency_overrides[get_pg]
+
+
+def test_search_fulltext_partial_final_page(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A match count that is NOT a multiple of ``limit`` yields a short final page.
+
+    Marisol #3 (PR #1149): the earlier regression used exactly 60 rows for a
+    60-row window, so the short-last-page slice never executed. Here there are 55
+    matching narrators and the client asks for page 6 at limit 10 — the window is
+    results 51-60 but only 51-55 exist, so the endpoint must return the 5 real
+    rows (not pad, not error, not clamp back to a full page).
+    """
+    narrators = [
+        {"id": f"nar-{i:03d}", "name_ar": f"راو {i}", "name_en": f"narrator {i}", "score": 100 - i}
+        for i in range(55)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrators,  # narrator full-text search (whole prefix)
+        [],  # hadith full-text search
+        [{"total": 55}],  # narrator count
+        [{"total": 0}],  # hadith count
+    ]
+
+    resp = client.get("/api/v1/search?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 6
+    assert body["total"] == 55
+    # Partial final page: results 51-55 only (five rows), not a padded full page.
+    ids = [r["id"] for r in body["results"]]
+    assert ids == [f"nar-{i:03d}" for i in range(50, 55)]
+    assert len(ids) == 5
+
+
+def test_search_fulltext_page_beyond_total_is_empty_not_error(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A page past the real total returns 200 with an empty window (nice-to-have)."""
+    narrators = [
+        {"id": f"nar-{i:03d}", "name_ar": f"راو {i}", "name_en": f"n{i}", "score": 100 - i}
+        for i in range(55)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrators,
+        [],
+        [{"total": 55}],
+        [{"total": 0}],
+    ]
+
+    resp = client.get("/api/v1/search?q=test&limit=10&page=100")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 100
+    assert body["total"] == 55
+    assert body["results"] == []
+
+
+def test_search_fulltext_page_out_of_bounds_is_422(client: TestClient) -> None:
+    """page below 1 or above MAX_SEARCH_PAGE is rejected by validation (nice-to-have)."""
+    assert client.get("/api/v1/search?q=test&page=0").status_code == 422
+    assert client.get("/api/v1/search?q=test&page=1001").status_code == 422
+
+
+def test_semantic_search_partial_final_page(client: TestClient, app: object) -> None:
+    """Semantic OFFSET paging returns a short final page for a non-multiple total.
+
+    Marisol #3 (PR #1149): 55 candidates, page 6 at limit 10 => OFFSET 50, so the
+    DB returns only rows 51-55. The endpoint surfaces those five and reports the
+    full total, exercising the partial-page path on the semantic side too.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [
+            {"id": f"had-{i:03d}", "matn_ar": "نص", "matn_en": f"row {i}", "score": 0.5}
+            for i in range(50, 55)
+        ],
+        [{"total": 55}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 6
+    assert body["total"] == 55
+    assert len(body["results"]) == 5
+    # Confirms the short page came from an OFFSET-50 query, not a clamp.
+    data_params = mock_pg.execute.call_args_list[0].args[1]
+    assert data_params[-1] == 50  # offset
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_page_beyond_total_is_empty_not_error(
+    client: TestClient, app: object
+) -> None:
+    """Semantic: a page past the real total returns 200 + empty (nice-to-have)."""
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [[], [{"total": 55}]]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=10&page=100")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 100
+    assert body["total"] == 55
+    assert body["results"] == []
+    # offset = (100 - 1) * 10 = 990
+    assert mock_pg.execute.call_args_list[0].args[1][-1] == 990
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_page_out_of_bounds_is_422(client: TestClient, app: object) -> None:
+    """Semantic: page below 1 or above MAX_SEARCH_PAGE is rejected (nice-to-have)."""
+    mock_pg = MagicMock()
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    assert client.get("/api/v1/search/semantic?q=test&page=0").status_code == 422
+    assert client.get("/api/v1/search/semantic?q=test&page=1001").status_code == 422
+    mock_pg.execute.assert_not_called()
+
+    del app.dependency_overrides[get_pg]
