@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 const API_BASE = '/api/v1/admin'
@@ -23,6 +24,13 @@ interface ConfigAuditEntry {
 interface ConfigAuditResponse {
   entries: ConfigAuditEntry[]
   total: number
+}
+
+// A transient save-status banner. `isError` drives the styling instead of
+// string-sniffing the message text, so the copy can be localized freely.
+interface SaveStatus {
+  text: string
+  isError: boolean
 }
 
 async function fetchConfig(): Promise<SystemConfig> {
@@ -51,6 +59,7 @@ async function fetchAuditLog(page = 1): Promise<ConfigAuditResponse> {
 }
 
 export default function ConfigPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
 
   const { data: config, isLoading, error } = useQuery({
@@ -67,7 +76,7 @@ export default function ConfigPage() {
   const [formData, setFormData] = useState<Partial<SystemConfig>>({})
   const [newFlagKey, setNewFlagKey] = useState('')
   const [corsInput, setCorsInput] = useState('')
-  const [saveMessage, setSaveMessage] = useState('')
+  const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null)
 
   useEffect(() => {
     if (config) {
@@ -88,11 +97,11 @@ export default function ConfigPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-config'] })
       queryClient.invalidateQueries({ queryKey: ['admin-config-audit'] })
-      setSaveMessage('Configuration saved.')
-      setTimeout(() => setSaveMessage(''), 3000)
+      setSaveStatus({ text: t('admin.config.savedMsg'), isError: false })
+      setTimeout(() => setSaveStatus(null), 3000)
     },
     onError: (err: Error) => {
-      setSaveMessage(`Error: ${err.message}`)
+      setSaveStatus({ text: t('common.error', { message: err.message }), isError: true })
     },
   })
 
@@ -118,8 +127,8 @@ export default function ConfigPage() {
       update.feature_flags = formData.feature_flags
     }
     if (Object.keys(update).length === 0) {
-      setSaveMessage('No changes to save.')
-      setTimeout(() => setSaveMessage(''), 3000)
+      setSaveStatus({ text: t('admin.config.noChangesMsg'), isError: false })
+      setTimeout(() => setSaveStatus(null), 3000)
       return
     }
     mutation.mutate(update)
@@ -153,18 +162,23 @@ export default function ConfigPage() {
     })
   }
 
-  if (isLoading) return <div className="admin-page">Loading configuration...</div>
-  if (error) return <div className="admin-page error-text">Error loading config: {String(error)}</div>
+  if (isLoading) return <div className="admin-page">{t('admin.config.loading')}</div>
+  if (error)
+    return (
+      <div className="admin-page error-text">
+        {t('admin.config.errorLoading', { error: String(error) })}
+      </div>
+    )
 
   return (
     <div className="admin-page">
-      <h1>System Configuration</h1>
+      <h1>{t('admin.config.title')}</h1>
 
       <section className="section-mb">
-        <h2>Rate Limiting &amp; Pagination</h2>
+        <h2>{t('admin.config.sectionRateLimit')}</h2>
         <div className="grid-2col">
           <label>
-            Rate limit (req/min)
+            {t('admin.config.fieldRateLimit')}
             <input
               type="number"
               min={1}
@@ -176,7 +190,7 @@ export default function ConfigPage() {
             />
           </label>
           <label>
-            Max search results
+            {t('admin.config.fieldMaxSearchResults')}
             <input
               type="number"
               min={1}
@@ -188,7 +202,7 @@ export default function ConfigPage() {
             />
           </label>
           <label>
-            Max pagination limit
+            {t('admin.config.fieldMaxPagination')}
             <input
               type="number"
               min={1}
@@ -203,9 +217,9 @@ export default function ConfigPage() {
       </section>
 
       <section className="section-mb">
-        <h2>CORS Origins</h2>
+        <h2>{t('admin.config.sectionCors')}</h2>
         <label>
-          Comma-separated origins
+          {t('admin.config.fieldCorsOrigins')}
           <input
             type="text"
             value={corsInput}
@@ -216,9 +230,9 @@ export default function ConfigPage() {
       </section>
 
       <section className="section-mb">
-        <h2>Log Retention</h2>
+        <h2>{t('admin.config.sectionLogRetention')}</h2>
         <label>
-          Keep last N days of logs
+          {t('admin.config.fieldLogRetention')}
           <input
             type="number"
             min={1}
@@ -230,32 +244,34 @@ export default function ConfigPage() {
             className="form-input-block"
           />
         </label>
-        <p className="muted-text">
-          Application logs older than this are rotated/deleted (1–365 days). Frees disk on the VPS.
-        </p>
+        <p className="muted-text">{t('admin.config.logRetentionNote')}</p>
       </section>
 
       <section className="section-mb">
-        <h2>Feature Flags</h2>
+        <h2>{t('admin.config.sectionFeatureFlags')}</h2>
         {Object.entries(formData.feature_flags ?? {}).map(([key, val]) => (
           <div key={key} className="flag-row">
             <label className="flex-row" style={{ flex: 1, gap: '0.5rem', cursor: 'pointer' }}>
               <input type="checkbox" checked={val} onChange={() => toggleFlag(key)} />
               <span>{key}</span>
             </label>
-            <button onClick={() => removeFlag(key)} className="btn-danger">Remove</button>
+            <button onClick={() => removeFlag(key)} className="btn-danger">
+              {t('admin.config.removeFlag')}
+            </button>
           </div>
         ))}
         <div className="flex-row" style={{ marginTop: 8 }}>
           <input
             type="text"
-            placeholder="New flag name"
+            placeholder={t('admin.config.newFlagPlaceholder')}
             value={newFlagKey}
             onChange={(e) => setNewFlagKey(e.target.value)}
             className="form-input"
             style={{ flex: 1 }}
           />
-          <button onClick={addFlag} className="btn">Add Flag</button>
+          <button onClick={addFlag} className="btn">
+            {t('admin.config.addFlag')}
+          </button>
         </div>
       </section>
 
@@ -265,11 +281,11 @@ export default function ConfigPage() {
           disabled={mutation.isPending}
           className="btn-primary"
         >
-          {mutation.isPending ? 'Saving...' : 'Save Configuration'}
+          {mutation.isPending ? t('admin.config.saving') : t('admin.config.saveConfig')}
         </button>
-        {saveMessage && (
-          <span className={saveMessage.startsWith('Error') ? 'save-error' : 'save-success'}>
-            {saveMessage}
+        {saveStatus && (
+          <span className={saveStatus.isError ? 'save-error' : 'save-success'}>
+            {saveStatus.text}
           </span>
         )}
       </div>
@@ -277,16 +293,16 @@ export default function ConfigPage() {
       <hr />
 
       <section>
-        <h2>Audit Log</h2>
-        {auditData?.entries.length === 0 && <p>No config changes recorded yet.</p>}
+        <h2>{t('admin.config.sectionAuditLog')}</h2>
+        {auditData?.entries.length === 0 && <p>{t('admin.config.noConfigChanges')}</p>}
         <table className="data-table">
           <thead>
             <tr>
-              <th className="audit-th">Key</th>
-              <th className="audit-th">Old Value</th>
-              <th className="audit-th">New Value</th>
-              <th className="audit-th">Changed By</th>
-              <th className="audit-th">Changed At</th>
+              <th className="audit-th">{t('admin.config.colKey')}</th>
+              <th className="audit-th">{t('admin.config.colOldValue')}</th>
+              <th className="audit-th">{t('admin.config.colNewValue')}</th>
+              <th className="audit-th">{t('admin.config.colChangedBy')}</th>
+              <th className="audit-th">{t('admin.config.colChangedAt')}</th>
             </tr>
           </thead>
           <tbody>
@@ -304,14 +320,14 @@ export default function ConfigPage() {
         {auditData && auditData.total > 20 && (
           <div className="pagination" style={{ marginTop: 12 }}>
             <button disabled={auditPage <= 1} onClick={() => setAuditPage((p) => p - 1)}>
-              Previous
+              {t('common.previous')}
             </button>
-            <span>Page {auditPage}</span>
+            <span>{t('admin.config.pageN', { page: auditPage })}</span>
             <button
               disabled={auditPage * 20 >= auditData.total}
               onClick={() => setAuditPage((p) => p + 1)}
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         )}
