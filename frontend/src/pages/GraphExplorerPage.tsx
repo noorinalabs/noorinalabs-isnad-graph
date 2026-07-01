@@ -11,6 +11,7 @@ import {
 import ForceGraph from '../components/ForceGraph'
 import { communityColor } from '../components/ForceGraph'
 import type { GraphNode, GraphEdge, Narrator, ChainSummary } from '../types/api'
+import { computeTabaqaLayers, tabaqaRankByNode } from '../lib/tabaqa'
 
 const NODE_LIMIT = 5000
 
@@ -22,7 +23,7 @@ const NODE_LIMIT = 5000
 const SEED_CANDIDATE_LIMIT = 100
 const SUGGESTION_COUNT = 6
 
-type LayoutMode = 'force' | 'hierarchy' | 'radial'
+type LayoutMode = 'force' | 'hierarchy' | 'radial' | 'tabaqa'
 
 function narratorDegree(n: {
   in_degree: number | null
@@ -192,6 +193,13 @@ export default function GraphExplorerPage() {
       .sort((a, b) => b[1] - a[1])
   }, [allNodes])
 
+  // --- Ṭabaqa (generation) layering (ig#1043) ---
+  // Group loaded narrator nodes into chronological generation bands so the
+  // isnad-tree can read top→bottom (earliest ṭabaqa first). Narrators with an
+  // unknown/unmapped generation fall into a trailing band — see computeTabaqaLayers.
+  const tabaqaLayers = useMemo(() => computeTabaqaLayers(allNodes), [allNodes])
+  const tabaqaRank = useMemo(() => tabaqaRankByNode(tabaqaLayers), [tabaqaLayers])
+
   // --- Handlers ---
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNarratorId(nodeId)
@@ -323,7 +331,7 @@ export default function GraphExplorerPage() {
         {/* Layout toggle */}
         <div className="flex items-center gap-1">
           <span className="muted-text" style={{ fontSize: '0.875rem' }}>{t('graph.layout')}</span>
-          {(['force', 'hierarchy', 'radial'] as LayoutMode[]).map((mode) => (
+          {(['force', 'hierarchy', 'radial', 'tabaqa'] as LayoutMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setLayoutMode(mode)}
@@ -417,6 +425,9 @@ export default function GraphExplorerPage() {
               onNodeHover={handleNodeHover}
               width={dimensions.width}
               height={dimensions.height}
+              layoutMode={layoutMode}
+              nodeLayerRank={layoutMode === 'tabaqa' ? tabaqaRank : null}
+              layerCount={tabaqaLayers.length}
             />
           ) : (
             <div className="empty-state h-full">
@@ -483,6 +494,25 @@ export default function GraphExplorerPage() {
               {hoveredNode.trustworthiness_consensus && (
                 <div>{t('graph.tooltipTrust', { value: hoveredNode.trustworthiness_consensus })}</div>
               )}
+            </div>
+          )}
+
+          {/* Ṭabaqa generation bands (ig#1043) — annotates the chronological layering */}
+          {layoutMode === 'tabaqa' && allNodes.length > 0 && (
+            <div
+              className="absolute top-1/2 left-3 z-10 max-w-[220px] -translate-y-1/2 rounded-md border border-border bg-card p-3"
+              style={{ fontSize: '0.75rem', boxShadow: 'var(--shadow-md)' }}
+              data-testid="tabaqa-bands"
+            >
+              <div className="mb-2 font-semibold">{t('graph.tabaqaBandsTitle')}</div>
+              <ol className="m-0 flex list-none flex-col gap-1 p-0">
+                {tabaqaLayers.map((layer) => (
+                  <li key={layer.key} className="flex items-center justify-between gap-3">
+                    <span>{t(layer.labelKey)}</span>
+                    <span className="muted-text">{layer.nodeIds.length}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
           )}
 

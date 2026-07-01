@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { fetchContentStats } from '../../api/admin-client'
 import type { ContentStats } from '../../types/admin'
 import styles from './ContentStatsPage.module.css'
@@ -27,22 +29,22 @@ function titleCase(s: string): string {
 
 // A plain-language description of corpus *scope* so the totals are not read as
 // a complete corpus. Built from the per-sect breakdown the API returns.
-function scopeSentence(data: ContentStats): string {
-  const collections = `${data.collection_count.toLocaleString()} collection${
-    data.collection_count === 1 ? '' : 's'
-  }`
+function scopeSentence(data: ContentStats, t: TFunction): string {
+  const collections = t('admin.contentStats.scopeCollections', { count: data.collection_count })
+  const hadiths = data.hadith_count.toLocaleString()
   const sectNames = data.sects.map((s) => titleCase(s.sect))
   if (sectNames.length === 0) {
-    return `${data.hadith_count.toLocaleString()} hadith across ${collections}.`
+    return t('admin.contentStats.scopeNoSects', { hadiths, collections })
   }
   const sects =
     sectNames.length === 1
-      ? `${sectNames[0]} only`
+      ? t('admin.contentStats.scopeSectsSingle', { name: sectNames[0] })
       : sectNames.join(', ')
-  return `${data.hadith_count.toLocaleString()} hadith across ${collections} — ${sects}.`
+  return t('admin.contentStats.scopeWithSects', { hadiths, collections, sects })
 }
 
 export default function ContentStatsPage() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: fetchContentStats,
@@ -50,44 +52,47 @@ export default function ContentStatsPage() {
 
   return (
     <div>
-      <h2>Content Statistics</h2>
+      <h2>{t('admin.contentStats.title')}</h2>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className={styles.errorText}>Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className={styles.errorText}>
+          {t('common.error', { message: (error as Error).message })}
+        </p>
+      )}
 
       {data && (
         <>
           <div className={styles.cardGrid}>
-            <StatCard label="Hadiths" value={data.hadith_count.toLocaleString()} />
+            <StatCard label={t('admin.contentStats.statHadiths')} value={data.hadith_count.toLocaleString()} />
             <StatCard
-              label="Narrators"
+              label={t('admin.contentStats.statNarrators')}
               value={data.narrator_count.toLocaleString()}
-              hint="raw nodes — segmentation in progress"
+              hint={t('admin.contentStats.statNarratorsHint')}
             />
-            <StatCard label="Collections" value={data.collection_count.toLocaleString()} />
+            <StatCard label={t('admin.contentStats.statCollections')} value={data.collection_count.toLocaleString()} />
             <StatCard
-              label="Linked to a collection"
+              label={t('admin.contentStats.statLinked')}
               value={`${data.coverage_pct}%`}
             />
           </div>
 
-          <p className={styles.scopeCaption}>{scopeSentence(data)}</p>
+          <p className={styles.scopeCaption}>{scopeSentence(data, t)}</p>
           <p className={styles.scopeNote}>
-            These figures reflect the data currently loaded, not a complete hadith corpus.
-            The narrator count is the raw <code>Narrator</code> node total and still
-            includes unsegmented isnad chains; a de-duplicated figure will follow once
-            segmentation completes.
+            {t('admin.contentStats.scopeNotePre')}
+            <code>Narrator</code>
+            {t('admin.contentStats.scopeNotePost')}
           </p>
 
           {data.sects.length > 0 && (
             <section className={styles.breakdown}>
-              <h3 className={styles.sectionTitle}>By sect</h3>
+              <h3 className={styles.sectionTitle}>{t('admin.contentStats.sectionBySect')}</h3>
               <table className="data-table" style={{ maxWidth: 480 }}>
                 <thead>
                   <tr>
-                    <th>Sect</th>
-                    <th>Collections</th>
-                    <th>Hadith count</th>
+                    <th>{t('admin.contentStats.colSect')}</th>
+                    <th>{t('admin.contentStats.colCollections')}</th>
+                    <th>{t('admin.contentStats.colHadithCount')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -105,13 +110,13 @@ export default function ContentStatsPage() {
 
           {data.collections.length > 0 && (
             <section className={styles.breakdown}>
-              <h3 className={styles.sectionTitle}>By collection</h3>
+              <h3 className={styles.sectionTitle}>{t('admin.contentStats.sectionByCollection')}</h3>
               <table className="data-table" style={{ maxWidth: 480 }}>
                 <thead>
                   <tr>
-                    <th>Collection</th>
-                    <th>Sect</th>
-                    <th>Hadith count</th>
+                    <th>{t('admin.contentStats.colCollection')}</th>
+                    <th>{t('admin.contentStats.colSect')}</th>
+                    <th>{t('admin.contentStats.colHadithCount')}</th>
                   </tr>
                 </thead>
                 <tbody>

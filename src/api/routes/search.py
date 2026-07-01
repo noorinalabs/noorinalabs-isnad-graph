@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from src.api.deps import get_neo4j, get_pg
@@ -20,6 +20,74 @@ from src.utils.topics import canonical_topics_for_tags
 router = APIRouter()
 
 log = logging.getLogger(__name__)
+
+# Upper bound on page depth accepted by the search endpoints. Real server-side
+# pagination (SKIP/OFFSET) replaced the old single-capped-batch behaviour that
+# hard-capped result sets at the first ``limit`` rows (ig#1147). ``limit`` is now
+# a per-page size and ``page`` selects the window, so a query with >50 matches is
+# reachable past result 50. This ceiling only guards against unbounded-depth
+# abuse (each deeper page fetches ``page * limit`` rows from the index).
+MAX_SEARCH_PAGE = 1000
+
+# ---------------------------------------------------------------------------
+# Deep-page fetch-cost bound (ig#1150 — ig#1147 follow-up)
+# ---------------------------------------------------------------------------
+# ``page * limit`` (the "result window") is the depth *both* search paths pay per
+# request, and it is what makes a deep page expensive:
+#
+#   * ``/search`` (full-text) reconstructs the merged narrator+hadith prefix in
+#     the application. Because the interleave order (ig#1110) is derived from two
+#     independently-scored Neo4j lists, ``SKIP``/``OFFSET`` cannot be pushed into
+#     Cypher — so the route fetches the first ``page * limit`` rows of *each*
+#     index and materialises ~``2 * page * limit`` ``SearchResult`` objects just
+#     to slice out one ``limit``-sized window. Memory + transfer are O(page*limit).
+#   * ``/search/semantic`` (pgvector) pages with ``LIMIT n OFFSET (page-1)*n``;
+#     Postgres still scans and discards every one of the ``OFFSET`` ordered rows
+#     before the window, so cost grows with ``page * limit`` there too.
+#
+# ``MAX_SEARCH_PAGE`` alone does not bound this: at ``limit=100`` a page-1000
+# request forces a ``100 * 1000 = 100_000``-row window per index. We therefore cap
+# the *window* (not just the page), modelled on Elasticsearch's
+# ``index.max_result_window`` (default 10 000): a request whose ``page * limit``
+# exceeds this ceiling is rejected with a clear ``400`` rather than served at
+# unbounded cost. This caps the worst-case fetch to ``MAX_SEARCH_RESULT_WINDOW``
+# rows per index (10 000, was 100 000) with predictable, documented semantics.
+#
+# ``total`` semantics are unchanged: it remains the TRUE match count, so an
+# in-window page still reports the full corpus size (ig#1147). The window bound
+# governs only which pages are *retrievable* — pages inside the window behave
+# exactly as ig#1147 defined; a page past it is explicitly unretrievable (400),
+# never silently clamped to the wrong page's data.
+#
+# Kept in sync with the frontend pager: ``SearchPage`` caps display navigation at
+# ``MAX_DISPLAY_PAGES=1000``, which maps to a maximum server window of exactly
+# 10 000 for both modes (full-text: server page 100 × limit 100; semantic: server
+# page 200 × limit 50). So normal UI paging never trips this bound — it guards
+# direct-API deep-page abuse (e.g. ``?page=100000``). Changing either side means
+# revisiting the other.
+MAX_SEARCH_RESULT_WINDOW = 10_000
+
+
+def _enforce_result_window(page: int, limit: int) -> None:
+    """Reject a request whose result window (``page * limit``) exceeds the bound.
+
+    Raised as a ``400`` *before* any database query runs, so an abusive deep-page
+    request costs nothing. We error rather than silently clamp so ``page``/``total``
+    semantics stay honest — a page past the window is explicitly unretrievable, not
+    quietly served as some other page's data (see ``MAX_SEARCH_RESULT_WINDOW``
+    rationale above). (ig#1150)
+    """
+    if page * limit > MAX_SEARCH_RESULT_WINDOW:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Requested result window (page {page} × limit {limit} = "
+                f"{page * limit}) exceeds the maximum retrievable window of "
+                f"{MAX_SEARCH_RESULT_WINDOW}. Deep pagination is intentionally "
+                "bounded to cap fetch cost; narrow the query or use a smaller "
+                "page/limit to stay within the window."
+            ),
+        )
 
 
 def _death_year_to_century(death_year_ah: object) -> int | None:
@@ -152,7 +220,8 @@ def _interleave_fairly(
 @router.get("/search", response_model=SearchResultsResponse)
 def search(
     q: str = Query("", max_length=500, description="Search query"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100, description="Results per page"),
+    page: int = Query(1, ge=1, le=MAX_SEARCH_PAGE, description="1-based page number"),
     neo4j: Neo4jClient = Depends(get_neo4j),
     settings: Settings = Depends(get_search_settings),
 ) -> SearchResultsResponse:
@@ -167,12 +236,25 @@ def search(
     an API error.
     """
     # Short-circuit blank queries before touching Neo4j — nothing to match, and
-    # a full-text query on empty input is meaningless.
+    # a full-text query on empty input is meaningless. (A blank query is a
+    # zero-cost no-op regardless of page, so it precedes the window guard.)
     if not q.strip():
-        return SearchResultsResponse(results=[], total=0, query=q)
+        return SearchResultsResponse(results=[], total=0, query=q, page=page)
+
+    # Bound the deep-page fetch cost: reject a ``page * limit`` window beyond
+    # ``MAX_SEARCH_RESULT_WINDOW`` with a 400 before fetching anything (ig#1150).
+    _enforce_result_window(page, limit)
+
+    # Window covering every result up to and including the requested page. The two
+    # entity sub-queries are merged/interleaved *before* the page is sliced out, so
+    # the fair-share ordering (ig#1110) stays stable across pages; fetching the
+    # first ``end`` of each list is enough to reconstruct the merged prefix that
+    # contains this page. (ig#1147)
+    end = page * limit
+    start = (page - 1) * limit
 
     # --- Narrator search via full-text index ---
-    narrator_rows = _fulltext_narrator_search(neo4j, q, limit)
+    narrator_rows = _fulltext_narrator_search(neo4j, q, end)
     narrator_results = [
         SearchResult(
             id=r["id"],
@@ -186,8 +268,8 @@ def search(
     ]
 
     # --- Hadith search via full-text index ---
-    # Query hadiths with the FULL ``limit`` — not the slots left over after
-    # narrators — so a flood of narrator hits can no longer starve Hadith entities
+    # Query hadiths with the FULL page window (``end``) — not the slots left over
+    # after narrators — so a flood of narrator hits can no longer starve Hadith entities
     # out of the result set. On prod, narrator-table pollution (raw isnad strings
     # stored as ``:Narrator`` nodes whose name matches the query — upstream
     # da#202) returns up to ``limit`` narrator hits; the old ``remaining = limit -
@@ -195,11 +277,14 @@ def search(
     # exact "Full-text → Narrator(N), Hadith(0)" symptom in ig#1110. The raw Lucene
     # score passes through unchanged; the saturating transform runs on the merged
     # set below (ig#1070).
-    hadith_rows = _fulltext_hadith_search(neo4j, q, limit)
+    hadith_rows = _fulltext_hadith_search(neo4j, q, end)
     hadith_results = [_hadith_row_to_search_result(r, r["score"]) for r in hadith_rows]
 
     # --- Fair-share merge so neither entity type starves the other (ig#1110) ---
-    results = _interleave_fairly(narrator_results, hadith_results, limit)
+    # Merge the full prefix (up to ``end``), then slice out just this page's window
+    # so pagination is consistent with the interleave order (ig#1147).
+    merged = _interleave_fairly(narrator_results, hadith_results, end)
+    results = merged[start:end]
 
     # --- Saturating relevance transform (absolute confidence) ---
     # Neo4j's ``db.index.fulltext.queryNodes`` returns unbounded BM25-style
@@ -224,7 +309,7 @@ def search(
     # full count of matching narrators + hadiths so clients can paginate.
     total = _fulltext_narrator_count(neo4j, q) + _fulltext_hadith_count(neo4j, q)
 
-    return SearchResultsResponse(results=results, total=total, query=q)
+    return SearchResultsResponse(results=results, total=total, query=q, page=page)
 
 
 def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> list[dict[str, Any]]:
@@ -242,12 +327,19 @@ def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> lis
         )
     except Exception:  # noqa: BLE001
         log.debug("fulltext narrator_search unavailable, falling back to CONTAINS")
+        # ORDER BY id gives this fallback a stable total order (ig#1151). The
+        # indexed path is ranked by Lucene score (with a docid tiebreak, so
+        # already deterministic), but CONTAINS assigns a flat ``score = 1.0`` to
+        # every row and has no intrinsic ordering — Neo4j may return matches in
+        # any order per call, so a row could dup/drop across the app-side page
+        # slice. The ``id`` alias is the node's stable primary key.
         return neo4j.execute_read(
             """
             MATCH (n:Narrator)
             WHERE n.name_ar CONTAINS $q OR n.name_en CONTAINS $q
             RETURN n.id AS id, n.name_ar AS name_ar, n.name_en AS name_en,
                    n.death_year_ah AS death_year_ah, 1.0 AS score
+            ORDER BY id
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -277,6 +369,9 @@ def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[
         )
     except Exception:  # noqa: BLE001
         log.debug("fulltext hadith_search unavailable, falling back to CONTAINS")
+        # ORDER BY id gives this fallback a stable total order (ig#1151) — see the
+        # narrator fallback above; CONTAINS flat-scores every row 1.0 with no
+        # intrinsic order, so a stable key is required for page-boundary stability.
         return neo4j.execute_read(
             """
             MATCH (h:Hadith)
@@ -287,6 +382,7 @@ def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[
                    h.collection_name AS collection_name,
                    h.topic_tags AS topic_tags,
                    coalesce(g.grade, h.grade_composite, h.grade) AS grade
+            ORDER BY id
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -344,7 +440,8 @@ def _fulltext_hadith_count(neo4j: Neo4jClient, query: str) -> int:
 @router.get("/search/semantic", response_model=SearchResultsResponse)
 def search_semantic(
     q: str = Query(..., min_length=1, max_length=500, description="Semantic search query"),
-    limit: int = Query(10, ge=1, le=50),
+    limit: int = Query(10, ge=1, le=100, description="Results per page"),
+    page: int = Query(1, ge=1, le=MAX_SEARCH_PAGE, description="1-based page number"),
     pg: PgClient = Depends(get_pg),
 ) -> SearchResultsResponse:
     """Semantic similarity search using pgvector.
@@ -367,6 +464,24 @@ def search_semantic(
     separate deploy dependency (deploy#470); this route only owns the API
     behaviour when they are not present.
     """
+    # Bound the deep-page fetch cost: reject a ``page * limit`` window beyond
+    # ``MAX_SEARCH_RESULT_WINDOW`` with a 400 before embedding/querying anything.
+    # A deep ``OFFSET`` still makes Postgres scan every skipped ordered row, so the
+    # same window bound as the full-text path applies here (ig#1150).
+    _enforce_result_window(page, limit)
+
+    # Page window: ``limit`` is the per-page size and ``OFFSET`` skips the earlier
+    # pages so a query with >50 matches is reachable past result 50 (ig#1147). A
+    # single ordered candidate set makes offset paging exact here (unlike the
+    # interleaved full-text path, which pages over the merged prefix).
+    #
+    # Deterministic total order (ig#1151): cosine distance alone is NOT a total
+    # order — near-identical/duplicate embeddings (a live dedup concern) tie, and
+    # Postgres is free to return tied rows in any order per query, so a row can
+    # dup or drop across an ``OFFSET`` page boundary. Appending ``h.id`` as a
+    # stable tiebreaker to the ``ORDER BY`` makes the ranking a total order, so
+    # adjacent pages partition the candidate set without overlap or gaps.
+    offset = (page - 1) * limit
     try:
         query_vector = to_pgvector_literal(get_embedder().embed([q])[0])
         rows = pg.execute(
@@ -376,10 +491,10 @@ def search_semantic(
                    1 - (e.embedding <=> %s::vector) AS score
             FROM isnad_graph.hadith_embeddings e
             JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
-            ORDER BY e.embedding <=> %s::vector
-            LIMIT %s
+            ORDER BY e.embedding <=> %s::vector, h.id
+            LIMIT %s OFFSET %s
             """,
-            (query_vector, query_vector, limit),
+            (query_vector, query_vector, limit, offset),
         )
         # Total count of candidate hadiths (the LIMIT above caps ``rows`` at
         # ``limit``; ``total`` must reflect the full searchable set).
@@ -420,4 +535,4 @@ def search_semantic(
         results.append(_hadith_row_to_search_result(r, max(0.0, min(1.0, raw_score))))
 
     total = count_rows[0]["total"] if count_rows else len(results)
-    return SearchResultsResponse(results=results, total=total, query=q)
+    return SearchResultsResponse(results=results, total=total, query=q, page=page)

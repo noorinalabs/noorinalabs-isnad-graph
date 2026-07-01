@@ -3,8 +3,13 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import * as d3 from 'd3'
-import { fetchTimeline, fetchTimelineRange, fetchCollections } from '../api/client'
-import type { TimelineEntry, Collection } from '../types/api'
+import {
+  fetchTimeline,
+  fetchTimelineRange,
+  fetchCollections,
+  fetchNarratorTimeline,
+} from '../api/client'
+import type { TimelineEntry, Collection, NarratorTimelineEntry } from '../types/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 
 const MARGIN = { top: 30, right: 30, bottom: 40, left: 180 }
@@ -112,6 +117,136 @@ function CollectionTimeline({ collections }: { collections: Collection[] }) {
             aria-label={t('timeline.collectionChartAria')}
           />
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function NarratorLanes({ range }: { range: [number, number] }) {
+  const { t } = useTranslation()
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const navigate = useNavigate()
+
+  const { data } = useQuery({
+    queryKey: ['timeline-narrators', range[0], range[1]],
+    queryFn: () => fetchNarratorTimeline(range[0], range[1]),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const narrators = data?.entries ?? []
+  const truncated = data?.truncated ?? false
+
+  useEffect(() => {
+    if (!svgRef.current) return
+
+    const svg = d3.select(svgRef.current)
+    svg.selectAll('*').remove()
+
+    if (narrators.length === 0) {
+      svg.attr('height', 0)
+      return
+    }
+
+    const width = svgRef.current.clientWidth || 800
+    const height = Math.max(200, narrators.length * 30 + MARGIN.top + MARGIN.bottom)
+    svg.attr('height', height)
+
+    const xMin = d3.min(narrators, (n) => n.window_start_ah) ?? 0
+    const xMax = d3.max(narrators, (n) => n.window_end_ah) ?? 300
+
+    const xScale = d3
+      .scaleLinear()
+      .domain([xMin - 10, xMax + 10])
+      .range([MARGIN.left, width - MARGIN.right])
+
+    const yScale = d3
+      .scaleBand<number>()
+      .domain(narrators.map((_n, i) => i))
+      .range([MARGIN.top, height - MARGIN.bottom])
+      .padding(0.3)
+
+    svg
+      .append('g')
+      .attr('transform', `translate(0,${height - MARGIN.bottom})`)
+      .call(d3.axisBottom(xScale).tickFormat((d) => `${d} AH`))
+      .selectAll('text')
+      .style('font-size', '11px')
+
+    const groups = svg
+      .selectAll<SVGGElement, NarratorTimelineEntry>('.narrator-lane')
+      .data(narrators)
+      .enter()
+      .append('g')
+      .attr('class', 'narrator-lane')
+      .style('cursor', 'pointer')
+      .on('click', (_event, d) => navigate(`/narrators/${d.narrator_id}`))
+
+    groups
+      .append('rect')
+      .attr('x', (d) => xScale(d.window_start_ah))
+      .attr('y', (_d, i) => yScale(i) ?? 0)
+      .attr('width', (d) => Math.max(4, xScale(d.window_end_ah) - xScale(d.window_start_ah)))
+      .attr('height', yScale.bandwidth())
+      .attr('rx', 3)
+      .attr('fill', (d) =>
+        d.estimated ? 'var(--color-muted-foreground)' : 'var(--color-primary)',
+      )
+      .attr('opacity', (d) => (d.estimated ? 0.45 : 0.75))
+      .attr('stroke', (d) => (d.estimated ? 'var(--color-muted-foreground)' : 'none'))
+      .attr('stroke-dasharray', (d) => (d.estimated ? '4 2' : 'none'))
+
+    groups
+      .append('text')
+      .attr('x', MARGIN.left - 8)
+      .attr('y', (_d, i) => (yScale(i) ?? 0) + yScale.bandwidth() / 2)
+      .attr('text-anchor', 'end')
+      .attr('dominant-baseline', 'central')
+      .style('font-size', '12px')
+      .style('fill', 'var(--color-foreground)')
+      .text((d) => d.name_en || d.name_ar || d.narrator_id)
+
+    groups
+      .append('text')
+      .attr('x', (d) => xScale(d.window_end_ah) + 6)
+      .attr('y', (_d, i) => (yScale(i) ?? 0) + yScale.bandwidth() / 2)
+      .attr('dominant-baseline', 'central')
+      .style('font-size', '11px')
+      .style('fill', 'var(--color-muted-foreground)')
+      .text((d) => {
+        const parts: string[] = []
+        if (d.tabaqat_class) parts.push(t('timeline.tabaqaLabel', { class: d.tabaqat_class }))
+        if (d.estimated) parts.push(t('timeline.estimatedLabel'))
+        return parts.join(' \u00b7 ')
+      })
+  }, [narrators, navigate, t])
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="text-lg">{t('timeline.narratorLanesTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">{t('timeline.narratorLanesBody')}</p>
+        {narrators.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('timeline.narratorLanesEmpty')}</p>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <svg
+                ref={svgRef}
+                width="100%"
+                height={200}
+                role="img"
+                aria-label={t('timeline.narratorChartAria')}
+              />
+            </div>
+            {truncated && (
+              <p className="text-sm text-muted-foreground mt-2" role="status">
+                {t('timeline.narratorLanesTruncated', { count: narrators.length })}
+              </p>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   )
@@ -254,6 +389,8 @@ export default function TimelinePage() {
       </p>
 
       {hasCollections && <CollectionTimeline collections={collectionsData.items} />}
+
+      <NarratorLanes range={effectiveRange} />
 
       <Card className="mb-6">
         <CardHeader>

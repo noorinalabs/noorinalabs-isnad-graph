@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { fetchHadith, fetchHadithParallels, fetchHadithChain } from '../api/client'
+import { fetchHadith, fetchHadithParallels, fetchHadithChain, fetchHadithDating } from '../api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -38,6 +38,12 @@ export default function HadithDetailPage() {
   const { data: chainData, isLoading: chainLoading } = useQuery({
     queryKey: ['hadith-chain', id],
     queryFn: () => fetchHadithChain(id!),
+    enabled: !!id,
+  })
+
+  const { data: dating, isLoading: datingLoading } = useQuery({
+    queryKey: ['hadith-dating', id],
+    queryFn: () => fetchHadithDating(id!),
     enabled: !!id,
   })
 
@@ -286,6 +292,63 @@ export default function HadithDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Chain-derived dating (ig#1042) — terminus ante/post quem from the
+          isnad chain's narrator death years. */}
+      <Card className="mb-6" data-testid="hadith-dating">
+        <CardHeader>
+          <CardTitle className="text-lg">{t('hadithDetail.dating')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {datingLoading ? (
+            <div
+              className="h-8 bg-muted rounded w-2/3 animate-pulse"
+              data-testid="dating-loading"
+            />
+          ) : dating &&
+            dating.confidence !== 'insufficient_data' &&
+            dating.terminus_post_quem_ah != null &&
+            dating.terminus_ante_quem_ah != null ? (
+            <div className="space-y-3">
+              <div className="text-2xl font-semibold">
+                {t('hadithDetail.datingRange', {
+                  post: dating.terminus_post_quem_ah,
+                  ante: dating.terminus_ante_quem_ah,
+                })}
+              </div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+                <dt className="font-medium text-muted-foreground">
+                  {t('hadithDetail.datingPostQuem')}
+                </dt>
+                <dd>{t('hadithDetail.datingYearAh', { year: dating.terminus_post_quem_ah })}</dd>
+                <dt className="font-medium text-muted-foreground">
+                  {t('hadithDetail.datingAnteQuem')}
+                </dt>
+                <dd>{t('hadithDetail.datingYearAh', { year: dating.terminus_ante_quem_ah })}</dd>
+                <dt className="font-medium text-muted-foreground">
+                  {t('hadithDetail.datingSpan')}
+                </dt>
+                <dd>{t('hadithDetail.datingYears', { count: dating.chain_span_ah ?? 0 })}</dd>
+                <dt className="font-medium text-muted-foreground">
+                  {t('hadithDetail.datingConfidence')}
+                </dt>
+                <dd>
+                  <Badge variant="outline">
+                    {t(`hadithDetail.datingConfidence_${dating.confidence}`)}
+                  </Badge>
+                </dd>
+              </dl>
+              <p className="text-xs text-muted-foreground">{dating.note}</p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center min-h-[80px] text-muted-foreground text-sm border rounded-md bg-muted/30 p-4">
+              <p className="text-center">
+                {dating?.note ?? t('hadithDetail.datingInsufficient')}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Topics */}
       {hadith.topic_tags && hadith.topic_tags.length > 0 && (

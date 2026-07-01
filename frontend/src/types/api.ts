@@ -111,6 +111,9 @@ export interface SearchResultsResponse {
   results: SearchResult[]
   total: number
   query: string
+  // 1-based page this response corresponds to. Defaulted to 1 for older backends
+  // that omit it, so pagination math stays safe pre-deploy. (ig#1147)
+  page?: number
 }
 
 export interface TimelineEntry {
@@ -132,6 +135,29 @@ export interface TimelineResponse {
 export interface TimelineRangeResponse {
   min_year_ah: number
   max_year_ah: number
+}
+
+export interface NarratorTimelineEntry {
+  narrator_id: string
+  name_ar: string | null
+  name_en: string | null
+  birth_year_ah: number | null
+  death_year_ah: number | null
+  window_start_ah: number
+  window_end_ah: number
+  birth_date_precision: string | null
+  death_date_precision: string | null
+  tabaqat_class: string | null
+  estimated: boolean
+}
+
+export interface NarratorTimelineResponse {
+  entries: NarratorTimelineEntry[]
+  total: number
+  // True when the server cap clipped the viewport-filtered set (more narrators
+  // overlap the requested range than were returned) — drives a "showing first N"
+  // affordance. Optional so responses predating the field still typecheck.
+  truncated?: boolean
 }
 
 export interface ParallelHadith {
@@ -215,6 +241,37 @@ export interface NarratorNetworkResponse {
   edges: GraphEdge[]
   teachers: number
   students: number
+}
+
+// A narrator's resolved [start, end] active window in Hijri years. `estimated`
+// is true when either endpoint was derived from an assumed-lifespan span.
+export interface NarratorWindow {
+  narrator_id: string
+  name_ar?: string | null
+  name_en?: string | null
+  birth_year_ah?: number | null
+  death_year_ah?: number | null
+  window_start_ah?: number | null
+  window_end_ah?: number | null
+  estimated: boolean
+}
+
+// Chain-derived dating window for a hadith (ig#1042). Termini are anchored on
+// the earliest/latest narrator death across the isnad chain. When no chain
+// narrator is dated, all three bounds are null and `confidence` is
+// `insufficient_data` (with a human-readable `note`).
+export interface HadithDatingResponse {
+  hadith_id: string
+  terminus_post_quem_ah: number | null
+  terminus_ante_quem_ah: number | null
+  chain_span_ah: number | null
+  confidence: 'high' | 'medium' | 'low' | 'insufficient_data'
+  chain_narrator_count: number
+  dated_narrator_count: number
+  earliest_narrator: NarratorWindow | null
+  latest_narrator: NarratorWindow | null
+  assumed_lifespan_ah: number
+  note: string
 }
 
 // --- Subscription types ---

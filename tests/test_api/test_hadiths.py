@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
+from src.api.routes.hadiths import DEFAULT_ASSUMED_LIFESPAN_AH, derive_hadith_dating
 from src.utils.grades import GRADE_TOKENS
 
 SAMPLE_HADITH = {
@@ -279,3 +280,145 @@ def test_list_hadiths_filter_by_grade_is_real(client: TestClient, mock_neo4j: Ma
     assert "GRADED_BY" in count_query
     # Keyword params for the sahih predicate are bound.
     assert any("sahih" in v for v in params.values() if isinstance(v, list))
+
+
+# --- Chain-derived dating (ig#1042) ---------------------------------------
+
+# A seeded isnad chain: Companion (death-attested) -> Successor -> Collector.
+# ``nar:`` ids + AH death years mirror the real narrator-date contract (ig#1039).
+_ABU_HURAYRA = {
+    "id": "nar:abu-hurayra",
+    "name_ar": "\u0623\u0628\u0648 \u0647\u0631\u064a\u0631\u0629",
+    "name_en": "Abu Hurayra",
+    "death_year_ah": 58,
+}
+_AL_ZUHRI = {
+    "id": "nar:al-zuhri",
+    "name_ar": "\u0627\u0644\u0632\u0647\u0631\u064a",
+    "name_en": "al-Zuhri",
+    "death_year_ah": 124,
+}
+_MALIK = {
+    "id": "nar:malik",
+    "name_ar": "\u0645\u0627\u0644\u0643",
+    "name_en": "Malik ibn Anas",
+    "death_year_ah": 179,
+}
+
+
+def test_derive_hadith_dating_terminus_over_seeded_chain() -> None:
+    """Termini are anchored on the earliest/latest narrator death across the chain.
+
+    Fail-on-pre-fix: before ig#1042 there was no derivation at all. With the three
+    death-attested narrators the window spans the earliest death (post-quem 58) to
+    the latest death (ante-quem 179); span = 121; all dated -> high confidence.
+    """
+    result = derive_hadith_dating("hdt:lk:malik:1:1", [_AL_ZUHRI, _MALIK, _ABU_HURAYRA])
+    assert result.terminus_post_quem_ah == 58
+    assert result.terminus_ante_quem_ah == 179
+    assert result.chain_span_ah == 121
+    assert result.confidence == "high"
+    assert result.chain_narrator_count == 3
+    assert result.dated_narrator_count == 3
+    assert result.earliest_narrator is not None
+    assert result.earliest_narrator.narrator_id == "nar:abu-hurayra"
+    assert result.latest_narrator is not None
+    assert result.latest_narrator.narrator_id == "nar:malik"
+    assert result.assumed_lifespan_ah == DEFAULT_ASSUMED_LIFESPAN_AH
+
+
+def test_derive_hadith_dating_prefers_resolved_outer_bounds() -> None:
+    """When ig#1039 ``*_latest`` bounds are present the window widens to them."""
+    narrator = {
+        "id": "nar:x",
+        "death_year_ah": 150,
+        "death_year_ah_latest": 158,
+        "birth_year_ah": 80,
+        "birth_year_ah_earliest": 72,
+    }
+    result = derive_hadith_dating("hdt:x", [narrator])
+    # single dated narrator -> point window at the (widened) death bound
+    assert result.terminus_ante_quem_ah == 158
+    assert result.terminus_post_quem_ah == 158
+
+
+def test_derive_hadith_dating_estimated_bound_is_medium() -> None:
+    """A bounding window that rests on an assumed-lifespan estimate caps at medium."""
+    birth_only = {"id": "nar:birth-only", "birth_year_ah": 120}  # window [120, 200], estimated
+    result = derive_hadith_dating("hdt:x", [_ABU_HURAYRA, birth_only])
+    assert result.terminus_post_quem_ah == 58
+    assert result.terminus_ante_quem_ah == 200  # 120 + 80 assumed lifespan
+    assert result.latest_narrator is not None
+    assert result.latest_narrator.estimated is True
+    assert result.confidence == "medium"
+
+
+def test_derive_hadith_dating_single_dated_is_low() -> None:
+    """One dated narrator collapses the span to a point -> low confidence."""
+    undated = {"id": "nar:undated"}
+    result = derive_hadith_dating("hdt:x", [_MALIK, undated])
+    assert result.terminus_post_quem_ah == 179
+    assert result.terminus_ante_quem_ah == 179
+    assert result.chain_span_ah == 0
+    assert result.dated_narrator_count == 1
+    assert result.confidence == "low"
+
+
+def test_derive_hadith_dating_insufficient_data_no_500() -> None:
+    """An undated chain yields a null window with insufficient_data, not an error."""
+    result = derive_hadith_dating("hdt:x", [{"id": "nar:a"}, {"id": "nar:b"}])
+    assert result.terminus_post_quem_ah is None
+    assert result.terminus_ante_quem_ah is None
+    assert result.chain_span_ah is None
+    assert result.confidence == "insufficient_data"
+    assert result.chain_narrator_count == 2
+    assert result.dated_narrator_count == 0
+    assert "Insufficient data" in result.note
+
+
+def test_get_hadith_dating_endpoint_over_seeded_chain(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """GET /hadiths/{id}/dating returns the chain-derived window (200)."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"id": "hdt:lk:malik:1:1"}],  # exists check
+        [_ABU_HURAYRA, _AL_ZUHRI, _MALIK],  # chain narrators
+    ]
+    resp = client.get("/api/v1/hadiths/hdt:lk:malik:1:1/dating")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["hadith_id"] == "hdt:lk:malik:1:1"
+    assert body["terminus_post_quem_ah"] == 58
+    assert body["terminus_ante_quem_ah"] == 179
+    assert body["chain_span_ah"] == 121
+    assert body["confidence"] == "high"
+    assert body["latest_narrator"]["narrator_id"] == "nar:malik"
+    # The chain is reconstructed from edges, never nonexistent Chain nodes (#1032).
+    chain_query = mock_neo4j.execute_read.call_args_list[1][0][0]
+    assert "TRANSMITTED_TO" in chain_query
+    assert "NARRATED" in chain_query
+    assert ":Chain" not in chain_query
+
+
+def test_get_hadith_dating_endpoint_undated_chain_is_graceful(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A hadith whose chain carries no dates returns insufficient_data, not a 500."""
+    mock_neo4j.execute_read.side_effect = [
+        [{"id": "hdt:x"}],
+        [{"id": "nar:a"}, {"id": "nar:b"}],
+    ]
+    resp = client.get("/api/v1/hadiths/hdt:x/dating")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["confidence"] == "insufficient_data"
+    assert body["terminus_ante_quem_ah"] is None
+
+
+def test_get_hadith_dating_endpoint_404_when_missing(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A missing hadith 404s (the dating window is never fabricated for a non-hadith)."""
+    mock_neo4j.execute_read.side_effect = [[]]  # exists check empty
+    resp = client.get("/api/v1/hadiths/hdt:nope/dating")
+    assert resp.status_code == 404

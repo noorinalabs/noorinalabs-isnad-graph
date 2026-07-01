@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchAdminUsers,
@@ -19,17 +20,8 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-// Message shown when an admin tries to strip `admin` from their OWN row. The
-// user-service has no last-admin guard and the isnad-graph backend role route
-// is a 501 stub, so this client-side block is the only thing standing between
-// an operator and a self-inflicted lockout (recovery is the us#159 seed-admin
-// redeploy path). We block rather than confirm() so the demote can never go
-// through by reflex (ig#988).
-const SELF_DEMOTE_MESSAGE =
-  'You cannot remove admin from your own account — you could lock yourself out. ' +
-  'Ask another admin to change your role.'
-
 export default function UserManagementPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
   // Per-row error surface for role-change failures (silent before ig#988): a
@@ -43,6 +35,14 @@ export default function UserManagementPage() {
   const [cursorStack, setCursorStack] = useState<(string | null)[]>([null])
   const cursor = cursorStack[cursorStack.length - 1]
   const [detailUserId, setDetailUserId] = useState<string | null>(null)
+
+  // Message shown when an admin tries to strip `admin` from their OWN row. The
+  // user-service has no last-admin guard and the isnad-graph backend role route
+  // is a 501 stub, so this client-side block is the only thing standing between
+  // an operator and a self-inflicted lockout (recovery is the us#159 seed-admin
+  // redeploy path). We block rather than confirm() so the demote can never go
+  // through by reflex (ig#988).
+  const selfDemoteMessage = t('admin.userManagement.selfDemoteMessage')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-users', cursor],
@@ -89,7 +89,7 @@ export default function UserManagementPage() {
   const handleRoleChange = (userId: string, role: string, currentRoles: string[]) => {
     const isSelf = !!currentUser && currentUser.id === userId
     if (isSelf && currentRoles.includes('admin') && role !== 'admin') {
-      setRoleError({ userId, message: SELF_DEMOTE_MESSAGE })
+      setRoleError({ userId, message: selfDemoteMessage })
       return
     }
     setRoleError((prev) => (prev?.userId === userId ? null : prev))
@@ -115,26 +115,29 @@ export default function UserManagementPage() {
   return (
     <div>
       <div className="mb-4">
-        <h2>User Management</h2>
+        <h2>{t('admin.userManagement.title')}</h2>
         <p className="small-muted">
-          Users and roles are managed by the user-service. Admin access requires
-          the <code>admin</code> role on your user-service account.
+          {t('admin.userManagement.subtitlePre')}
+          <code>admin</code>
+          {t('admin.userManagement.subtitlePost')}
         </p>
       </div>
 
-      {isLoading && <p>Loading...</p>}
-      {error && <p className="error-text">Error: {(error as Error).message}</p>}
+      {isLoading && <p>{t('admin.common.loading')}</p>}
+      {error && (
+        <p className="error-text">{t('common.error', { message: (error as Error).message })}</p>
+      )}
 
       {data && (
         <>
           <table className="data-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Verified</th>
-                <th>Role</th>
-                <th>Status</th>
+                <th>{t('admin.userManagement.colName')}</th>
+                <th>{t('admin.userManagement.colEmail')}</th>
+                <th>{t('admin.userManagement.colVerified')}</th>
+                <th>{t('admin.userManagement.colRole')}</th>
+                <th>{t('admin.userManagement.colStatus')}</th>
               </tr>
             </thead>
             <tbody>
@@ -158,7 +161,9 @@ export default function UserManagementPage() {
                     <td>{u.email}</td>
                     <td>
                       <span className={u.email_verified ? 'text-active' : 'text-suspended'}>
-                        {u.email_verified ? 'Verified' : 'Unverified'}
+                        {u.email_verified
+                          ? t('admin.userManagement.statusVerified')
+                          : t('admin.userManagement.statusUnverified')}
                       </span>
                     </td>
                     <td>
@@ -167,7 +172,9 @@ export default function UserManagementPage() {
                         value={deriveHighestRole(currentRoles)}
                         onChange={(e) => handleRoleChange(u.id, e.target.value, currentRoles)}
                         disabled={roleMutation.isPending || !roles}
-                        aria-label={`Role for ${u.display_name ?? u.email}`}
+                        aria-label={t('admin.userManagement.roleAriaLabel', {
+                          name: u.display_name ?? u.email,
+                        })}
                       >
                         {roleOptions.map((r) => (
                           <option key={r} value={r}>
@@ -183,7 +190,9 @@ export default function UserManagementPage() {
                     </td>
                     <td>
                       <span className={u.is_active ? 'text-active' : 'text-suspended'}>
-                        {u.is_active ? 'Active' : 'Inactive'}
+                        {u.is_active
+                          ? t('admin.userManagement.statusActive')
+                          : t('admin.userManagement.statusInactive')}
                       </span>
                     </td>
                   </tr>
@@ -192,14 +201,14 @@ export default function UserManagementPage() {
             </tbody>
           </table>
 
-          {data.items.length === 0 && <p>No users found.</p>}
+          {data.items.length === 0 && <p>{t('admin.userManagement.noUsers')}</p>}
 
           <div className="pagination">
             <button disabled={cursorStack.length <= 1} onClick={goPrev}>
-              Previous
+              {t('common.previous')}
             </button>
             <button disabled={!data.next_cursor} onClick={goNext}>
-              Next
+              {t('common.next')}
             </button>
           </div>
         </>
@@ -219,23 +228,30 @@ export default function UserManagementPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-4" style={{ fontFamily: 'var(--font-heading)' }}>
-              User Detail
+              {t('admin.userManagement.userDetail')}
             </h3>
             <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <DetailField label="Name" value={userDetail.display_name ?? '—'} />
-              <DetailField label="Email" value={userDetail.email} />
+              <DetailField label={t('admin.userManagement.detailName')} value={userDetail.display_name ?? '—'} />
+              <DetailField label={t('admin.userManagement.detailEmail')} value={userDetail.email} />
               <DetailField
-                label="Email Verified"
-                value={userDetail.email_verified ? 'Yes' : 'No'}
+                label={t('admin.userManagement.detailEmailVerified')}
+                value={userDetail.email_verified ? t('admin.userManagement.yes') : t('admin.userManagement.no')}
               />
-              <DetailField label="Status" value={userDetail.is_active ? 'Active' : 'Inactive'} />
-              <DetailField label="Locale" value={userDetail.locale ?? '—'} />
               <DetailField
-                label="Roles"
+                label={t('admin.userManagement.detailStatus')}
+                value={
+                  userDetail.is_active
+                    ? t('admin.userManagement.statusActive')
+                    : t('admin.userManagement.statusInactive')
+                }
+              />
+              <DetailField label={t('admin.userManagement.detailLocale')} value={userDetail.locale ?? '—'} />
+              <DetailField
+                label={t('admin.userManagement.detailRoles')}
                 value={userDetail.roles?.length ? userDetail.roles.join(', ') : '—'}
               />
               <DetailField
-                label="Member Since"
+                label={t('admin.userManagement.detailMemberSince')}
                 value={new Date(userDetail.created_at).toLocaleDateString()}
               />
             </div>
@@ -243,7 +259,7 @@ export default function UserManagementPage() {
               className="btn mt-4"
               onClick={() => setDetailUserId(null)}
             >
-              Close
+              {t('admin.userManagement.close')}
             </button>
           </div>
         </div>

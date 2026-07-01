@@ -5,9 +5,13 @@
 # don't get. Running it only on manual dispatch + a schedule means a PR
 # lacking secrets is never broken by it (the prerequisite the issue calls out).
 #
-# The public leg (login page / runtime-config) needs no creds; the
-# authenticated leg self-skips when STG_TEST_EMAIL / STG_TEST_PASSWORD are
-# absent (see frontend/tests/stg-smoke/env.ts).
+# The public leg (login page / runtime-config) needs no creds. The
+# authenticated leg is REQUIRED here: this workflow sets STG_REQUIRE_AUTH=1, so a
+# missing-creds state fails the run LOUD (RED) rather than silently skipping —
+# an unwired harness must never read green (ig#1146; see
+# frontend/tests/stg-smoke/preflight.ts). Provision STG_TEST_EMAIL /
+# STG_TEST_PASSWORD (and, for the admin-audit spec, an admin-capable smoke
+# account + STG_SMOKE_ADMIN=1) — see frontend/tests/stg-smoke/README.md.
 name: e2e-stg-smoke
 
 on:
@@ -56,14 +60,22 @@ jobs:
         run: npm run e2e:stg
         env:
           # URLs default to the stg/prod vhosts in env.ts; override via repo
-          # vars if the deployed hosts ever change. Creds are secrets-only —
-          # the authenticated leg self-skips if they're unset.
+          # vars if the deployed hosts ever change. Creds are secrets-only.
           STG_BASE_URL: ${{ vars.STG_BASE_URL }}
           USER_SERVICE_URL: ${{ vars.STG_USER_SERVICE_URL }}
           PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
           PROD_USER_SERVICE_URL: ${{ vars.PROD_USER_SERVICE_URL }}
           STG_TEST_EMAIL: ${{ secrets.STG_TEST_EMAIL }}
           STG_TEST_PASSWORD: ${{ secrets.STG_TEST_PASSWORD }}
+          # Loud-fail (ig#1146): the smoke gate REQUIRES the authenticated leg.
+          # With creds absent the setup throws → the run reads RED, surfacing an
+          # unwired harness instead of a silent-green no-op.
+          STG_REQUIRE_AUTH: 'true'
+          # Owner sets the STG_SMOKE_ADMIN repo var to '1' once the smoke email
+          # is admin-capable; that activates the /admin/audit spec (else it
+          # self-skips). No admin secret is stored here — admin is a role grant
+          # on the SAME STG_TEST_EMAIL account (see README.md § Admin smoke).
+          STG_SMOKE_ADMIN: ${{ vars.STG_SMOKE_ADMIN }}
       - name: Upload HTML report
         uses: actions/upload-artifact@v7
         if: always()

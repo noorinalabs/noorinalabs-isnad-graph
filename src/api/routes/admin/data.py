@@ -218,6 +218,14 @@ def data_sources(
 # Per-source graph purge (ig#989) — destructive, admin-only.
 # ---------------------------------------------------------------------------
 
+# Batch size for the real-run purge delete. A single unbounded DETACH DELETE of
+# a large corpus (ig#1139 — sanadset, ~650k nodes / ~90% of the graph) exceeds
+# Neo4j's transaction heap and times out, so the API could never purge it. We
+# delete in bounded per-transaction chunks instead. 10k matches the batch size
+# proven in the manual apoc.periodic.iterate workaround (66 batches, 650,986
+# nodes, zero failures).
+_PURGE_BATCH_SIZE = 10_000
+
 
 class PurgeRequest(BaseModel):
     """Request to purge all graph data carrying a single source corpus.
@@ -315,6 +323,42 @@ def _purge_relationship_counts(neo4j: Neo4jClient, corpus: str) -> list[Relation
     return counts
 
 
+def _purge_delete_batched(
+    neo4j: Neo4jClient, corpus: str, batch_size: int = _PURGE_BATCH_SIZE
+) -> int:
+    """DETACH DELETE every node for ``corpus`` in bounded per-transaction batches.
+
+    Each iteration deletes up to ``batch_size`` matching nodes inside its own
+    managed write transaction (``execute_write`` opens a fresh session and
+    commits on return), then repeats until no matching node remains.  This keeps
+    transaction memory bounded regardless of corpus size — the fix for ig#1139,
+    where a single DETACH DELETE of ~650k nodes exceeded the transaction heap and
+    timed out, so the endpoint could never purge a large corpus.
+
+    Semantically identical to the previous single ``DETACH DELETE`` (same final
+    state: every node carrying ``source_corpus == corpus`` and its edges gone),
+    just committed in chunks.  Returns the total number of nodes deleted.
+    """
+    total = 0
+    while True:
+        records = neo4j.execute_write(
+            """
+            MATCH (n) WHERE n.source_corpus = $corpus
+            WITH n LIMIT $batch_size
+            DETACH DELETE n
+            RETURN count(n) AS deleted
+            """,
+            {"corpus": corpus, "batch_size": batch_size},
+        )
+        deleted = int(records[0]["deleted"]) if records else 0
+        total += deleted
+        # A short batch (fewer than requested, including zero) means the corpus
+        # is exhausted and no further transaction is needed.
+        if deleted < batch_size:
+            break
+    return total
+
+
 @router.post("/purge", response_model=PurgeResult)
 def purge_source(
     body: PurgeRequest,
@@ -364,14 +408,14 @@ def purge_source(
         )
 
     try:
-        neo4j.execute_write(
-            "MATCH (n) WHERE n.source_corpus = $corpus DETACH DELETE n",
-            {"corpus": corpus},
-        )
+        deleted_nodes = _purge_delete_batched(neo4j, corpus)
     except Exception as exc:  # noqa: BLE001
         # Unlike the read-only views, a destructive write must NOT degrade to a
         # silent "success" — surface the failure so the admin knows the graph
-        # was not modified.
+        # was (at most partially) modified.  Batches already committed before the
+        # failure are not rolled back, but re-running the purge is idempotent
+        # (it deletes whatever remains), so surfacing 503 and letting the admin
+        # retry converges on the same final state.
         log.error("data_purge_failed", source_corpus=corpus, error=str(exc))
         raise HTTPException(
             status_code=503,
@@ -403,6 +447,7 @@ def purge_source(
         "data_purge_executed",
         source_corpus=corpus,
         nodes=total_nodes,
+        deleted_nodes=deleted_nodes,
         relationships=total_relationships,
         actor_id=admin.id,
     )

@@ -629,7 +629,10 @@ def test_semantic_search_embeds_query_at_runtime(client: TestClient, app: object
     assert "prayer in congregation" not in str(data_params)
     # The cast `%s::vector` keeps the literal a bound parameter, never inline SQL.
     assert "%s::vector" in data_sql
-    assert data_params[-1] == 5  # limit threaded through
+    # Params are (vector, vector, limit, offset) — server-side pagination added
+    # the trailing OFFSET (ig#1147); default page=1 => offset 0.
+    assert data_params[-2] == 5  # limit threaded through
+    assert data_params[-1] == 0  # offset for page 1
 
     del app.dependency_overrides[get_pg]
 
@@ -700,8 +703,12 @@ def test_semantic_search_different_queries_rank_differently(
 
 
 def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) -> None:
-    """semantic limit above its cap (50) is rejected with 422 — the frontend
-    results page must stay within this cap (#1025).
+    """semantic per-page limit above its cap (100) is rejected with 422 — the
+    frontend results page must stay within this cap (#1025, ig#1147).
+
+    The per-page ``limit`` cap was raised from 50 to 100 when real server-side
+    pagination (``page``) replaced the single-capped-batch fetch (ig#1147); depth
+    is now bounded by ``page``/``MAX_SEARCH_PAGE``, not by a small ``limit`` cap.
 
     The pg dependency is overridden with a mock so the assertion isolates the
     request-validation behaviour and never touches a real database (FastAPI
@@ -716,7 +723,7 @@ def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) 
     assert isinstance(app, FastAPI)
     app.dependency_overrides[get_pg] = lambda: mock_pg
 
-    resp = client.get("/api/v1/search/semantic?q=test&limit=51")
+    resp = client.get("/api/v1/search/semantic?q=test&limit=101")
     assert resp.status_code == 422
     # Validation rejects the request before the handler queries pgvector.
     mock_pg.execute.assert_not_called()
@@ -725,7 +732,7 @@ def test_semantic_search_limit_over_cap_is_422(client: TestClient, app: object) 
 
 
 def test_semantic_search_limit_at_cap_is_accepted(client: TestClient, app: object) -> None:
-    """semantic limit at its cap (50) is accepted (#1025)."""
+    """semantic per-page limit at its cap (100) is accepted (#1025, ig#1147)."""
     mock_pg = MagicMock()
     mock_pg.execute.side_effect = [[], [{"total": 0}]]
     mock_pg.close.return_value = None
@@ -737,7 +744,518 @@ def test_semantic_search_limit_at_cap_is_accepted(client: TestClient, app: objec
     assert isinstance(app, FastAPI)
     app.dependency_overrides[get_pg] = lambda: mock_pg
 
-    resp = client.get("/api/v1/search/semantic?q=test&limit=50")
+    resp = client.get("/api/v1/search/semantic?q=test&limit=100")
     assert resp.status_code == 200
 
     del app.dependency_overrides[get_pg]
+
+
+def test_search_fulltext_pages_past_the_first_batch(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A >50-match full-text query can page past result 50 (ig#1147 regression).
+
+    Pre-fix, ``/search`` had no ``page`` param and no offset — it returned a single
+    ``limit``-capped batch, so results 51+ were unreachable (the reported flat
+    50-result ceiling). This asks for ``page=6`` at ``limit=10`` (results 51–60)
+    and asserts the window is the *sixth* page of narrators, that the index was
+    queried for the full ``page * limit`` prefix, and that the response echoes the
+    page. On pre-fix code the extra ``page`` param is ignored, the window is
+    results 1–10, and ``page`` is absent from the body — so this test fails.
+    """
+    narrators = [
+        {"id": f"nar-{i:03d}", "name_ar": f"راو {i}", "name_en": f"narrator {i}", "score": 100 - i}
+        for i in range(60)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrators,  # narrator full-text search (fetched for the whole prefix)
+        [],  # hadith full-text search (empty — isolates the narrator ordering)
+        [{"total": 137}],  # narrator count (full match set, >> 50)
+        [{"total": 0}],  # hadith count
+    ]
+
+    resp = client.get("/api/v1/search?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # The response echoes the requested page and reports the full match count.
+    assert body["page"] == 6
+    assert body["total"] == 137
+
+    # The window is results 51–60 (page 6 of 10-per-page), NOT the first 10.
+    ids = [r["id"] for r in body["results"]]
+    assert ids == [f"nar-{i:03d}" for i in range(50, 60)]
+
+    # The index was queried for the full ``page * limit`` prefix (60), so the
+    # requested page is actually retrievable rather than clamped to ``limit``.
+    narrator_params = mock_neo4j.execute_read.call_args_list[0][0][1]
+    assert narrator_params["limit"] == 60
+
+
+def test_semantic_search_pages_past_the_first_batch(client: TestClient, app: object) -> None:
+    """A >50-match semantic query pages past result 50 via SQL OFFSET (ig#1147).
+
+    Pre-fix, ``/search/semantic`` had no ``page`` param and its SQL had ``LIMIT``
+    but no ``OFFSET`` — results beyond the first ``limit`` were unreachable. This
+    asks for ``page=6`` at ``limit=10`` and asserts the query offsets by 50, and
+    that the response echoes the page. Pre-fix code has no ``OFFSET`` in the SQL,
+    a 3-tuple of params, and no ``page`` in the body — so this test fails.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-051", "matn_ar": "نص", "matn_en": "row 51", "score": 0.5}],
+        [{"total": 200}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["page"] == 6
+    assert body["total"] == 200
+
+    # The data query pages via LIMIT/OFFSET; offset = (page - 1) * limit = 50.
+    data_sql = mock_pg.execute.call_args_list[0].args[0]
+    assert "OFFSET" in data_sql
+    data_params = mock_pg.execute.call_args_list[0].args[1]
+    assert data_params[-2] == 10  # limit
+    assert data_params[-1] == 50  # offset
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_search_fulltext_partial_final_page(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A match count that is NOT a multiple of ``limit`` yields a short final page.
+
+    Marisol #3 (PR #1149): the earlier regression used exactly 60 rows for a
+    60-row window, so the short-last-page slice never executed. Here there are 55
+    matching narrators and the client asks for page 6 at limit 10 — the window is
+    results 51-60 but only 51-55 exist, so the endpoint must return the 5 real
+    rows (not pad, not error, not clamp back to a full page).
+    """
+    narrators = [
+        {"id": f"nar-{i:03d}", "name_ar": f"راو {i}", "name_en": f"narrator {i}", "score": 100 - i}
+        for i in range(55)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrators,  # narrator full-text search (whole prefix)
+        [],  # hadith full-text search
+        [{"total": 55}],  # narrator count
+        [{"total": 0}],  # hadith count
+    ]
+
+    resp = client.get("/api/v1/search?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 6
+    assert body["total"] == 55
+    # Partial final page: results 51-55 only (five rows), not a padded full page.
+    ids = [r["id"] for r in body["results"]]
+    assert ids == [f"nar-{i:03d}" for i in range(50, 55)]
+    assert len(ids) == 5
+
+
+def test_search_fulltext_page_beyond_total_is_empty_not_error(
+    client: TestClient, mock_neo4j: MagicMock
+) -> None:
+    """A page past the real total returns 200 with an empty window (nice-to-have)."""
+    narrators = [
+        {"id": f"nar-{i:03d}", "name_ar": f"راو {i}", "name_en": f"n{i}", "score": 100 - i}
+        for i in range(55)
+    ]
+    mock_neo4j.execute_read.side_effect = [
+        narrators,
+        [],
+        [{"total": 55}],
+        [{"total": 0}],
+    ]
+
+    resp = client.get("/api/v1/search?q=test&limit=10&page=100")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 100
+    assert body["total"] == 55
+    assert body["results"] == []
+
+
+def test_search_fulltext_page_out_of_bounds_is_422(client: TestClient) -> None:
+    """page below 1 or above MAX_SEARCH_PAGE is rejected by validation (nice-to-have)."""
+    assert client.get("/api/v1/search?q=test&page=0").status_code == 422
+    assert client.get("/api/v1/search?q=test&page=1001").status_code == 422
+
+
+def test_semantic_search_partial_final_page(client: TestClient, app: object) -> None:
+    """Semantic OFFSET paging returns a short final page for a non-multiple total.
+
+    Marisol #3 (PR #1149): 55 candidates, page 6 at limit 10 => OFFSET 50, so the
+    DB returns only rows 51-55. The endpoint surfaces those five and reports the
+    full total, exercising the partial-page path on the semantic side too.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [
+            {"id": f"had-{i:03d}", "matn_ar": "نص", "matn_en": f"row {i}", "score": 0.5}
+            for i in range(50, 55)
+        ],
+        [{"total": 55}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=10&page=6")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 6
+    assert body["total"] == 55
+    assert len(body["results"]) == 5
+    # Confirms the short page came from an OFFSET-50 query, not a clamp.
+    data_params = mock_pg.execute.call_args_list[0].args[1]
+    assert data_params[-1] == 50  # offset
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_page_beyond_total_is_empty_not_error(
+    client: TestClient, app: object
+) -> None:
+    """Semantic: a page past the real total returns 200 + empty (nice-to-have)."""
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [[], [{"total": 55}]]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test&limit=10&page=100")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 100
+    assert body["total"] == 55
+    assert body["results"] == []
+    # offset = (100 - 1) * 10 = 990
+    assert mock_pg.execute.call_args_list[0].args[1][-1] == 990
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_page_out_of_bounds_is_422(client: TestClient, app: object) -> None:
+    """Semantic: page below 1 or above MAX_SEARCH_PAGE is rejected (nice-to-have)."""
+    mock_pg = MagicMock()
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    assert client.get("/api/v1/search/semantic?q=test&page=0").status_code == 422
+    assert client.get("/api/v1/search/semantic?q=test&page=1001").status_code == 422
+    mock_pg.execute.assert_not_called()
+
+    del app.dependency_overrides[get_pg]
+
+
+# --- Deep-page fetch-cost bound (ig#1150, ig#1147 follow-up) ------------------
+
+
+def test_search_result_window_over_cap_is_400(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A ``page * limit`` window past MAX_SEARCH_RESULT_WINDOW is rejected 400 (ig#1150).
+
+    ``page=200 & limit=100`` is a 20 000-row window — each of page/limit is within
+    its own validation cap (page ≤ 1000, limit ≤ 100), so FastAPI accepts the
+    request and the handler's window guard is what must reject it. The 400 fires
+    *before* any Neo4j query, so an abusive deep-page request costs nothing. On
+    pre-fix code this window would be served, fetching ~20 000 rows per index to
+    return one page — the unbounded cost ig#1150 bounds.
+    """
+    from src.api.routes.search import MAX_SEARCH_RESULT_WINDOW
+
+    assert 200 * 100 > MAX_SEARCH_RESULT_WINDOW  # the window this request asks for
+    resp = client.get("/api/v1/search?q=test&limit=100&page=200")
+    assert resp.status_code == 400
+    assert str(MAX_SEARCH_RESULT_WINDOW) in resp.json()["detail"]
+    # The bound is enforced before any fetch — no index query is issued.
+    mock_neo4j.execute_read.assert_not_called()
+
+
+def test_search_result_window_at_cap_is_accepted(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """The boundary window (``page * limit == MAX_SEARCH_RESULT_WINDOW``) is retrievable.
+
+    ``page=100 & limit=100`` is exactly a 10 000-row window — the deepest request
+    the bound permits — so it must succeed, confirming the guard rejects only
+    *beyond* the ceiling (``>``), never at it. It also pins the documented
+    total-count semantics: ``total`` is the TRUE match count and is NOT clamped to
+    the window, so it may legitimately exceed MAX_SEARCH_RESULT_WINDOW (here
+    8000 + 5000 = 13 000). The window bounds which pages are *retrievable*, not the
+    reported corpus size (ig#1147 semantics preserved).
+    """
+    from src.api.routes.search import MAX_SEARCH_RESULT_WINDOW
+
+    assert 100 * 100 == MAX_SEARCH_RESULT_WINDOW  # exactly at the boundary
+    mock_neo4j.execute_read.side_effect = [
+        [],  # narrator full-text search (no rows this deep)
+        [],  # hadith full-text search
+        [{"total": 8000}],  # narrator count
+        [{"total": 5000}],  # hadith count
+    ]
+    resp = client.get("/api/v1/search?q=test&limit=100&page=100")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["page"] == 100
+    # total is the true match count, NOT clamped to the retrievable window.
+    assert body["total"] == 13000
+    assert body["total"] > MAX_SEARCH_RESULT_WINDOW
+    assert body["results"] == []
+
+
+def test_semantic_search_result_window_over_cap_is_400(client: TestClient, app: object) -> None:
+    """Semantic path enforces the same deep-page window bound with a 400 (ig#1150).
+
+    A deep ``OFFSET`` makes Postgres scan and discard every skipped ordered row, so
+    ``/search/semantic`` pays the same ``page * limit`` cost as the full-text path
+    and shares the ceiling. ``page=200 & limit=100`` (20 000) must be rejected
+    before the embed/query runs — no pg query is attempted.
+    """
+    from src.api.routes.search import MAX_SEARCH_RESULT_WINDOW
+
+    mock_pg = MagicMock()
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    assert 200 * 100 > MAX_SEARCH_RESULT_WINDOW
+    resp = client.get("/api/v1/search/semantic?q=test&limit=100&page=200")
+    assert resp.status_code == 400
+    assert str(MAX_SEARCH_RESULT_WINDOW) in resp.json()["detail"]
+    # Guard runs before the embed step and the pg query — nothing is executed.
+    mock_pg.execute.assert_not_called()
+
+    del app.dependency_overrides[get_pg]
+
+
+# --- Deterministic ordering for stable deep pagination (ig#1151) --------------
+
+
+def test_semantic_search_order_by_has_stable_tiebreaker(client: TestClient, app: object) -> None:
+    """The semantic ORDER BY appends ``h.id`` as a stable tiebreaker (ig#1151).
+
+    Cosine distance alone is not a total order: near-identical/duplicate
+    embeddings (a live dedup concern) tie, and Postgres may return tied rows in
+    any order per query, so a row can dup/drop across an ``OFFSET`` page boundary.
+    The ranking must break ties on the stable primary key ``h.id`` so the order is
+    total and adjacent pages partition cleanly.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "row", "score": 0.9}],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+
+    data_sql = mock_pg.execute.call_args_list[0].args[0]
+    # Distance is still the primary sort key; ``h.id`` is the secondary tiebreaker.
+    assert "ORDER BY e.embedding <=> %s::vector, h.id" in data_sql
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_pagination_stable_across_ties(client: TestClient, app: object) -> None:
+    """Adjacent semantic pages partition a tied candidate set with no dup/drop (ig#1151).
+
+    A fake pg models Postgres honestly: it orders by cosine distance and, *only
+    when the SQL carries the ``h.id`` tiebreaker*, breaks ties on the stable key —
+    otherwise it reorders tied rows per query (as a real DB is free to). Three rows
+    tie on distance across the page-1/page-2 boundary; with the tiebreaker the two
+    adjacent pages must return the first four candidates exactly once each. On
+    pre-fix SQL (no ``h.id``) the tie boundary duplicates one row and drops
+    another — the failure this asserts against.
+    """
+
+    class FakePg:
+        # id, cosine distance (lower == closer). Rows 2/3/4 tie at 0.20 and STRADDLE
+        # the page boundary (page size 2), which is exactly where an unstable order
+        # dups/drops.
+        _cands = [
+            {"id": "had-01", "_dist": 0.10, "_n": 1},
+            {"id": "had-02", "_dist": 0.20, "_n": 2},
+            {"id": "had-03", "_dist": 0.20, "_n": 3},
+            {"id": "had-04", "_dist": 0.20, "_n": 4},
+            {"id": "had-05", "_dist": 0.30, "_n": 5},
+        ]
+
+        def execute(self, sql: str, params: object = None) -> list[dict[str, object]]:
+            if "count(" in sql:
+                return [{"total": len(self._cands)}]
+            assert isinstance(params, (tuple, list))
+            limit = int(params[-2])
+            offset = int(params[-1])
+            if ", h.id" in sql:
+                # Total order: distance, then stable primary key.
+                ordered = sorted(self._cands, key=lambda r: (r["_dist"], r["_n"]))
+            else:
+                # No tiebreaker: model the DB's freedom to reorder tied rows per
+                # query — ties ascend on the first page, descend on the next.
+                sign = 1 if offset == 0 else -1
+                ordered = sorted(self._cands, key=lambda r: (r["_dist"], sign * r["_n"]))
+            window = ordered[offset : offset + limit]
+            return [
+                {"id": r["id"], "matn_ar": "نص", "matn_en": r["id"], "score": 1 - r["_dist"]}
+                for r in window
+            ]
+
+        def close(self) -> None:
+            return None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: FakePg()
+
+    page1 = client.get("/api/v1/search/semantic?q=test&limit=2&page=1")
+    page2 = client.get("/api/v1/search/semantic?q=test&limit=2&page=2")
+    assert page1.status_code == 200 and page2.status_code == 200
+
+    ids1 = [r["id"] for r in page1.json()["results"]]
+    ids2 = [r["id"] for r in page2.json()["results"]]
+
+    # The two adjacent pages tile the candidate set in stable order: first four
+    # candidates, each exactly once — no row duplicated, none skipped.
+    assert ids1 == ["had-01", "had-02"]
+    assert ids2 == ["had-03", "had-04"]
+    assert len(set(ids1) & set(ids2)) == 0
+    # ``total`` still reports the TRUE candidate count, not the page window.
+    assert page1.json()["total"] == 5
+    assert page2.json()["total"] == 5
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_fulltext_contains_fallback_orders_by_id(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """Both CONTAINS fallbacks carry ``ORDER BY id`` for a stable order (ig#1151).
+
+    The fallback (used when the fulltext index is unavailable) flat-scores every
+    match ``1.0`` and previously had no ``ORDER BY`` at all, so Neo4j could return
+    matches in any order per call — dup/drop across the app-side page slice. Both
+    the narrator and hadith fallbacks must order by the stable key ``id``. The
+    indexed path is untouched (Lucene already tiebreaks on docid).
+    """
+    mock_neo4j.execute_read.side_effect = [
+        Exception("No such index 'narrator_search'"),
+        [{"id": "nar-1", "name_ar": "x", "name_en": "n", "score": 1.0}],
+        Exception("No such index 'hadith_search'"),
+        [{"id": "had-1", "matn_ar": "m", "matn_en": "h", "score": 1.0}],
+        Exception("No such index 'narrator_search'"),
+        [{"total": 1}],
+        Exception("No such index 'hadith_search'"),
+        [{"total": 1}],
+    ]
+    resp = client.get("/api/v1/search?q=test")
+    assert resp.status_code == 200
+
+    narrator_fallback_sql = mock_neo4j.execute_read.call_args_list[1][0][0]
+    hadith_fallback_sql = mock_neo4j.execute_read.call_args_list[3][0][0]
+    assert "CONTAINS" in narrator_fallback_sql and "ORDER BY id" in narrator_fallback_sql
+    assert "CONTAINS" in hadith_fallback_sql and "ORDER BY id" in hadith_fallback_sql
+    # ORDER BY must precede LIMIT so the stable order is applied before truncation.
+    assert narrator_fallback_sql.index("ORDER BY id") < narrator_fallback_sql.index("LIMIT")
+    assert hadith_fallback_sql.index("ORDER BY id") < hadith_fallback_sql.index("LIMIT")
+
+
+def test_fulltext_contains_fallback_pagination_stable(client: TestClient, app: object) -> None:
+    """Adjacent full-text (CONTAINS fallback) pages partition cleanly (ig#1151).
+
+    A fake Neo4j forces the index-unavailable path and models the DB honestly: it
+    returns CONTAINS matches in a stable ``id`` order *only when the query carries
+    ``ORDER BY id``*, else it reorders per call (as an unordered ``MATCH`` may).
+    With ten tied (score 1.0) narrators, page 1 and page 2 at limit 2 must return
+    the first four in order, once each — the stability the fallback ``ORDER BY``
+    guarantees.
+    """
+
+    class FakeNeo4j:
+        _narrators = [
+            {"id": f"nar-{i:02d}", "name_ar": f"ر{i}", "name_en": f"n{i}", "death_year_ah": None}
+            for i in range(10)
+        ]
+
+        def execute_read(self, query: str, params: object = None) -> list[dict[str, object]]:
+            # Index path always unavailable here -> force the CONTAINS fallback.
+            if "queryNodes" in query:
+                raise Exception("index unavailable")
+            if "count(" in query:
+                total = len(self._narrators) if "Narrator" in query else 0
+                return [{"total": total}]
+            if "Hadith" in query:  # isolate narrator ordering
+                return []
+            assert isinstance(params, dict)
+            limit = int(params["limit"])
+            if "ORDER BY id" in query:
+                ordered = sorted(self._narrators, key=lambda r: r["id"])
+            else:
+                # No stable order: return a different arrangement depending on how
+                # deep the prefix fetch is, modelling the DB's freedom.
+                ordered = sorted(self._narrators, key=lambda r: r["id"], reverse=(limit >= 4))
+            return [dict(r, score=1.0) for r in ordered[:limit]]
+
+        def close(self) -> None:
+            return None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_neo4j
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_neo4j] = lambda: FakeNeo4j()
+
+    page1 = client.get("/api/v1/search?q=test&limit=2&page=1")
+    page2 = client.get("/api/v1/search?q=test&limit=2&page=2")
+    assert page1.status_code == 200 and page2.status_code == 200
+
+    ids1 = [r["id"] for r in page1.json()["results"]]
+    ids2 = [r["id"] for r in page2.json()["results"]]
+
+    assert ids1 == ["nar-00", "nar-01"]
+    assert ids2 == ["nar-02", "nar-03"]
+    assert len(set(ids1) & set(ids2)) == 0
+    # ``total`` remains the true match count across both pages.
+    assert page1.json()["total"] == 10
+    assert page2.json()["total"] == 10
+
+    del app.dependency_overrides[get_neo4j]

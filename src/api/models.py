@@ -317,13 +317,21 @@ class SearchResult(BaseModel):
 
 
 class SearchResultsResponse(BaseModel):
-    """Search results response."""
+    """Search results response.
+
+    ``total`` is the full count of matching documents across the searchable set
+    (not the length of ``results``, which is a single server-side page); ``page``
+    is the 1-based page number this response corresponds to. Together they let the
+    client page past the first batch — the fix for the flat 50-result ceiling in
+    ig#1147, where the endpoints returned a single capped batch with no offset.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     results: list[SearchResult]
     total: int
     query: str
+    page: int = 1
 
 
 # --- Parallels models ---
@@ -421,6 +429,48 @@ class TimelineRangeResponse(BaseModel):
     max_year_ah: int
 
 
+class NarratorTimelineEntry(BaseModel):
+    """A narrator's resolved lifespan/ṭabaqa lane for timeline visualization.
+
+    ``window_start_ah`` / ``window_end_ah`` are the [start, end] active window in
+    Hijri years (earliest plausible birth to latest plausible death). ``estimated``
+    is True when either endpoint was filled from an assumed-lifespan span or the
+    governing precision is a ṭabaqa estimate, so the UI can mark it distinctly
+    from an attested window (owner decision, ig#1041).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    narrator_id: str
+    name_ar: str | None = None
+    name_en: str | None = None
+    birth_year_ah: int | None = None
+    death_year_ah: int | None = None
+    window_start_ah: int
+    window_end_ah: int
+    birth_date_precision: str | None = None
+    death_date_precision: str | None = None
+    tabaqat_class: str | None = None
+    estimated: bool = True
+
+
+class NarratorTimelineResponse(BaseModel):
+    """Narrator lifespan/ṭabaqa lanes response for the timeline.
+
+    ``total`` is the number of lanes actually returned (the viewport-filtered set,
+    capped at the ``limit``). ``truncated`` is True when that cap clipped the
+    viewport-filtered set — i.e. more narrators overlap the requested window than
+    were returned — so the UI can surface a "showing first N" affordance instead
+    of silently under-rendering (mirrors ``ChainValidationResponse.truncated``).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    entries: list[NarratorTimelineEntry]
+    total: int
+    truncated: bool = False
+
+
 # --- Chain validation models ---
 
 # Verdict tiers for the chronological-plausibility check. ``impossible`` is
@@ -485,6 +535,46 @@ class ChainValidationResponse(BaseModel):
     # True when the candidate scan hit its cap, so ``summary``/``flags`` reflect a
     # partial view of the graph rather than every edge.
     truncated: bool = False
+
+
+class HadithDatingResponse(BaseModel):
+    """Chain-derived dating window for a hadith (ig#1042).
+
+    The window is derived from the resolved active windows of the narrators in
+    the hadith's isnad chain (ig#1039 loaded ``*_earliest``/``*_latest`` bounds).
+    Both termini are anchored on narrator *deaths* (each narrator's window end):
+
+    * ``terminus_post_quem_ah`` -- the **earliest** narrator's death (min window
+      end). The hadith's content is attested in transmission from this era; the
+      chain cannot resolve earlier than its earliest link. Lower bound.
+    * ``terminus_ante_quem_ah`` -- the **latest** narrator's death (max window
+      end, the collector-side link). The isnad was fully transmitted by this
+      year, so the compiled hadith is attested no later than it. Upper bound.
+
+    ``chain_span_ah`` is ``terminus_ante_quem_ah - terminus_post_quem_ah``. When
+    no chain narrator carries a resolvable date, all three are ``None`` and
+    ``confidence`` is ``insufficient_data`` (never a 500) -- ``note`` carries the
+    human-readable explanation.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    hadith_id: str
+    terminus_post_quem_ah: int | None = None
+    terminus_ante_quem_ah: int | None = None
+    chain_span_ah: int | None = None
+    # Derivation confidence: high (every chain narrator dated, attested bounds),
+    # medium (bounds resolved but incomplete / estimated), low (single dated
+    # narrator -- span collapses to a point), insufficient_data (nothing dated).
+    confidence: Literal["high", "medium", "low", "insufficient_data"]
+    chain_narrator_count: int
+    dated_narrator_count: int
+    # The narrators fixing each terminus (window end = death anchor). None when
+    # the window could not be derived.
+    earliest_narrator: NarratorWindow | None = None
+    latest_narrator: NarratorWindow | None = None
+    assumed_lifespan_ah: int
+    note: str
 
 
 # --- Admin models ---
