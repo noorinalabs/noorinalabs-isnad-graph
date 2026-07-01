@@ -327,12 +327,19 @@ def _fulltext_narrator_search(neo4j: Neo4jClient, query: str, limit: int) -> lis
         )
     except Exception:  # noqa: BLE001
         log.debug("fulltext narrator_search unavailable, falling back to CONTAINS")
+        # ORDER BY id gives this fallback a stable total order (ig#1151). The
+        # indexed path is ranked by Lucene score (with a docid tiebreak, so
+        # already deterministic), but CONTAINS assigns a flat ``score = 1.0`` to
+        # every row and has no intrinsic ordering — Neo4j may return matches in
+        # any order per call, so a row could dup/drop across the app-side page
+        # slice. The ``id`` alias is the node's stable primary key.
         return neo4j.execute_read(
             """
             MATCH (n:Narrator)
             WHERE n.name_ar CONTAINS $q OR n.name_en CONTAINS $q
             RETURN n.id AS id, n.name_ar AS name_ar, n.name_en AS name_en,
                    n.death_year_ah AS death_year_ah, 1.0 AS score
+            ORDER BY id
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -362,6 +369,9 @@ def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[
         )
     except Exception:  # noqa: BLE001
         log.debug("fulltext hadith_search unavailable, falling back to CONTAINS")
+        # ORDER BY id gives this fallback a stable total order (ig#1151) — see the
+        # narrator fallback above; CONTAINS flat-scores every row 1.0 with no
+        # intrinsic order, so a stable key is required for page-boundary stability.
         return neo4j.execute_read(
             """
             MATCH (h:Hadith)
@@ -372,6 +382,7 @@ def _fulltext_hadith_search(neo4j: Neo4jClient, query: str, limit: int) -> list[
                    h.collection_name AS collection_name,
                    h.topic_tags AS topic_tags,
                    coalesce(g.grade, h.grade_composite, h.grade) AS grade
+            ORDER BY id
             LIMIT $limit
             """,
             {"q": query, "limit": limit},
@@ -463,6 +474,13 @@ def search_semantic(
     # pages so a query with >50 matches is reachable past result 50 (ig#1147). A
     # single ordered candidate set makes offset paging exact here (unlike the
     # interleaved full-text path, which pages over the merged prefix).
+    #
+    # Deterministic total order (ig#1151): cosine distance alone is NOT a total
+    # order — near-identical/duplicate embeddings (a live dedup concern) tie, and
+    # Postgres is free to return tied rows in any order per query, so a row can
+    # dup or drop across an ``OFFSET`` page boundary. Appending ``h.id`` as a
+    # stable tiebreaker to the ``ORDER BY`` makes the ranking a total order, so
+    # adjacent pages partition the candidate set without overlap or gaps.
     offset = (page - 1) * limit
     try:
         query_vector = to_pgvector_literal(get_embedder().embed([q])[0])
@@ -473,7 +491,7 @@ def search_semantic(
                    1 - (e.embedding <=> %s::vector) AS score
             FROM isnad_graph.hadith_embeddings e
             JOIN isnad_graph.hadiths h ON h.id = e.hadith_id
-            ORDER BY e.embedding <=> %s::vector
+            ORDER BY e.embedding <=> %s::vector, h.id
             LIMIT %s OFFSET %s
             """,
             (query_vector, query_vector, limit, offset),

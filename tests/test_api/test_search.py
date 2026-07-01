@@ -1056,3 +1056,206 @@ def test_semantic_search_result_window_over_cap_is_400(client: TestClient, app: 
     mock_pg.execute.assert_not_called()
 
     del app.dependency_overrides[get_pg]
+
+
+# --- Deterministic ordering for stable deep pagination (ig#1151) --------------
+
+
+def test_semantic_search_order_by_has_stable_tiebreaker(client: TestClient, app: object) -> None:
+    """The semantic ORDER BY appends ``h.id`` as a stable tiebreaker (ig#1151).
+
+    Cosine distance alone is not a total order: near-identical/duplicate
+    embeddings (a live dedup concern) tie, and Postgres may return tied rows in
+    any order per query, so a row can dup/drop across an ``OFFSET`` page boundary.
+    The ranking must break ties on the stable primary key ``h.id`` so the order is
+    total and adjacent pages partition cleanly.
+    """
+    mock_pg = MagicMock()
+    mock_pg.execute.side_effect = [
+        [{"id": "had-1", "matn_ar": "نص", "matn_en": "row", "score": 0.9}],
+        [{"total": 1}],
+    ]
+    mock_pg.close.return_value = None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: mock_pg
+
+    resp = client.get("/api/v1/search/semantic?q=test")
+    assert resp.status_code == 200
+
+    data_sql = mock_pg.execute.call_args_list[0].args[0]
+    # Distance is still the primary sort key; ``h.id`` is the secondary tiebreaker.
+    assert "ORDER BY e.embedding <=> %s::vector, h.id" in data_sql
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_semantic_search_pagination_stable_across_ties(client: TestClient, app: object) -> None:
+    """Adjacent semantic pages partition a tied candidate set with no dup/drop (ig#1151).
+
+    A fake pg models Postgres honestly: it orders by cosine distance and, *only
+    when the SQL carries the ``h.id`` tiebreaker*, breaks ties on the stable key —
+    otherwise it reorders tied rows per query (as a real DB is free to). Three rows
+    tie on distance across the page-1/page-2 boundary; with the tiebreaker the two
+    adjacent pages must return the first four candidates exactly once each. On
+    pre-fix SQL (no ``h.id``) the tie boundary duplicates one row and drops
+    another — the failure this asserts against.
+    """
+
+    class FakePg:
+        # id, cosine distance (lower == closer). Rows 2/3/4 tie at 0.20 and STRADDLE
+        # the page boundary (page size 2), which is exactly where an unstable order
+        # dups/drops.
+        _cands = [
+            {"id": "had-01", "_dist": 0.10, "_n": 1},
+            {"id": "had-02", "_dist": 0.20, "_n": 2},
+            {"id": "had-03", "_dist": 0.20, "_n": 3},
+            {"id": "had-04", "_dist": 0.20, "_n": 4},
+            {"id": "had-05", "_dist": 0.30, "_n": 5},
+        ]
+
+        def execute(self, sql: str, params: object = None) -> list[dict[str, object]]:
+            if "count(" in sql:
+                return [{"total": len(self._cands)}]
+            assert isinstance(params, (tuple, list))
+            limit = int(params[-2])
+            offset = int(params[-1])
+            if ", h.id" in sql:
+                # Total order: distance, then stable primary key.
+                ordered = sorted(self._cands, key=lambda r: (r["_dist"], r["_n"]))
+            else:
+                # No tiebreaker: model the DB's freedom to reorder tied rows per
+                # query — ties ascend on the first page, descend on the next.
+                sign = 1 if offset == 0 else -1
+                ordered = sorted(self._cands, key=lambda r: (r["_dist"], sign * r["_n"]))
+            window = ordered[offset : offset + limit]
+            return [
+                {"id": r["id"], "matn_ar": "نص", "matn_en": r["id"], "score": 1 - r["_dist"]}
+                for r in window
+            ]
+
+        def close(self) -> None:
+            return None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_pg
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_pg] = lambda: FakePg()
+
+    page1 = client.get("/api/v1/search/semantic?q=test&limit=2&page=1")
+    page2 = client.get("/api/v1/search/semantic?q=test&limit=2&page=2")
+    assert page1.status_code == 200 and page2.status_code == 200
+
+    ids1 = [r["id"] for r in page1.json()["results"]]
+    ids2 = [r["id"] for r in page2.json()["results"]]
+
+    # The two adjacent pages tile the candidate set in stable order: first four
+    # candidates, each exactly once — no row duplicated, none skipped.
+    assert ids1 == ["had-01", "had-02"]
+    assert ids2 == ["had-03", "had-04"]
+    assert len(set(ids1) & set(ids2)) == 0
+    # ``total`` still reports the TRUE candidate count, not the page window.
+    assert page1.json()["total"] == 5
+    assert page2.json()["total"] == 5
+
+    del app.dependency_overrides[get_pg]
+
+
+def test_fulltext_contains_fallback_orders_by_id(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """Both CONTAINS fallbacks carry ``ORDER BY id`` for a stable order (ig#1151).
+
+    The fallback (used when the fulltext index is unavailable) flat-scores every
+    match ``1.0`` and previously had no ``ORDER BY`` at all, so Neo4j could return
+    matches in any order per call — dup/drop across the app-side page slice. Both
+    the narrator and hadith fallbacks must order by the stable key ``id``. The
+    indexed path is untouched (Lucene already tiebreaks on docid).
+    """
+    mock_neo4j.execute_read.side_effect = [
+        Exception("No such index 'narrator_search'"),
+        [{"id": "nar-1", "name_ar": "x", "name_en": "n", "score": 1.0}],
+        Exception("No such index 'hadith_search'"),
+        [{"id": "had-1", "matn_ar": "m", "matn_en": "h", "score": 1.0}],
+        Exception("No such index 'narrator_search'"),
+        [{"total": 1}],
+        Exception("No such index 'hadith_search'"),
+        [{"total": 1}],
+    ]
+    resp = client.get("/api/v1/search?q=test")
+    assert resp.status_code == 200
+
+    narrator_fallback_sql = mock_neo4j.execute_read.call_args_list[1][0][0]
+    hadith_fallback_sql = mock_neo4j.execute_read.call_args_list[3][0][0]
+    assert "CONTAINS" in narrator_fallback_sql and "ORDER BY id" in narrator_fallback_sql
+    assert "CONTAINS" in hadith_fallback_sql and "ORDER BY id" in hadith_fallback_sql
+    # ORDER BY must precede LIMIT so the stable order is applied before truncation.
+    assert narrator_fallback_sql.index("ORDER BY id") < narrator_fallback_sql.index("LIMIT")
+    assert hadith_fallback_sql.index("ORDER BY id") < hadith_fallback_sql.index("LIMIT")
+
+
+def test_fulltext_contains_fallback_pagination_stable(client: TestClient, app: object) -> None:
+    """Adjacent full-text (CONTAINS fallback) pages partition cleanly (ig#1151).
+
+    A fake Neo4j forces the index-unavailable path and models the DB honestly: it
+    returns CONTAINS matches in a stable ``id`` order *only when the query carries
+    ``ORDER BY id``*, else it reorders per call (as an unordered ``MATCH`` may).
+    With ten tied (score 1.0) narrators, page 1 and page 2 at limit 2 must return
+    the first four in order, once each — the stability the fallback ``ORDER BY``
+    guarantees.
+    """
+
+    class FakeNeo4j:
+        _narrators = [
+            {"id": f"nar-{i:02d}", "name_ar": f"ر{i}", "name_en": f"n{i}", "death_year_ah": None}
+            for i in range(10)
+        ]
+
+        def execute_read(self, query: str, params: object = None) -> list[dict[str, object]]:
+            # Index path always unavailable here -> force the CONTAINS fallback.
+            if "queryNodes" in query:
+                raise Exception("index unavailable")
+            if "count(" in query:
+                total = len(self._narrators) if "Narrator" in query else 0
+                return [{"total": total}]
+            if "Hadith" in query:  # isolate narrator ordering
+                return []
+            assert isinstance(params, dict)
+            limit = int(params["limit"])
+            if "ORDER BY id" in query:
+                ordered = sorted(self._narrators, key=lambda r: r["id"])
+            else:
+                # No stable order: return a different arrangement depending on how
+                # deep the prefix fetch is, modelling the DB's freedom.
+                ordered = sorted(self._narrators, key=lambda r: r["id"], reverse=(limit >= 4))
+            return [dict(r, score=1.0) for r in ordered[:limit]]
+
+        def close(self) -> None:
+            return None
+
+    from fastapi import FastAPI
+
+    from src.api.deps import get_neo4j
+
+    assert isinstance(app, FastAPI)
+    app.dependency_overrides[get_neo4j] = lambda: FakeNeo4j()
+
+    page1 = client.get("/api/v1/search?q=test&limit=2&page=1")
+    page2 = client.get("/api/v1/search?q=test&limit=2&page=2")
+    assert page1.status_code == 200 and page2.status_code == 200
+
+    ids1 = [r["id"] for r in page1.json()["results"]]
+    ids2 = [r["id"] for r in page2.json()["results"]]
+
+    assert ids1 == ["nar-00", "nar-01"]
+    assert ids2 == ["nar-02", "nar-03"]
+    assert len(set(ids1) & set(ids2)) == 0
+    # ``total`` remains the true match count across both pages.
+    assert page1.json()["total"] == 10
+    assert page2.json()["total"] == 10
+
+    del app.dependency_overrides[get_neo4j]
