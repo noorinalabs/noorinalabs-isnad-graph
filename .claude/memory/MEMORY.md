@@ -9,3 +9,4 @@ In-repo, version-controlled memory for this repo (org/repo memory split — meta
 - [ig integration test harness gaps](project_ig_integration_test_harness_gaps.md) — neo4j auth fixed (PR#1102); not e2e-green: 401 auth-override + ig#1034 redis ping.
 - [Semantic search = hashing embedder](project_semantic_search_hashing_embedder.md) — query-embed correct; arbitrary results = corpus embedded w/ HashingEmbedder. ig#1071.
 - [i18n scope](project_i18n_scope.md) — i18n is UI/navigation toggle only; source API data stays untransformed.
+- [Semantic search prod gap + embedder parity](project_semantic_embedder_parity_prod.md) — ig#1148: app+job complete; prod unprovisioned (deploy#470) + torch-free API HashingEmbedder vs MiniLM corpus (200-with-garbage). Smoke=scripts/semantic_smoke.py.
