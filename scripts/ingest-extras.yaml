@@ -41,6 +41,10 @@ nodes:
       category: permanent
       issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
       note: normalize-v1 emits a coarse grade alongside the model's grade_composite; intentionally ingest-only — the model exposes only the composite. Kept per ingest-platform#35 ruling.
+    - field: grade_normalized
+      category: permanent
+      issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
+      note: normalized form of the ingest-only grade (canonical normalize_grade(); absent→"unknown"); intentionally ingest-only — the model exposes only grade_composite. Streaming ingest emits it on every Hadith. Mirrors ingest-platform#119.
     - field: sect
       category: permanent
       issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
@@ -54,6 +58,11 @@ nodes:
       category: permanent
       issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
       note: per-edge attribute on TRANSMITTED_TO, denormalized onto the Narrator node by ingest; the model exposes it only on the edge. Kept per ingest-platform#35 ruling.
+  Grading:
+    - field: grade_normalized
+      category: permanent
+      issue: noorinalabs/noorinalabs-isnad-graph:docs/adr/005-cross-repo-ingest-schema-contract.md
+      note: normalized form (canonical normalize_grade()) of the Grading node's grade; the model exposes only the raw HadithGrade `grade` enum, not its normalized string, so this is intentionally ingest-only. Streaming ingest emits it on the Grading node when a grade is present. Mirrors ingest-platform#119.
 
 # All Hadith per-appearance number fields and the four promoted fields were
 # reconciled out on 2026-05-31; the remaining entries are the four permanent
