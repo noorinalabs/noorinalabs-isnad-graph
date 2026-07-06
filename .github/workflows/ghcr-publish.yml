@@ -219,6 +219,21 @@ jobs:
           cache-from: type=gha,scope=embed
           cache-to: type=gha,mode=max,scope=embed
 
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          # Scan by digest — guaranteed to exist immediately after push and
+          # immune to tag-resolution races. metadata-action emits :latest,
+          # :sha-*, and (on main) :stg-* + :stg-latest — never :main.
+          # Digest is the one stable handle across all of them. Mirrors the
+          # api/frontend matrix scan; the embed image now backs the live api
+          # service (deploy#523) so a CRITICAL/HIGH CVE must gate publish.
+          image-ref: ${{ env.REGISTRY }}/noorinalabs/noorinalabs-isnad-graph-embed@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
       - name: Summary
         if: always()
         run: |
