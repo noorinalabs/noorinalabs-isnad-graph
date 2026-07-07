@@ -6,6 +6,19 @@ import argparse
 import sys
 
 
+def _split_csv(value: str | None) -> list[str] | None:
+    """Parse a comma-separated CLI value into a trimmed, non-empty list.
+
+    Returns ``None`` when the flag was not supplied (``value is None``) so the
+    caller can distinguish "no scope" from an empty selection. An all-whitespace
+    value yields ``None`` as well, keeping the unchanged-default behaviour.
+    """
+    if value is None:
+        return None
+    items = [part.strip() for part in value.split(",") if part.strip()]
+    return items or None
+
+
 def _mask_password(value: str) -> str:
     """Replace all but first and last character with asterisks."""
     if len(value) <= 2:
@@ -112,7 +125,12 @@ def _cmd_enrich_historical(dates_path: str | None = None) -> None:
     print(f"  skipped (max lifetime) : {result.narrators_skipped_max_lifetime}")
 
 
-def _cmd_embed_hadiths(batch_size: int, limit: int | None) -> None:
+def _cmd_embed_hadiths(
+    batch_size: int,
+    limit: int | None,
+    exclude_collections: list[str] | None,
+    include_collections: list[str] | None,
+) -> None:
     """Compute hadith embeddings and load them into pgvector.
 
     Closes the gap behind #1049: with no embeddings loaded, ``/search/semantic``
@@ -121,6 +139,11 @@ def _cmd_embed_hadiths(batch_size: int, limit: int | None) -> None:
     The embedding model is selected by ``EMBEDDING_MODEL`` (default ``hashing``,
     the dependency-free encoder; set a sentence-transformers model on the cluster
     for the production load).
+
+    ``exclude_collections`` / ``include_collections`` scope which collections are
+    embedded (#1177) — the filter runs in the Neo4j read, so excluding the bulk
+    ``sanadset`` collection loads the canonical corpus fast without streaming its
+    650k rows. No scope flag = embed all (unchanged default).
     """
     _check_neo4j()
 
@@ -130,9 +153,19 @@ def _cmd_embed_hadiths(batch_size: int, limit: int | None) -> None:
 
     embedder = get_embedder()
     print(f"Embedding hadiths (model={embedder.model_name}, dim={embedder.dim})...")
+    if exclude_collections:
+        print(f"  scope: excluding collections {exclude_collections}")
+    elif include_collections:
+        print(f"  scope: including only collections {include_collections}")
     with Neo4jClient() as neo4j, PgClient() as pg:
         result = run_embedding_load(
-            neo4j, pg, embedder=embedder, batch_size=batch_size, limit=limit
+            neo4j,
+            pg,
+            embedder=embedder,
+            batch_size=batch_size,
+            limit=limit,
+            exclude_collections=exclude_collections,
+            include_collections=include_collections,
         )
 
     print("=== embedding load complete ===")
@@ -224,6 +257,25 @@ def main() -> None:
     embed_parser.add_argument(
         "--limit", type=int, default=None, help="Only embed the first N hadiths (default: all)"
     )
+    embed_scope = embed_parser.add_mutually_exclusive_group()
+    embed_scope.add_argument(
+        "--exclude-collections",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated collection names to skip (e.g. 'sanadset'); the filter runs "
+            "in the Neo4j query. Default: embed all collections (#1177)."
+        ),
+    )
+    embed_scope.add_argument(
+        "--collections",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated allowlist of collection names to embed exclusively "
+            "(mutually exclusive with --exclude-collections). Default: embed all (#1177)."
+        ),
+    )
     reindex_parser = subparsers.add_parser(
         "reindex-embeddings",
         help="Rebuild the ivfflat semantic-search index (CONCURRENTLY, no downtime)",
@@ -259,7 +311,9 @@ def main() -> None:
     elif args.command == "enrich-historical":
         _cmd_enrich_historical(args.dates)
     elif args.command == "embed-hadiths":
-        _cmd_embed_hadiths(args.batch_size, args.limit)
+        exclude_collections = _split_csv(args.exclude_collections)
+        include_collections = _split_csv(args.collections)
+        _cmd_embed_hadiths(args.batch_size, args.limit, exclude_collections, include_collections)
     elif args.command == "reindex-embeddings":
         _cmd_reindex_embeddings(args.lists)
     elif args.command == "verify-recall":
