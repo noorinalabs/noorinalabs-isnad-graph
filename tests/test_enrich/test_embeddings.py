@@ -187,6 +187,62 @@ def test_fetch_hadiths_projects_facet_metadata() -> None:
     assert "coalesce(g.grade, h.grade_composite, h.grade) AS grade" in query
 
 
+def test_fetch_hadiths_no_scope_has_no_where_clause() -> None:
+    """No scope arg = unchanged default: no WHERE, no collection params (#1177)."""
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = []
+    fetch_hadiths_from_neo4j(neo4j)
+    query, params = neo4j.execute_read.call_args.args
+    assert "WHERE" not in query
+    assert params is None
+
+
+def test_fetch_hadiths_exclude_collections_adds_negated_where() -> None:
+    """--exclude form filters in-query and binds the names as a param, not inline (#1177)."""
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = []
+    fetch_hadiths_from_neo4j(neo4j, exclude_collections=["sanadset"])
+    query, params = neo4j.execute_read.call_args.args
+    assert "WHERE NOT h.collection_name IN $exclude_collections" in query
+    # The filter precedes the OPTIONAL MATCH so it prunes before the join.
+    assert query.index("WHERE") < query.index("OPTIONAL MATCH")
+    assert params == {"exclude_collections": ["sanadset"]}
+    # Collection names are parameterized, never string-interpolated into the query.
+    assert "sanadset" not in query
+
+
+def test_fetch_hadiths_include_collections_adds_allowlist_where() -> None:
+    """--collections allowlist form filters in-query via a bound param (#1177)."""
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = []
+    fetch_hadiths_from_neo4j(neo4j, include_collections=["bukhari", "muslim"])
+    query, params = neo4j.execute_read.call_args.args
+    assert "WHERE h.collection_name IN $include_collections" in query
+    assert params == {"include_collections": ["bukhari", "muslim"]}
+    assert "bukhari" not in query
+
+
+def test_fetch_hadiths_scope_combines_with_limit() -> None:
+    """Scope filter and limit coexist: WHERE prunes, LIMIT caps, both parameterized (#1177)."""
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = []
+    fetch_hadiths_from_neo4j(neo4j, exclude_collections=["sanadset"], limit=10)
+    query, params = neo4j.execute_read.call_args.args
+    assert "WHERE NOT h.collection_name IN $exclude_collections" in query
+    assert "LIMIT $limit" in query
+    assert params == {"exclude_collections": ["sanadset"], "limit": 10}
+
+
+def test_fetch_hadiths_rejects_both_scope_forms() -> None:
+    """include + exclude together is ambiguous and rejected before any query runs (#1177)."""
+    neo4j = MagicMock()
+    with pytest.raises(ValueError, match="at most one"):
+        fetch_hadiths_from_neo4j(
+            neo4j, exclude_collections=["sanadset"], include_collections=["bukhari"]
+        )
+    neo4j.execute_read.assert_not_called()
+
+
 # --- run_embedding_load (the mechanism, against mock clients) -----------------
 
 
@@ -224,6 +280,19 @@ def test_run_embedding_load_embeds_and_upserts() -> None:
     assert hadith_id == "h1"
     assert source_text == "first hadith"
     assert vector_literal.startswith("[") and vector_literal.endswith("]")
+
+
+def test_run_embedding_load_threads_collection_scope_to_fetch() -> None:
+    """Scope arg reaches the Neo4j read as a parameterized WHERE, not a Python filter (#1177)."""
+    neo4j = MagicMock()
+    neo4j.execute_read.return_value = []
+    pg = MagicMock()
+
+    run_embedding_load(neo4j, pg, embedder=HashingEmbedder(), exclude_collections=["sanadset"])
+
+    query, params = neo4j.execute_read.call_args.args
+    assert "WHERE NOT h.collection_name IN $exclude_collections" in query
+    assert params == {"exclude_collections": ["sanadset"]}
 
 
 def test_run_embedding_load_upserts_facet_metadata() -> None:

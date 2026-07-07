@@ -274,8 +274,15 @@ def embedding_text(matn_ar: str | None, matn_en: str | None) -> str:
 # raw grade the fulltext path normalises (#1060). Mirroring this metadata into the
 # pgvector-side ``isnad_graph.hadiths`` projection is what lets facets refine
 # semantic results.
+#
+# ``{collection_filter}`` is an optional ``WHERE`` clause on ``h.collection_name``
+# (#1177) so a canonical-only corpus can be embedded without streaming the bulk
+# ``sanadset`` collection (84% of nodes). It is a *structural* placeholder — the
+# collection names themselves are always bound as query parameters, never
+# interpolated — so the fast path stays injection-safe. Empty by default, which
+# keeps the no-scope query byte-for-byte the previous behaviour (embed all).
 _FETCH_HADITHS_QUERY = """
-MATCH (h:Hadith)
+MATCH (h:Hadith){collection_filter}
 OPTIONAL MATCH (h)-[:GRADED_BY]->(g:Grading)
 RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en,
        h.collection_name AS collection_name,
@@ -285,7 +292,11 @@ RETURN h.id AS id, h.matn_ar AS matn_ar, h.matn_en AS matn_en,
 
 
 def fetch_hadiths_from_neo4j(
-    neo4j: Neo4jClient, *, limit: int | None = None
+    neo4j: Neo4jClient,
+    *,
+    limit: int | None = None,
+    exclude_collections: list[str] | None = None,
+    include_collections: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Read matn text + facet metadata for every Hadith node (source of truth).
 
@@ -293,9 +304,27 @@ def fetch_hadiths_from_neo4j(
     ``collection_name``, ``grade``, and ``topic_tags`` — the facet metadata the
     search page filters on, projected here so it lands in pgvector alongside the
     embedding (#1060).
+
+    ``exclude_collections`` / ``include_collections`` scope which collections are
+    embedded (#1177). The scope is applied as a parameterized ``WHERE`` clause
+    *inside the Neo4j read* — never a post-fetch Python filter — so an excluded
+    bulk collection (e.g. ``sanadset``, 84% of nodes) never streams back over the
+    wire. The two are mutually exclusive; pass at most one. With neither set the
+    query is unchanged and embeds every collection (the default).
     """
-    query = _FETCH_HADITHS_QUERY
-    params: dict[str, int] = {}
+    if exclude_collections is not None and include_collections is not None:
+        raise ValueError("pass at most one of exclude_collections / include_collections")
+
+    params: dict[str, Any] = {}
+    collection_filter = ""
+    if exclude_collections is not None:
+        collection_filter = "\nWHERE NOT h.collection_name IN $exclude_collections"
+        params["exclude_collections"] = exclude_collections
+    elif include_collections is not None:
+        collection_filter = "\nWHERE h.collection_name IN $include_collections"
+        params["include_collections"] = include_collections
+
+    query = _FETCH_HADITHS_QUERY.format(collection_filter=collection_filter)
     if limit is not None:
         query = query + "\nLIMIT $limit"
         params["limit"] = limit
@@ -384,6 +413,8 @@ def run_embedding_load(
     embedder: Embedder | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     limit: int | None = None,
+    exclude_collections: list[str] | None = None,
+    include_collections: list[str] | None = None,
 ) -> EmbeddingLoadResult:
     """Compute hadith embeddings and load them into pgvector (idempotent).
 
@@ -392,11 +423,20 @@ def run_embedding_load(
     vector into ``isnad_graph.hadith_embeddings``. Every write is an upsert, so
     re-running reconciles state rather than duplicating it. Hadiths with no matn
     text at all are skipped (nothing to embed).
+
+    ``exclude_collections`` / ``include_collections`` scope which collections are
+    embedded (#1177); they are threaded straight to the Neo4j read so an excluded
+    bulk collection never streams back. See ``fetch_hadiths_from_neo4j``.
     """
     active = embedder or get_embedder()
     ensure_embedding_schema(pg, active.dim)
 
-    rows = fetch_hadiths_from_neo4j(neo4j, limit=limit)
+    rows = fetch_hadiths_from_neo4j(
+        neo4j,
+        limit=limit,
+        exclude_collections=exclude_collections,
+        include_collections=include_collections,
+    )
 
     hadiths_loaded = 0
     embeddings_loaded = 0
