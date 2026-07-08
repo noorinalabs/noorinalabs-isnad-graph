@@ -10,10 +10,13 @@
 #   - ghcr.io/noorinalabs/noorinalabs-isnad-graph-frontend  (frontend)
 #
 # Notify-deploy (formerly notify-deploy.yml) is folded into this workflow as a
-# dependent job so deploy only fires after BOTH images are published successfully.
-# This closes the race condition where the previous standalone notify-deploy
-# workflow dispatched noorinalabs-deploy on every push-to-main without waiting
-# for publish. See isnad-graph#817 and main#145.
+# dependent job so deploy only fires after ALL THREE images (api, frontend,
+# embed) are published successfully. This closes the race condition where the
+# previous standalone notify-deploy workflow dispatched noorinalabs-deploy on
+# every push-to-main without waiting for publish. See isnad-graph#817 and
+# main#145. The embed image joined the gate in isnad-graph#1179 once
+# deploy#523 made it the model-capable runtime image the standing stg deploy
+# pulls — see the build-and-push-embed comment below.
 #
 # The frontend build resolves @noorinalabs/design-system from GitHub Packages
 # (npm.pkg.github.com), pinned in frontend/package-lock.json to a registry
@@ -166,11 +169,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Build and publish the SEPARATE embed image (torch + sentence-transformers).
-  # Deliberately NOT part of the api/frontend matrix above and NOT a dependency of
-  # notify-deploy: this image is heavy (multi-hundred-MB torch + a baked model) and
-  # is only consumed by the on-demand re-embed workflow in noorinalabs-deploy
-  # (workflow_dispatch), never by the standing api/frontend deploy. Decoupling it
-  # means a slow or flaky embed build can never block a normal api/frontend deploy.
+  # Deliberately NOT part of the api/frontend matrix above — this image is heavy
+  # (multi-hundred-MB torch + a baked model) and building it as its own job lets
+  # it run in parallel with the api/frontend matrix instead of serializing behind
+  # it. It IS a dependency of notify-deploy (isnad-graph#1179): since deploy#523,
+  # the embed image is the model-capable runtime image the standing stg api pulls
+  # (not just the on-demand re-embed workflow's target), so notify-deploy must
+  # wait for it too — dispatching deploy before it publishes causes deploy-stg's
+  # GHCR manifest preflight (deploy#418) to correctly refuse a partial image set.
   # Image: ghcr.io/noorinalabs/noorinalabs-isnad-graph-embed
   # Tags: same scheme as the api image (sha-<short>, latest, stg-<short>, stg-latest).
   build-and-push-embed:
@@ -247,13 +253,15 @@ jobs:
             echo "- **Digest:** ${{ steps.build.outputs.digest }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Fire repository_dispatch to noorinalabs-deploy AFTER both images published.
-  # Gated to main-branch pushes only — tag pushes and manual dispatches do NOT
-  # auto-deploy. This replaces the standalone notify-deploy.yml workflow which
-  # fired on every push-to-main without waiting for publish (race condition).
+  # Fire repository_dispatch to noorinalabs-deploy AFTER all three images
+  # (api, frontend, embed) are published. Gated to main-branch pushes only —
+  # tag pushes and manual dispatches do NOT auto-deploy. This replaces the
+  # standalone notify-deploy.yml workflow which fired on every push-to-main
+  # without waiting for publish (race condition). See isnad-graph#1179 for why
+  # embed joined the gate.
   notify-deploy:
     name: Notify deploy repo
-    needs: build-and-push
+    needs: [build-and-push, build-and-push-embed]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
