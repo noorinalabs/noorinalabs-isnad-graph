@@ -28,6 +28,8 @@ function node(overrides: Partial<GraphNode> = {}): GraphNode {
     birth_year_ah: null,
     kunya: null,
     nisba: null,
+    over_merged: false,
+    over_merge_note: null,
     ...overrides,
   }
 }

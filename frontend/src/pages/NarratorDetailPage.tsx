@@ -223,6 +223,26 @@ export default function NarratorDetailPage() {
           <CardTitle className="text-lg">{t('narratorFields.networkStatistics')}</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Honest-leaderboard disclosure (main#958): an over-merged node's
+              betweenness is inflated, so we annotate it in place rather than
+              silently dropping or "correcting" the value. */}
+          {narrator.over_merged && (
+            <div
+              role="note"
+              aria-label={t('narratorFields.overMerged')}
+              className="mb-4 rounded-md border p-3"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="destructive">{t('narratorFields.overMerged')}</Badge>
+                <span className="text-sm font-medium text-destructive">
+                  {t('narratorFields.overMergedExplainer')}
+                </span>
+              </div>
+              {narrator.over_merge_note && (
+                <p className="mt-1 text-xs text-muted-foreground">{narrator.over_merge_note}</p>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
               [t('narratorDetail.statTeachersIn'), narrator.in_degree, t('narratorDetail.statTeachersInTip')],

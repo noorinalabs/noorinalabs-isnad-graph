@@ -70,6 +70,8 @@ function narratorPage(): PaginatedResponse<Narrator> {
         out_degree: null,
         pagerank: null,
         community_id: null,
+        over_merged: false,
+        over_merge_note: null,
       },
     ],
     total: 1,

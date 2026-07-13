@@ -123,7 +123,9 @@
     "studentsOut": "التلاميذ (صادر)",
     "betweenness": "الوساطة",
     "pagerank": "PageRank",
-    "community": "المجتمع"
+    "community": "المجتمع",
+    "overMerged": "دمج مُفرط",
+    "overMergedExplainer": "قيمة الوساطة مُبالغ فيها — تجمع هذه العقدة عدة رواة متمايزين وليست شخصًا واحدًا."
   },
   "search": {
     "heading": "بحث",

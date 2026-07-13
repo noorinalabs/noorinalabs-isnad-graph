@@ -206,6 +206,51 @@ def test_narrator_network_found(client: TestClient, mock_neo4j: MagicMock) -> No
     assert len(body["edges"]) == 2
 
 
+def test_narrator_network_over_merged_disclosed(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A graph node surfaces over_merged (+ note) so the UI can annotate the choke-point.
+
+    The center node is flagged and the neighbor is not (its property is absent);
+    the response must disclose ``true`` for the flagged node and default the
+    unflagged one to ``false`` rather than dropping either (main#958).
+    """
+    center = {
+        "id": "nar-001",
+        "name_ar": "الزهري",
+        "name_en": "al-Zuhri",
+        "gen": "successor",
+        "community_id": 1,
+        "in_degree": 2,
+        "out_degree": 3,
+        "betweenness_centrality": 0.9,
+        "pagerank": 0.01,
+        "sect_affiliation": "sunni",
+        "trustworthiness_consensus": "thiqah",
+        "death_year_ah": 124,
+        "birth_year_ah": None,
+        "kunya": None,
+        "nisba": None,
+        "over_merged": True,
+        "over_merge_note": "fuses 5 distinct narrators — betweenness inflated",
+    }
+    # Neighbor omits the property entirely (older/unflagged node).
+    neighbor = {k: v for k, v in center.items() if not k.startswith("over_merge")}
+    neighbor = {**neighbor, "id": "nar-010", "name_ar": "طالب", "name_en": "Student"}
+    mock_neo4j.execute_read.side_effect = [
+        [{"id": "nar-001"}],
+        [center],
+        [neighbor],
+        [],
+        [],
+    ]
+    resp = client.get("/api/v1/graph/narrator/nar-001/network")
+    assert resp.status_code == 200
+    nodes = {n["id"]: n for n in resp.json()["nodes"]}
+    assert nodes["nar-001"]["over_merged"] is True
+    assert "inflated" in nodes["nar-001"]["over_merge_note"]
+    assert nodes["nar-010"]["over_merged"] is False
+    assert nodes["nar-010"]["over_merge_note"] is None
+
+
 def test_narrator_network_not_found(client: TestClient) -> None:
     """GET /api/v1/graph/narrator/{id}/network returns 404 for unknown narrator."""
     resp = client.get("/api/v1/graph/narrator/nonexistent/network")

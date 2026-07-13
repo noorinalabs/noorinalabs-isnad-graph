@@ -108,6 +108,8 @@ function makeNarrator(overrides: Partial<Narrator> = {}): Narrator {
     out_degree: 20,
     pagerank: 0.01,
     community_id: 1,
+    over_merged: false,
+    over_merge_note: null,
     ...overrides,
   }
 }
@@ -131,6 +133,8 @@ function makeNode(overrides: Partial<GraphNode> = {}): GraphNode {
     birth_year_ah: 19,
     kunya: null,
     nisba: null,
+    over_merged: false,
+    over_merge_note: null,
     ...overrides,
   }
 }
@@ -410,6 +414,71 @@ describe("GraphExplorerPage — network data integration", () => {
     expect(
       screen.getByRole("link", { name: /View Full Profile/i }),
     ).toHaveAttribute("href", "/narrators/n1")
+  })
+
+  it("annotates an over-merged narrator in the detail panel instead of dropping it (main#958)", async () => {
+    const user = userEvent.setup()
+    searchItems = [makeNarrator({ id: "n1", name_en: "al-Zuhri" })]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "n1",
+      nodes: [makeNode({ id: "n1" })],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+    vi.mocked(fetchNarrator).mockResolvedValue(
+      makeNarrator({
+        id: "n1",
+        name_en: "al-Zuhri",
+        betweenness_centrality: 0.9,
+        over_merged: true,
+        over_merge_note: "fuses 5 distinct narrators",
+      }),
+    )
+    vi.mocked(fetchNarratorChains).mockResolvedValue({
+      narrator_id: "n1",
+      chains: [],
+      total: 0,
+    })
+
+    renderPage()
+    await user.type(screen.getByLabelText("Search for a narrator"), "Zuhr")
+    await user.click(await screen.findByText("al-Zuhri"))
+
+    await screen.findByText("Network Statistics")
+    // Disclosure badge + explainer + producer note are all surfaced; the
+    // inflated betweenness value itself is still shown (we disclose, not drop).
+    expect(screen.getByText("Over-merged")).toBeInTheDocument()
+    expect(screen.getByText(/not a single person/i)).toBeInTheDocument()
+    expect(screen.getByText("fuses 5 distinct narrators")).toBeInTheDocument()
+    expect(screen.getByText(/0\.9000/)).toBeInTheDocument()
+  })
+
+  it("shows no over-merged annotation for an unflagged narrator", async () => {
+    const user = userEvent.setup()
+    searchItems = [makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri" })]
+    vi.mocked(fetchGraphNetwork).mockResolvedValue({
+      narrator_id: "n1",
+      nodes: [makeNode({ id: "n1" })],
+      edges: [],
+      teachers: 0,
+      students: 0,
+    })
+    vi.mocked(fetchNarrator).mockResolvedValue(
+      makeNarrator({ id: "n1", name_en: "Sufyan al-Thawri", over_merged: false }),
+    )
+    vi.mocked(fetchNarratorChains).mockResolvedValue({
+      narrator_id: "n1",
+      chains: [],
+      total: 0,
+    })
+
+    renderPage()
+    await user.type(screen.getByLabelText("Search for a narrator"), "Sufy")
+    await user.click(await screen.findByText("Sufyan al-Thawri"))
+
+    await screen.findByText("Network Statistics")
+    expect(screen.queryByText("Over-merged")).not.toBeInTheDocument()
   })
 
   it("closes the detail panel when the close button is clicked", async () => {

@@ -303,6 +303,8 @@ describe("HadithDetailPage", () => {
             birth_year_ah: null,
             kunya: null,
             nisba: null,
+            over_merged: false,
+            over_merge_note: null,
           },
           {
             id: "nar:zuhri",
@@ -322,6 +324,8 @@ describe("HadithDetailPage", () => {
             birth_year_ah: null,
             kunya: null,
             nisba: null,
+            over_merged: false,
+            over_merge_note: null,
           },
         ],
         edges: [

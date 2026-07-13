@@ -117,7 +117,9 @@
     "studentsOut": "شاگرد (روانگی)",
     "betweenness": "وساطت",
     "pagerank": "PageRank",
-    "community": "برادری"
+    "community": "برادری",
+    "overMerged": "زائد اِدغام شدہ",
+    "overMergedExplainer": "بین الوسطیت بڑھی ہوئی ہے — یہ نوڈ کئی مختلف راویوں کو یکجا کر دیتا ہے اور ایک شخص نہیں ہے۔"
   },
   "search": {
     "heading": "تلاش",

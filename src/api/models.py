@@ -44,6 +44,8 @@ class NarratorResponse(BaseModel):
                     "out_degree": 134,
                     "pagerank": 0.0031,
                     "community_id": 3,
+                    "over_merged": False,
+                    "over_merge_note": None,
                 }
             ]
         },
@@ -72,6 +74,14 @@ class NarratorResponse(BaseModel):
     out_degree: int | None = None
     pagerank: float | None = None
     community_id: int | None = None
+    # Honest-leaderboard disclosure (cross-repo main#958). ``over_merged`` marks
+    # a node that fuses multiple historically-distinct narrators, so its
+    # betweenness/PageRank are INFLATED and it is NOT a single person. Set by the
+    # producer (data-acquisition, da#447) and transported onto the Neo4j node by
+    # the graph-load; defaults false when the property is absent (older data), so
+    # the choke-point view discloses inflation instead of silently trusting it.
+    over_merged: bool = False
+    over_merge_note: str | None = None
 
 
 class HadithResponse(BaseModel):
@@ -225,6 +235,11 @@ class GraphNode(BaseModel):
     birth_year_ah: int | None = None
     kunya: str | None = None
     nisba: str | None = None
+    # Honest-leaderboard disclosure (cross-repo main#958) — see NarratorResponse.
+    # True means this node's betweenness centrality is inflated by an over-merge;
+    # the graph/choke-point UI annotates it rather than dropping it silently.
+    over_merged: bool = False
+    over_merge_note: str | None = None
 
 
 class GraphEdge(BaseModel):
