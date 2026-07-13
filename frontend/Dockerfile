@@ -5,7 +5,7 @@
 # known-fixed CVEs; the compiled dist/ is copied into the (separately pinned +
 # upgraded) nginx runtime stage below. Re-pin to a newer digest on each node
 # minor bump.
-FROM node:24-alpine@sha256:156b55f92e98ccd5ef49578a8cea0df4679826564bad1c9d4ef04462b9f0ded6 AS build
+FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS build
 WORKDIR /app
 RUN apk upgrade --no-cache
 # package-lock.json resolves @noorinalabs/design-system from GitHub Packages
@@ -29,11 +29,24 @@ RUN npm run build
 # CVE-2026-27135 in nghttp2-libs, isnad-graph#853). The digest pin freezes
 # the starting layer; the upgrade step keeps OS packages current within the
 # alpine 3.23 patch lifecycle. Re-pin to a newer digest on each minor nginx
-# bump (or alpine 3.24+ when nginx publishes it).
+# bump (or alpine 3.24+ when nginx publishes it) — but note the `stable-alpine3.23`
+# tag still resolves to this same digest, so a digest re-pin alone does NOT move
+# OS-package versions; the CVE floor below is what clears the Trivy gate.
 FROM nginx:stable-alpine3.23@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1
 # gettext provides `envsubst`, used by entrypoint.sh to render runtime-config.js
 # from its template at container start (isnad-graph#932).
-RUN apk upgrade --no-cache && apk add --no-cache gettext
+#
+# Explicit CVE floor (isnad-graph#1186): `apk upgrade` alone is not sufficient
+# here — the fixed c-ares/libexpat packages are published to the alpine 3.23
+# repo but reach mirrors on a lag, so a plain `apk upgrade` intermittently
+# leaves the pre-fix versions and the frontend Trivy scan fails on 4 HIGH CVEs
+# (c-ares CVE-2026-33630; libexpat CVE-2026-56131/-56407/-56408). Pinning the
+# fixed floors makes the requirement explicit and build-enforced: the build
+# fails loudly if the fix ever becomes unreachable, instead of silently
+# shipping the vulnerable version. Bump/drop these once alpine 3.23's default
+# package set carries them unconditionally.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache gettext "c-ares>=1.34.8-r0" "libexpat>=2.8.2-r0"
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Runtime-config injection: the entrypoint renders /runtime-config.js from the
