@@ -119,7 +119,9 @@
     "studentsOut": "Učenici (izlazni)",
     "betweenness": "Posredništvo",
     "pagerank": "PageRank",
-    "community": "Zajednica"
+    "community": "Zajednica",
+    "overMerged": "Prekomjerno spojeno",
+    "overMergedExplainer": "Betweenness je naduvan — ovaj čvor spaja više različitih prenosilaca i nije jedna osoba."
   },
   "search": {
     "heading": "Pretraga",

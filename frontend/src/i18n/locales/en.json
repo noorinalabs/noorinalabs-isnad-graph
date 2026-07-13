@@ -117,7 +117,9 @@
     "studentsOut": "Students (out)",
     "betweenness": "Betweenness",
     "pagerank": "PageRank",
-    "community": "Community"
+    "community": "Community",
+    "overMerged": "Over-merged",
+    "overMergedExplainer": "Betweenness inflated — this node fuses multiple distinct narrators and is not a single person."
   },
   "search": {
     "heading": "Search",

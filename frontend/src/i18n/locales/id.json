@@ -117,7 +117,9 @@
     "studentsOut": "Murid (keluar)",
     "betweenness": "Keperantaraan",
     "pagerank": "PageRank",
-    "community": "Komunitas"
+    "community": "Komunitas",
+    "overMerged": "Tergabung berlebih",
+    "overMergedExplainer": "Nilai betweenness membengkak — simpul ini menggabungkan beberapa perawi berbeda dan bukan satu orang."
   },
   "search": {
     "heading": "Cari",

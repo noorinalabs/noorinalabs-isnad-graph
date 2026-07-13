@@ -117,7 +117,9 @@
     "studentsOut": "Öğrenciler (çıkış)",
     "betweenness": "Aradalık",
     "pagerank": "PageRank",
-    "community": "Topluluk"
+    "community": "Topluluk",
+    "overMerged": "Aşırı birleştirilmiş",
+    "overMergedExplainer": "Aracılık değeri şişirilmiş — bu düğüm birden fazla ayrı raviyi birleştiriyor ve tek bir kişi değil."
   },
   "search": {
     "heading": "Ara",

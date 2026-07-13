@@ -27,6 +27,12 @@ export interface Narrator {
   out_degree: number | null
   pagerank: number | null
   community_id: number | null
+  // Honest-leaderboard disclosure (cross-repo main#958). `over_merged` marks a
+  // node that fuses multiple historically-distinct narrators, so its betweenness
+  // is inflated and it is NOT a single person; the choke-point UI annotates it
+  // rather than dropping it. `over_merge_note` is the producer's free-text reason.
+  over_merged: boolean
+  over_merge_note: string | null
 }
 
 export interface Hadith {
@@ -217,6 +223,9 @@ export interface GraphNode {
   birth_year_ah: number | null
   kunya: string | null
   nisba: string | null
+  // Honest-leaderboard disclosure (cross-repo main#958) — see `Narrator`.
+  over_merged: boolean
+  over_merge_note: string | null
 }
 
 export interface GraphEdge {

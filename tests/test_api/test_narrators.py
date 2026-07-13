@@ -184,3 +184,33 @@ def test_get_narrator_not_found(client: TestClient) -> None:
     resp = client.get("/api/v1/narrators/nonexistent")
     assert resp.status_code == 404
     assert "not found" in resp.json()["detail"].lower()
+
+
+def test_narrator_over_merged_defaults_false(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A node without the over_merged property discloses ``over_merged=false`` (main#958).
+
+    Older/unflagged nodes lack the property entirely; the response must default it
+    to false (and the note to null) so the choke-point UI never mistakes an absent
+    flag for a trusted single-person value.
+    """
+    mock_neo4j.execute_read.return_value = [{"props": SAMPLE_NARRATOR}]
+    resp = client.get("/api/v1/narrators/nar-001")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["over_merged"] is False
+    assert body["over_merge_note"] is None
+
+
+def test_narrator_over_merged_disclosed(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """A flagged node surfaces over_merged=true and its human-readable note (main#958)."""
+    flagged = {
+        **SAMPLE_NARRATOR,
+        "over_merged": True,
+        "over_merge_note": "fuses al-Zuhri with 4 distinct narrators — betweenness inflated",
+    }
+    mock_neo4j.execute_read.return_value = [{"props": flagged}]
+    resp = client.get("/api/v1/narrators/nar-001")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["over_merged"] is True
+    assert "inflated" in body["over_merge_note"]

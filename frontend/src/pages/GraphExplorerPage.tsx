@@ -10,6 +10,7 @@ import {
 } from '../api/client'
 import ForceGraph from '../components/ForceGraph'
 import { communityColor } from '../components/ForceGraph'
+import { Badge } from '../components/ui/Badge'
 import type { GraphNode, GraphEdge, Narrator, ChainSummary } from '../types/api'
 import { computeTabaqaLayers, tabaqaRankByNode } from '../lib/tabaqa'
 
@@ -744,6 +745,28 @@ function NarratorDetailPanel({
         >
           {t('narratorFields.networkStatistics')}
         </div>
+        {/* Honest-leaderboard disclosure (main#958): flag an over-merged node so
+            its inflated betweenness (shown below) is read as a fused artifact,
+            not a single person. We disclose \u2014 we do not drop or recompute it. */}
+        {narrator.over_merged && (
+          <div
+            role="note"
+            aria-label={t('narratorFields.overMerged')}
+            className="mb-2 rounded-md border border-border p-2"
+          >
+            <Badge variant="destructive" className="text-xs">
+              {t('narratorFields.overMerged')}
+            </Badge>
+            <div className="text-destructive" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              {t('narratorFields.overMergedExplainer')}
+            </div>
+            {narrator.over_merge_note && (
+              <div className="muted-text" style={{ fontSize: '0.7rem', marginTop: '0.25rem' }}>
+                {narrator.over_merge_note}
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
           <div>
             <span className="muted-text">{t('narratorFields.teachersIn')}:</span> {narrator.in_degree ?? '\u2014'}

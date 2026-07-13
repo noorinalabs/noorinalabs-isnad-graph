@@ -176,6 +176,10 @@ def _row_to_graph_node(row: dict[str, Any], prefix: str = "") -> GraphNode:
         birth_year_ah=row.get(f"{p}birth_year_ah"),
         kunya=row.get(f"{p}kunya"),
         nisba=row.get(f"{p}nisba"),
+        # Absent property comes back as null → coerce to the false default so an
+        # unflagged (or older) node discloses "not over-merged" rather than 500ing.
+        over_merged=bool(row.get(f"{p}over_merged")),
+        over_merge_note=row.get(f"{p}over_merge_note"),
     )
 
 
@@ -187,7 +191,8 @@ _NARRATOR_FIELDS = """
     n.pagerank AS {p}pagerank, n.sect_affiliation AS {p}sect_affiliation,
     n.trustworthiness_consensus AS {p}trustworthiness_consensus,
     n.death_year_ah AS {p}death_year_ah, n.birth_year_ah AS {p}birth_year_ah,
-    n.kunya AS {p}kunya, n.nisba AS {p}nisba
+    n.kunya AS {p}kunya, n.nisba AS {p}nisba,
+    n.over_merged AS {p}over_merged, n.over_merge_note AS {p}over_merge_note
 """
 
 
