@@ -21,6 +21,14 @@ dependencies = [
     "cryptography>=48.0.1",  # GHSA-537c-gmf6-5ccf (statically-linked OpenSSL in wheels); transitive via python-jose/authlib
     "redis>=5.0",
     "prometheus-fastapi-instrumentator>=7.0",
+    # pyasn1 is transitive via python-jose[cryptography] -> rsa -> pyasn1. Pin a
+    # direct floor to clear the 0.6.3 quadratic-decode DoS advisories
+    # PYSEC-2026-3455/3456/3457 (long-form tag, OID/RELATIVE-OID arcs, univ.Real
+    # exponent), all fixed in 0.6.4.
+    "pyasn1>=0.6.4",
+    # click is transitive via uvicorn[standard]. Pin a direct floor to clear
+    # PYSEC-2026-2132 (command injection in click.edit()), fixed in 8.3.3.
+    "click>=8.3.3",
 ]
 
 # Optional ML runtime for the production semantic-embedding load only. NOT a

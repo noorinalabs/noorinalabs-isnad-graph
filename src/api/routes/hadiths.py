@@ -17,7 +17,8 @@ from src.api.models import (
 )
 from src.utils.grades import GRADE_TOKENS, grade_filter_clause, normalize_grade
 from src.utils.neo4j_client import Neo4jClient
-from src.utils.topics import aggregate_topic_facets
+from src.utils.redis_client import get_redis_client
+from src.utils.topics import aggregate_topic_facets_from_counts
 
 # Cypher expression for the effective raw grade: prefer the traversed Grading node,
 # fall back to any legacy flat property on the Hadith node.
@@ -118,11 +119,51 @@ def _build_hadith_response(props: dict[str, Any], grade: str | None = None) -> H
     )
 
 
-@router.get("/hadiths/facets", response_model=HadithFacetsResponse)
-def get_hadith_facets(
-    neo4j: Neo4jClient = Depends(get_neo4j),
-) -> HadithFacetsResponse:
-    """Return distinct facet values for filtering hadiths."""
+# Redis cache for the hadith facets response. The facets are a whole-corpus
+# aggregation that only changes when the graph is (re)loaded, but the endpoint is
+# hit on every HadithsPage mount — so it is cached under a short TTL rather than
+# recomputed per request. The key carries a version suffix so a change to the
+# response shape / vocabulary invalidates stale entries on deploy without needing
+# an explicit reload signal; the TTL bounds staleness after a data reload. Redis
+# is best-effort (see :func:`_facets_cache_get`), so this never hard-depends on
+# the cache being reachable.
+_FACETS_CACHE_KEY = "hadith:facets:v1"
+_FACETS_CACHE_TTL_SECONDS = 300
+
+
+def _facets_cache_get(cache: Any | None) -> HadithFacetsResponse | None:
+    """Return the cached facets response, or ``None`` on miss / unreachable Redis.
+
+    Every Redis interaction is best-effort: a connection error or an
+    incompatible (stale-shape) cached payload degrades to a cache miss so the
+    request is served by recomputing, never by failing.
+    """
+    if cache is None:
+        return None
+    try:
+        raw = cache.get(_FACETS_CACHE_KEY)
+    except Exception:  # noqa: BLE001 — cache is best-effort, never fail the request
+        return None
+    if not raw:
+        return None
+    try:
+        return HadithFacetsResponse.model_validate_json(raw)
+    except Exception:  # noqa: BLE001 — ignore a stale/incompatible cache entry
+        return None
+
+
+def _facets_cache_set(cache: Any | None, response: HadithFacetsResponse) -> None:
+    """Store the facets response under a short TTL; best-effort (never raises)."""
+    if cache is None:
+        return
+    try:
+        cache.setex(_FACETS_CACHE_KEY, _FACETS_CACHE_TTL_SECONDS, response.model_dump_json())
+    except Exception:  # noqa: BLE001 — a cache write failure must not fail the request
+        return
+
+
+def _compute_hadith_facets(neo4j: Neo4jClient) -> HadithFacetsResponse:
+    """Compute the hadith facets straight from Neo4j (cache-independent)."""
     rows = neo4j.execute_read(
         "MATCH (h:Hadith) WHERE h.source_corpus IS NOT NULL "
         "RETURN DISTINCT h.source_corpus AS corpus ORDER BY corpus"
@@ -134,20 +175,50 @@ def get_hadith_facets(
     # ``munkar``/``shadh``/``hasan_sahih`` were unreachable in the UI even though
     # the filter (:func:`grade_filter_clause`) fully supports them (#1062). Every
     # token here filters correctly via the ``?grade=`` param on the list endpoint.
-    # Topic facet: pull every hadith's raw topic_tags (including those with none)
-    # and aggregate onto the canonical vocabulary. Scanning all hadiths is what
-    # lets the uncategorized bucket count tag-less documents rather than dropping
-    # them; the per-hadith payload is just a small string list. (#1061)
-    topic_rows = neo4j.execute_read("MATCH (h:Hadith) RETURN h.topic_tags AS topic_tags")
+    # Topic facet: aggregate topic_tags in Cypher — ``count(*)`` grouped by the
+    # distinct ``topic_tags`` value — instead of streaming one row per hadith
+    # (~870k over Bolt on every request; #1191). Grouping by the raw list keeps
+    # the canonical mapping + uncategorized-bucket semantics exactly (a hadith's
+    # topics depend only on its ``topic_tags`` value, which is the grouping key),
+    # so tag-less hadiths still land in ``uncategorized`` and multi-tag hadiths
+    # aren't double-counted (#1061). NULL/absent ``topic_tags`` form their own
+    # group and fall through to the uncategorized bucket.
+    topic_rows = neo4j.execute_read(
+        "MATCH (h:Hadith) RETURN h.topic_tags AS topic_tags, count(*) AS n"
+    )
     topics = [
         TopicFacet(value=fc.value, label=fc.label, count=fc.count)
-        for fc in aggregate_topic_facets([row.get("topic_tags") for row in topic_rows])
+        for fc in aggregate_topic_facets_from_counts(
+            (row.get("topic_tags"), row.get("n", 1)) for row in topic_rows
+        )
     ]
     return HadithFacetsResponse(
         source_corpus=[row["corpus"] for row in rows],
         grades=sorted(GRADE_TOKENS),
         topics=topics,
     )
+
+
+@router.get("/hadiths/facets", response_model=HadithFacetsResponse)
+def get_hadith_facets(
+    neo4j: Neo4jClient = Depends(get_neo4j),
+) -> HadithFacetsResponse:
+    """Return distinct facet values for filtering hadiths.
+
+    Served from a short-TTL Redis cache when available (the facets are a
+    whole-corpus aggregation that only changes on a data reload); on a cache
+    miss or when Redis is unreachable the facets are computed directly and the
+    result is written back best-effort. The endpoint never hard-depends on
+    Redis, mirroring the rate limiter's graceful fallback.
+    """
+    cache = get_redis_client()
+    cached = _facets_cache_get(cache)
+    if cached is not None:
+        return cached
+
+    response = _compute_hadith_facets(neo4j)
+    _facets_cache_set(cache, response)
+    return response
 
 
 @router.get("/hadiths", response_model=PaginatedResponse[HadithResponse])
