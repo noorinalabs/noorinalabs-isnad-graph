@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from src.api.routes.hadiths import DEFAULT_ASSUMED_LIFESPAN_AH, derive_hadith_dating
 from src.utils.grades import GRADE_TOKENS
+from src.utils.topics import TOPIC_LABELS
 
 SAMPLE_HADITH = {
     "id": "hdt:lk:abu_dawud:10:1574",
@@ -48,17 +49,19 @@ def test_get_hadith_facets_empty(client: TestClient) -> None:
 def test_get_hadith_facets_with_data(client: TestClient, mock_neo4j: MagicMock) -> None:
     """Corpus facets from data; grade facet = full canonical vocab; topic facet aggregated."""
     # Grades are sourced from the canonical enum (#1062), so the only DB reads are
-    # the corpus query and the per-hadith topic_tags scan (#1061).
+    # the corpus query and the grouped topic_tags aggregation (#1061/#1191). The
+    # topic query returns one row per DISTINCT topic_tags value with count(*), not
+    # one row per hadith — so the mock mirrors that grouped shape.
     mock_neo4j.execute_read.side_effect = [
         # First call: corpus facets.
         [{"corpus": "lk"}, {"corpus": "sunnah"}, {"corpus": "thaqalayn"}],
-        # Second call: per-hadith topic_tags for the canonical topic facet.
+        # Second call: grouped topic_tags (RETURN h.topic_tags, count(*) AS n).
         [
-            {"topic_tags": ["intentions", "prayer"]},  # akhlaq + ibadah
-            {"topic_tags": ["inheritance"]},  # fiqh
-            {"topic_tags": ["something obscure"]},  # uncategorized (no match)
-            {"topic_tags": []},  # uncategorized (no tags)
-            {"topic_tags": None},  # uncategorized (missing property)
+            {"topic_tags": ["intentions", "prayer"], "n": 1},  # akhlaq + ibadah
+            {"topic_tags": ["inheritance"], "n": 1},  # fiqh
+            {"topic_tags": ["something obscure"], "n": 1},  # uncategorized (no match)
+            {"topic_tags": [], "n": 1},  # uncategorized (no tags)
+            {"topic_tags": None, "n": 1},  # uncategorized (missing property)
         ],
     ]
     resp = client.get("/api/v1/hadiths/facets")
@@ -80,6 +83,44 @@ def test_get_hadith_facets_with_data(client: TestClient, mock_neo4j: MagicMock) 
     assert counts["eschatology"] == 0
     # Every bucket carries a human-readable label.
     assert all(t["label"] for t in body["topics"])
+
+
+def test_get_hadith_facets_aggregates_in_cypher(client: TestClient, mock_neo4j: MagicMock) -> None:
+    """Topic facet is a DB-side aggregation (count(*) per distinct topic_tags),
+    not a per-hadith scan (#1191) — and re-applying the canonical mapping to the
+    grouped rows preserves per-hadith de-dup + the uncategorized bucket without
+    inflating either (#1061).
+    """
+    mock_neo4j.execute_read.side_effect = [
+        # Corpus facets.
+        [{"corpus": "lk"}],
+        # Grouped topic_tags: one row per DISTINCT value, each with its hadith
+        # count. Weighted counts (n>1) and multi-tag groups exercise the exact
+        # cases where a naive per-tag UNWIND would diverge from document counts.
+        [
+            {"topic_tags": ["prayer", "salah"], "n": 5},  # both -> ibadah: +5 (deduped, not +10)
+            {"topic_tags": ["prayer", "xyzzy"], "n": 3},  # ibadah +3; unmapped tag must not leak
+            {"topic_tags": ["inheritance"], "n": 1000},  # fiqh +1000
+            {"topic_tags": None, "n": 7},  # tag-less group -> uncategorized +7
+        ],
+    ]
+    resp = client.get("/api/v1/hadiths/facets")
+    assert resp.status_code == 200
+    body = resp.json()
+    counts = {t["value"]: t["count"] for t in body["topics"]}
+    assert counts["ibadah"] == 8  # 5 (per-hadith deduped) + 3
+    assert counts["fiqh"] == 1000  # weighted group count carried through
+    assert counts["uncategorized"] == 7  # only the tag-less group; mapped+unmapped don't leak
+
+    # Shape/cardinality: the full stable vocabulary + the uncategorized bucket,
+    # regardless of how few groups came back.
+    assert len(body["topics"]) == len(TOPIC_LABELS) + 1
+
+    # The topic query is a grouped aggregation over topic_tags — the route must
+    # consume the small grouped result, never a row-per-hadith stream (#1191).
+    topic_query = mock_neo4j.execute_read.call_args_list[1].args[0]
+    assert "count(*)" in topic_query
+    assert "h.topic_tags" in topic_query
 
 
 def test_list_hadiths_empty(client: TestClient) -> None:

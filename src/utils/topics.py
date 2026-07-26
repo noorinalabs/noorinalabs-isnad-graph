@@ -25,6 +25,7 @@ that co-occur in the source tags.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final
 
@@ -302,14 +303,27 @@ def canonical_topics_for_tags(tags: list[str] | None) -> list[str]:
     return [t for t in TOPIC_TOKENS if t in matched]
 
 
-def aggregate_topic_facets(tag_lists: list[list[str] | None]) -> list[TopicFacetCount]:
-    """Aggregate per-hadith ``topic_tags`` into canonical topic-facet counts.
+def aggregate_topic_facets_from_counts(
+    grouped_tag_lists: Iterable[tuple[list[str] | None, int]],
+) -> list[TopicFacetCount]:
+    """Aggregate *pre-grouped* ``topic_tags`` into canonical topic-facet counts.
 
-    ``tag_lists`` is one entry per hadith (its ``topic_tags``, possibly empty or
-    ``None``). A hadith contributes one count to *each* distinct canonical topic
-    its tags map to; a hadith that maps to no topic contributes to the
-    ``uncategorized`` bucket. Document counts therefore sum to at least the corpus
-    size (a multi-topic hadith is counted under each of its topics).
+    ``grouped_tag_lists`` yields ``(topic_tags, n)`` pairs where ``n`` is the
+    number of hadiths sharing that exact ``topic_tags`` value — i.e. the result
+    of grouping in the database (``RETURN h.topic_tags, count(*)``) rather than
+    streaming one row per hadith. Each group contributes ``n`` to *each* distinct
+    canonical topic its tags map to (de-duplicated per hadith via
+    :func:`canonical_topics_for_tags`); a group that maps to no topic contributes
+    ``n`` to the ``uncategorized`` bucket.
+
+    Grouping in Cypher and re-applying the canonical mapping here is exactly
+    equivalent to the per-hadith :func:`aggregate_topic_facets` — a hadith's
+    canonical topics depend only on its ``topic_tags`` value, which is the
+    grouping key, so both the per-hadith de-duplication (``["prayer","salah"]``
+    counts once toward ``ibadah``, not twice) and the uncategorized-bucket
+    semantics (a hadith with one mapped and one unmapped tag does *not* leak into
+    ``uncategorized``) are preserved (#1061). It avoids transferring one Bolt row
+    per hadith (~870k) on every facet request (#1191).
 
     The full canonical vocabulary is always returned in :data:`TOPIC_TOKENS`
     order — including zero-count topics — so the facet presents a stable
@@ -318,13 +332,13 @@ def aggregate_topic_facets(tag_lists: list[list[str] | None]) -> list[TopicFacet
     """
     counts: dict[str, int] = {token: 0 for token in TOPIC_TOKENS}
     uncategorized = 0
-    for tags in tag_lists:
+    for tags, n in grouped_tag_lists:
         tokens = canonical_topics_for_tags(tags)
         if not tokens:
-            uncategorized += 1
+            uncategorized += n
             continue
         for token in tokens:
-            counts[token] += 1
+            counts[token] += n
 
     facets = [
         TopicFacetCount(value=token, label=TOPIC_LABELS[token], count=counts[token])
@@ -334,3 +348,19 @@ def aggregate_topic_facets(tag_lists: list[list[str] | None]) -> list[TopicFacet
         TopicFacetCount(value=UNCATEGORIZED_TOPIC, label=UNCATEGORIZED_LABEL, count=uncategorized)
     )
     return facets
+
+
+def aggregate_topic_facets(tag_lists: list[list[str] | None]) -> list[TopicFacetCount]:
+    """Aggregate per-hadith ``topic_tags`` into canonical topic-facet counts.
+
+    ``tag_lists`` is one entry per hadith (its ``topic_tags``, possibly empty or
+    ``None``). A hadith contributes one count to *each* distinct canonical topic
+    its tags map to; a hadith that maps to no topic contributes to the
+    ``uncategorized`` bucket. Document counts therefore sum to at least the corpus
+    size (a multi-topic hadith is counted under each of its topics).
+
+    This is the ungrouped convenience wrapper over
+    :func:`aggregate_topic_facets_from_counts` (each hadith weighted 1); the API
+    facet endpoint uses the grouped form to avoid a row-per-hadith Bolt transfer.
+    """
+    return aggregate_topic_facets_from_counts((tags, 1) for tags in tag_lists)
